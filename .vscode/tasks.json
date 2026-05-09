@@ -43,6 +43,19 @@
         "panel": "dedicated",
         "clear": true
       }
+    },
+    {
+      "label": "deploy",
+      "detail": "Build + Deploy to Firebase Hosting",
+      "type": "shell",
+      "command": "pnpm build && firebase deploy --only hosting",
+      "problemMatcher": ["$tsc"],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
     }
   ]
 }

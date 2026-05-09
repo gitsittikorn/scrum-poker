@@ -87,6 +87,7 @@ const statusDot = votingStatus.querySelector(".status-dot")!;
 const statusText = votingStatus.querySelector(".status-text")!;
 const btnReveal = $("btn-reveal") as HTMLButtonElement;
 const btnReset = $("btn-reset") as HTMLButtonElement;
+const btnDeleteRoom = $("btn-delete-room") as HTMLButtonElement;
 const participantCount = $("participant-count");
 const colTeam = $("col-team");
 const colDev = $("col-dev");
@@ -104,27 +105,21 @@ function init(): void {
   renderCards();
   bindEvents();
   checkUrlRoom();
-  initAuth().then(() => autoRejoinFromUrl());
+  btnJoinRoom.disabled = true;
+  btnJoinRoom.textContent = "กำลังเชื่อมต่อ...";
+  initAuth().then(() => {
+    btnJoinRoom.disabled = false;
+    btnJoinRoom.textContent = "เข้าร่วมห้อง";
+    autoRejoinFromUrl();
+  });
 }
 
 function checkVersion(): void {
   const savedVersion = localStorage.getItem("scrum-poker-version");
   if (savedVersion !== APP_VERSION) {
-    console.log("[Init] Version changed, clearing session");
+    console.log("[Init] Version changed, clearing local session");
     localStorage.removeItem("scrum-poker-room");
-    localStorage.removeItem("scrum-poker-version");
     localStorage.setItem("scrum-poker-version", APP_VERSION);
-    clearAllRooms();
-  }
-}
-
-async function clearAllRooms(): Promise<void> {
-  try {
-    const roomsRef = ref(db, "rooms");
-    await remove(roomsRef);
-    console.log("[Init] All rooms cleared");
-  } catch (err) {
-    console.error("[Init] Failed to clear rooms:", err);
   }
 }
 
@@ -173,23 +168,13 @@ function checkUrlRoom(): void {
 }
 
 async function initAuth(): Promise<void> {
-  return new Promise((resolve) => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        currentUid = user.uid;
-        console.log("[Auth] Signed in:", user.uid);
-      }
-      unsub();
-      resolve();
-    });
-    signInAnonymously(auth)
-      .then(() => console.log("[Auth] signInAnonymously OK"))
-      .catch((err: Error) => {
-        console.error("[Auth] Error:", err);
-        showToast("Auth error: " + err.message);
-        resolve();
-      });
-  });
+  try {
+    const result = await signInAnonymously(auth);
+    currentUid = result.user.uid;
+    console.log("[Auth] Signed in:", currentUid);
+  } catch (err) {
+    console.error("[Auth] Error:", err);
+  }
 }
 
 async function autoRejoinFromUrl(): Promise<void> {
@@ -230,6 +215,11 @@ function bindEvents(): void {
   btnToggleTheme.addEventListener("click", toggleTheme);
   btnReveal.addEventListener("click", handleReveal);
   btnReset.addEventListener("click", handleReset);
+  btnDeleteRoom.addEventListener("click", () => {
+    if (confirm("ต้องการลบห้องทั้งหมด? ทุกคนจะถูกออกจากห้อง")) {
+      handleDeleteRoom();
+    }
+  });
 
   usernameInput.addEventListener("keydown", (e: KeyboardEvent) => {
     if (e.key === "Enter") roomSelect.focus();
@@ -259,7 +249,6 @@ async function handleJoinRoom(): Promise<void> {
     return;
   }
   if (!currentUid) {
-    showToast("Authenticating... please wait");
     return;
   }
 
@@ -464,8 +453,15 @@ async function handleReset(): Promise<void> {
   const usersSnap = await get(ref(db, `rooms/${currentRoom}/users`));
   if (usersSnap.exists()) {
     const updates: Record<string, unknown> = {};
-    Object.keys(usersSnap.val()).forEach((uid: string) => {
-      updates[`users/${uid}/vote`] = null;
+    const users = usersSnap.val() as Record<string, User>;
+    Object.entries(users).forEach(([uid, user]) => {
+      if (user.online === false) {
+        // Remove offline users
+        updates[`users/${uid}`] = null;
+      } else {
+        // Clear votes for online users
+        updates[`users/${uid}/vote`] = null;
+      }
     });
     updates["revealed"] = false;
     updates["locked"] = false;
@@ -477,6 +473,14 @@ async function handleReset(): Promise<void> {
     .querySelectorAll(".poker-card")
     .forEach((el) => el.classList.remove("selected"));
   customPointInput.value = "";
+  showToast("Reset + offline users removed");
+}
+
+async function handleDeleteRoom(): Promise<void> {
+  if (!currentRoom) return;
+  await remove(ref(db, `rooms/${currentRoom}`));
+  handleLeave();
+  showToast("Room deleted");
 }
 
 // ===== Grouping Helper =====

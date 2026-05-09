@@ -6,7 +6,9 @@
       "Bash(pnpm approve-builds *)",
       "Bash(pnpm tsc *)",
       "Bash(pnpm exec *)",
-      "Bash(mkdir -p c:/TQM/mu.sittikorn/TQM/scum-poker/.vscode)"
+      "Bash(mkdir -p c:/TQM/mu.sittikorn/TQM/scum-poker/.vscode)",
+      "Bash(pnpm build *)",
+      "Bash(firebase deploy *)"
     ],
     "additionalDirectories": [
       "c:\\TQM\\mu.sittikorn\\TQM\\scum-poker"

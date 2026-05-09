@@ -295,6 +295,20 @@ body {
   box-shadow: 0 8px 28px var(--success-glow);
 }
 
+.btn-delete {
+  background: var(--bg-card);
+  color: var(--danger);
+  border: 2px solid var(--danger);
+  padding: 16px 42px;
+  font-size: 1.1rem;
+}
+.btn-delete:hover:not(:disabled) {
+  background: var(--danger);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px var(--danger-glow);
+}
+
 .btn-custom-vote {
   background: var(--accent2);
   color: #fff;
