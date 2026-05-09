@@ -309,6 +309,15 @@ body {
   box-shadow: 0 4px 16px var(--danger-glow);
 }
 
+.btn-delete-icon {
+  border: 1.5px solid var(--danger) !important;
+  color: var(--danger) !important;
+}
+.btn-delete-icon:hover {
+  background: var(--danger) !important;
+  color: #fff !important;
+}
+
 .btn-custom-vote {
   background: var(--accent2);
   color: #fff;
