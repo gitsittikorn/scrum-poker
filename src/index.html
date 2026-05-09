@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scrum Poker</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🃏</text></svg>">
+</head>
+<body>
+  <div id="app">
+    <!-- Landing Page -->
+    <div id="landing-page" class="page active">
+      <div class="landing-container">
+        <div class="logo">
+          <div class="logo-cards">
+            <span class="float-card c1">🂡</span>
+            <span class="float-card c2">🂱</span>
+            <span class="float-card c3">🃁</span>
+          </div>
+          <h1>Scrum Poker</h1>
+          <p class="subtitle">Planning Poker for Agile Teams</p>
+        </div>
+
+        <div class="landing-form">
+          <div class="form-group">
+            <label for="username-input">ชื่อของคุณ</label>
+            <input type="text" id="username-input" placeholder="ใส่ชื่อที่ต้องการแสดง..." maxlength="20" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label for="role-select">Role</label>
+            <select id="role-select">
+              <option value="po">📋 PO</option>
+              <option value="dev">👨‍💻 Dev</option>
+              <option value="qa">🐛 QA</option>
+              <option value="ux">🎨 UX/UI</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="room-select">เลือกห้อง</label>
+            <select id="room-select">
+              <option value="">-- เลือกห้อง --</option>
+              <option value="Kitsune">Kitsune</option>
+              <option value="Phoenix">Phoenix</option>
+              <option value="UXUI">UX/UI</option>
+              <option value="Cold">ห้องเย็น</option>
+              <option value="ColdJiab">ห้องเย็นเจี๊ยบ</option>
+            </select>
+          </div>
+
+          <button id="btn-join-room" class="btn btn-primary" style="width:100%">เข้าร่วมห้อง</button>
+        </div>
+
+        <p class="landing-hint">เลือกห้องแล้วเข้าร่วมได้เลย</p>
+      </div>
+    </div>
+
+    <!-- Room Page -->
+    <div id="room-page" class="page">
+      <header class="room-header">
+        <div class="header-left">
+          <button id="btn-leave" class="btn btn-icon" title="ออกจากห้อง">✕</button>
+          <div class="room-info">
+            <span class="room-label">ROOM</span>
+            <span id="room-code-display" class="room-code"></span>
+          </div>
+        </div>
+        <div class="header-right">
+          <div id="user-badge" class="user-badge"></div>
+          <button id="btn-home" class="btn btn-icon" title="กลับหน้าแรก">🏠</button>
+          <button id="btn-copy-link" class="btn btn-icon" title="คัดลอกลิงก์">🔗</button>
+          <button id="btn-toggle-theme" class="btn btn-icon" title="Dark/Light mode">☀️</button>
+        </div>
+      </header>
+
+      <main class="room-content">
+        <!-- Voting Status -->
+        <div id="voting-status" class="voting-status">
+          <span class="status-dot"></span>
+          <span class="status-text">เลือกคะแนนของคุณ</span>
+        </div>
+
+        <!-- Cards Section -->
+        <section class="voting-section">
+          <div id="cards-container" class="cards-container">
+            <!-- Cards rendered by JS, last item is custom input -->
+          </div>
+        </section>
+
+        <!-- Admin Controls -->
+        <section class="admin-controls">
+          <button id="btn-reveal" class="btn btn-reveal">👁 Reveal</button>
+          <button id="btn-reset" class="btn btn-reset">🔄 Reset</button>
+        </section>
+
+        <!-- Participants Section -->
+        <section class="participants-section">
+          <div class="section-title">
+            <span class="title-icon">👥</span> สมาชิก
+            <span class="badge" id="participant-count">0</span>
+          </div>
+          <div class="participants-columns four-col">
+            <div class="participant-col">
+              <div class="col-header po">PO</div>
+              <div id="col-team" class="col-list"></div>
+            </div>
+            <div class="participant-col">
+              <div class="col-header dev">Dev</div>
+              <div id="col-dev" class="col-list"></div>
+            </div>
+            <div class="participant-col">
+              <div class="col-header qa">QA</div>
+              <div id="col-qa" class="col-list"></div>
+            </div>
+            <div class="participant-col">
+              <div class="col-header ux">UX/UI</div>
+              <div id="col-ux" class="col-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Result Section (summary only) -->
+        <section id="result-section" class="result-section hidden">
+          <div id="result-summary" class="result-summary"></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script type="module" src="./app.ts"></script>
+</body>
+</html>
