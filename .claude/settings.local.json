@@ -8,7 +8,10 @@
       "Bash(pnpm exec *)",
       "Bash(mkdir -p c:/TQM/mu.sittikorn/TQM/scum-poker/.vscode)",
       "Bash(pnpm build *)",
-      "Bash(firebase deploy *)"
+      "Bash(firebase deploy *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(npx firebase *)"
     ],
     "additionalDirectories": [
       "c:\\TQM\\mu.sittikorn\\TQM\\scum-poker"

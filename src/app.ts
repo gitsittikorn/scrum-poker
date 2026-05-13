@@ -63,6 +63,8 @@ let currentRoom: string | null = null;
 let currentUser: CurrentUser | null = null;
 let currentUid: string | null = null;
 let selectedCard: string | null = null;
+let currentRole: string | null = null;
+const isPO = (): boolean => currentRole === "po";
 
 // ===== DOM Elements =====
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
@@ -280,6 +282,7 @@ async function joinRoom(
   clearVote: boolean = true
 ): Promise<void> {
   currentRoom = roomCode;
+  currentRole = roleSelect.value;
   const selectedOption = roomSelect.options[roomSelect.selectedIndex];
   roomCodeDisplay.textContent = selectedOption ? selectedOption.text : roomCode;
 
@@ -440,7 +443,7 @@ async function handleCustomVote(): Promise<void> {
 }
 
 async function handleReveal(): Promise<void> {
-  if (!currentRoom) return;
+  if (!currentRoom || !isPO()) return;
   await update(ref(db, `rooms/${currentRoom}`), {
     revealed: true,
     locked: true,
@@ -448,7 +451,7 @@ async function handleReveal(): Promise<void> {
 }
 
 async function handleReset(): Promise<void> {
-  if (!currentRoom) return;
+  if (!currentRoom || !isPO()) return;
 
   const usersSnap = await get(ref(db, `rooms/${currentRoom}/users`));
   if (usersSnap.exists()) {
@@ -533,23 +536,28 @@ function updateUI(roomData: RoomData): void {
   const locked = roomData.locked || false;
   const userList = Object.entries(users);
 
+  // Admin controls — only PO can reveal/reset/delete/unlock
+  const adminVisible = isPO() ? "" : "none";
+  btnReveal.style.display = adminVisible;
+  btnReset.style.display = adminVisible;
+  btnDeleteRoom.style.display = adminVisible;
+
   // Voting status
   if (locked && revealed) {
     statusDot.className = "status-dot locked";
     statusText.textContent = "Voting locked — Results revealed";
-    btnReveal.style.display = "none";
-    addRevoteButton();
+    if (isPO()) btnReveal.style.display = "none";
+    if (isPO()) addRevoteButton();
   } else if (locked) {
     statusDot.className = "status-dot locked";
     statusText.textContent = "Voting locked";
-    btnReveal.style.display = "none";
+    if (isPO()) btnReveal.style.display = "none";
   } else {
     const hasVoted = currentUser && users[currentUser.uid]?.vote !== null;
     statusDot.className = hasVoted ? "status-dot voted" : "status-dot";
     statusText.textContent = hasVoted
       ? "Voted! You can change your vote"
       : "Select your estimate";
-    btnReveal.style.display = "";
     const existing = document.getElementById("btn-revote");
     if (existing) existing.remove();
   }
@@ -575,13 +583,9 @@ function updateUI(roomData: RoomData): void {
     });
   }
 
-  // Participants
+  // Participants — diff-based update to avoid flickering
   const grouped = groupUsers(userList);
   participantCount.textContent = String(userList.length);
-  colTeam.innerHTML = "";
-  colDev.innerHTML = "";
-  colQa.innerHTML = "";
-  colUx.innerHTML = "";
 
   type RoleKey = "po" | "dev" | "qa" | "ux";
   const roleIcons: Record<RoleKey, string> = {
@@ -591,34 +595,79 @@ function updateUI(roomData: RoomData): void {
     ux: "🎨",
   };
 
+  const updateVoteSpan = (span: HTMLElement, user: User, role: RoleKey) => {
+    if (revealed && user.vote) {
+      span.className = `participant-vote revealed ${role}`;
+      span.textContent = user.vote;
+    } else if (user.vote) {
+      span.className = "participant-vote voted-icon";
+      span.textContent = "Voted ✅";
+    } else {
+      span.className = "participant-vote estimating-icon";
+      span.textContent = "⏳ Estimating...";
+    }
+  };
+
+  const createCard = (uid: string, user: User, role: RoleKey): HTMLElement => {
+    const isOnline = user.online !== false;
+    const card = document.createElement("div");
+    card.className = "participant-card slide-in" + (user.vote ? " voted" : "");
+    card.dataset.uid = uid;
+
+    const avatar = document.createElement("div");
+    avatar.className = `participant-avatar ${role}`;
+    avatar.textContent = roleIcons[role];
+
+    const info = document.createElement("div");
+    info.className = "participant-info";
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "participant-name";
+    nameEl.textContent = user.name || "Unknown";
+
+    const voteSpan = document.createElement("span");
+    updateVoteSpan(voteSpan, user, role);
+
+    const statusDot = document.createElement("div");
+    statusDot.className = `participant-status ${isOnline ? "online" : "offline"}`;
+
+    info.appendChild(nameEl);
+    info.appendChild(voteSpan);
+    card.appendChild(avatar);
+    card.appendChild(info);
+    card.appendChild(statusDot);
+    return card;
+  };
+
   const renderGroup = (list: [string, User][], container: HTMLElement, role: RoleKey) => {
-    list.forEach(([, user]) => {
-      const card = document.createElement("div");
-      card.className = "participant-card" + (user.vote ? " voted" : "");
-      const isOnline = user.online !== false;
-      const avatarIcon = roleIcons[role];
+    const existingCards = new Map<string, HTMLElement>();
+    container.querySelectorAll<HTMLElement>(".participant-card").forEach((el) => {
+      existingCards.set(el.dataset.uid!, el);
+    });
 
-      let voteDisplay: string;
-      const isOffline = !isOnline;
-      if (revealed && user.vote) {
-        voteDisplay = `<span class="participant-vote revealed ${role}">${user.vote}</span>`;
-      } else if (user.vote) {
-        voteDisplay = `<span class="participant-vote voted-icon">Voted ✅</span>`;
+    const seenUids = new Set<string>();
+    list.forEach(([uid, user]) => {
+      seenUids.add(uid);
+      const existing = existingCards.get(uid);
+
+      if (existing) {
+        const newClass = "participant-card" + (user.vote ? " voted" : "");
+        if (existing.className !== newClass) existing.className = newClass;
+
+        const voteSpan = existing.querySelector<HTMLElement>("span.participant-vote");
+        if (voteSpan) updateVoteSpan(voteSpan, user, role);
+
+        const statusDot = existing.querySelector<HTMLElement>(".participant-status");
+        const isOnline = user.online !== false;
+        const newStatusClass = "participant-status " + (isOnline ? "online" : "offline");
+        if (statusDot && statusDot.className !== newStatusClass) statusDot.className = newStatusClass;
       } else {
-        voteDisplay = `<span class="participant-vote estimating-icon">⏳ Estimating...</span>`;
+        container.appendChild(createCard(uid, user, role));
       }
+    });
 
-      const offlineTag = isOffline ? `<span class="offline-tag">offline</span>` : "";
-
-      card.innerHTML = `
-        <div class="participant-avatar ${role}">${avatarIcon}</div>
-        <div class="participant-info">
-          <div class="participant-name">${escapeHtml(user.name || "Unknown")} ${offlineTag}</div>
-          ${voteDisplay}
-        </div>
-        <div class="participant-status ${isOnline ? "online" : "offline"}"></div>
-      `;
-      container.appendChild(card);
+    existingCards.forEach((el, uid) => {
+      if (!seenUids.has(uid)) el.remove();
     });
   };
 
@@ -657,7 +706,7 @@ function addRevoteButton(): void {
   revoteBtn.className = "btn btn-revote";
   revoteBtn.textContent = "🔓 Unlock for Revote";
   revoteBtn.addEventListener("click", async () => {
-    if (!currentRoom) return;
+    if (!currentRoom || !isPO()) return;
     await update(ref(db, `rooms/${currentRoom}`), {
       revealed: false,
       locked: false,
@@ -713,7 +762,7 @@ function showResults(userList: [string, User][]): void {
   const consensusClass = (r: { match: boolean; msg: string }) =>
     r.msg ? (r.match ? "yes" : "no") : "";
 
-  resultSummary.innerHTML = `
+  const newHtml = `
     <div class="avg-columns col-${(po.count > 0 ? 1 : 0) + (dev.count > 0 ? 1 : 0) + (qa.count > 0 ? 1 : 0) + (ux.count > 0 ? 1 : 0)}">
       ${po.count > 0 ? `<div class="avg-col">
         <div class="avg-value po">${po.avg}</div>
@@ -737,6 +786,7 @@ function showResults(userList: [string, User][]): void {
       </div>` : ""}
     </div>
   `;
+  if (resultSummary.innerHTML !== newHtml) resultSummary.innerHTML = newHtml;
 }
 
 // ===== Helpers =====

@@ -672,6 +672,8 @@ body {
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   transition: all var(--transition);
+}
+.participant-card.slide-in {
   animation: slideIn 0.3s ease;
 }
 .participant-card.voted {
