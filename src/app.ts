@@ -31,6 +31,8 @@ interface RoomData {
   createdAt: number;
   revealed: boolean;
   locked: boolean;
+  autoUnlockSeconds: number;
+  revealTime: number;
   users: Record<string, User>;
 }
 
@@ -57,7 +59,7 @@ const CARDS: CardDef[] = [
 
 const TOAST_DURATION = 3000;
 const APP_VERSION = "2025-05-09-v2";
-const DEFAULT_AUTO_UNLOCK_SECONDS = 30;
+const DEFAULT_AUTO_UNLOCK_SECONDS = 20;
 
 // ===== State =====
 let currentRoom: string | null = null;
@@ -65,7 +67,6 @@ let currentUser: CurrentUser | null = null;
 let currentUid: string | null = null;
 let selectedCard: string | null = null;
 let currentRole: string | null = null;
-let autoUnlockSeconds = DEFAULT_AUTO_UNLOCK_SECONDS;
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
 const isPO = (): boolean => currentRole === "po";
@@ -157,8 +158,7 @@ function loadTheme(): void {
 }
 
 function loadSettings(): void {
-  const saved = localStorage.getItem("scrum-poker-auto-unlock");
-  if (saved) autoUnlockSeconds = parseInt(saved, 10) || DEFAULT_AUTO_UNLOCK_SECONDS;
+  // auto-unlock timeout is stored per-room in Firebase, not localStorage
 }
 
 function toggleTheme(): void {
@@ -230,23 +230,27 @@ function bindEvents(): void {
   btnHome.addEventListener("click", handleLeave);
   btnCopyLink.addEventListener("click", handleCopyLink);
   btnToggleTheme.addEventListener("click", toggleTheme);
-  btnSettings.addEventListener("click", () => {
-    settingsInput.value = String(autoUnlockSeconds);
+  btnSettings.addEventListener("click", async () => {
+    if (!currentRoom) return;
+    const snap = await get(ref(db, `rooms/${currentRoom}/autoUnlockSeconds`));
+    settingsInput.value = String(snap.exists() ? snap.val() : DEFAULT_AUTO_UNLOCK_SECONDS);
     settingsModal.classList.add("active");
   });
   btnSettingsClose.addEventListener("click", () => {
     settingsModal.classList.remove("active");
   });
-  btnSettingsSave.addEventListener("click", () => {
+  btnSettingsSave.addEventListener("click", async () => {
     const val = parseInt(settingsInput.value, 10);
-    if (val >= 5) {
-      autoUnlockSeconds = val;
-      localStorage.setItem("scrum-poker-auto-unlock", String(val));
+    if (val >= 5 && currentRoom) {
+      await update(ref(db, `rooms/${currentRoom}`), { autoUnlockSeconds: val });
       settingsModal.classList.remove("active");
       showToast(`Auto-unlock set to ${val}s`);
     } else {
       showToast("Minimum 5 seconds");
     }
+  });
+  settingsInput.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "Enter") btnSettingsSave.click();
   });
   settingsModal.addEventListener("click", (e) => {
     if (e.target === settingsModal) settingsModal.classList.remove("active");
@@ -303,6 +307,7 @@ async function handleJoinRoom(): Promise<void> {
         createdAt: serverTimestamp(),
         revealed: false,
         locked: false,
+        autoUnlockSeconds: DEFAULT_AUTO_UNLOCK_SECONDS,
       });
     }
     await joinRoom(roomCode, true);
@@ -370,9 +375,9 @@ function cancelUnlockTimer(): void {
   if (el) el.remove();
 }
 
-function startUnlockTimer(): void {
+function startUnlockTimer(seconds: number): void {
   cancelUnlockTimer();
-  countdownRemaining = autoUnlockSeconds;
+  countdownRemaining = seconds;
   updateCountdownDisplay();
 
   unlockCountdownId = setInterval(() => {
@@ -458,7 +463,7 @@ function renderCards(): void {
   customCard.className = "poker-card custom-card";
   customCard.innerHTML = `
     <input type="number" id="custom-point-input" placeholder="..." min="0" step="0.5">
-    <span class="card-label">Custom</span>
+    <span class="card-label">Custom<br>( Enter )</span>
   `;
   cardsContainer.appendChild(customCard);
 
@@ -628,7 +633,7 @@ function updateUI(roomData: RoomData): void {
     statusText.textContent = "Voting locked — Results revealed";
     if (isPO()) btnReveal.style.display = "none";
     if (isPO()) addRevoteButton();
-    if (isPO() && !unlockCountdownId) startUnlockTimer();
+    if (isPO() && !unlockCountdownId) startUnlockTimer(roomData.autoUnlockSeconds || DEFAULT_AUTO_UNLOCK_SECONDS);
   } else if (locked) {
     statusDot.className = "status-dot locked";
     statusText.textContent = "Voting locked";
