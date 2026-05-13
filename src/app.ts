@@ -57,6 +57,7 @@ const CARDS: CardDef[] = [
 
 const TOAST_DURATION = 3000;
 const APP_VERSION = "2025-05-09-v2";
+const DEFAULT_AUTO_UNLOCK_SECONDS = 30;
 
 // ===== State =====
 let currentRoom: string | null = null;
@@ -64,6 +65,9 @@ let currentUser: CurrentUser | null = null;
 let currentUid: string | null = null;
 let selectedCard: string | null = null;
 let currentRole: string | null = null;
+let autoUnlockSeconds = DEFAULT_AUTO_UNLOCK_SECONDS;
+let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
+let countdownRemaining = 0;
 const isPO = (): boolean => currentRole === "po";
 
 // ===== DOM Elements =====
@@ -98,12 +102,18 @@ const colUx = $("col-ux");
 const resultSection = $("result-section");
 const resultSummary = $("result-summary");
 const toastEl = $("toast");
+const btnSettings = $("btn-settings") as HTMLButtonElement;
+const settingsModal = $("settings-modal") as HTMLElement;
+const settingsInput = $("settings-auto-unlock") as HTMLInputElement;
+const btnSettingsSave = $("btn-settings-save") as HTMLButtonElement;
+const btnSettingsClose = $("btn-settings-close") as HTMLButtonElement;
 
 // ===== Init =====
 function init(): void {
   checkVersion();
   loadUsername();
   loadTheme();
+  loadSettings();
   renderCards();
   bindEvents();
   checkUrlRoom();
@@ -144,6 +154,11 @@ function loadTheme(): void {
     btnToggleTheme.textContent = "🌙";
   }
   // default is dark (set in HTML)
+}
+
+function loadSettings(): void {
+  const saved = localStorage.getItem("scrum-poker-auto-unlock");
+  if (saved) autoUnlockSeconds = parseInt(saved, 10) || DEFAULT_AUTO_UNLOCK_SECONDS;
 }
 
 function toggleTheme(): void {
@@ -215,6 +230,27 @@ function bindEvents(): void {
   btnHome.addEventListener("click", handleLeave);
   btnCopyLink.addEventListener("click", handleCopyLink);
   btnToggleTheme.addEventListener("click", toggleTheme);
+  btnSettings.addEventListener("click", () => {
+    settingsInput.value = String(autoUnlockSeconds);
+    settingsModal.classList.add("active");
+  });
+  btnSettingsClose.addEventListener("click", () => {
+    settingsModal.classList.remove("active");
+  });
+  btnSettingsSave.addEventListener("click", () => {
+    const val = parseInt(settingsInput.value, 10);
+    if (val >= 5) {
+      autoUnlockSeconds = val;
+      localStorage.setItem("scrum-poker-auto-unlock", String(val));
+      settingsModal.classList.remove("active");
+      showToast(`Auto-unlock set to ${val}s`);
+    } else {
+      showToast("Minimum 5 seconds");
+    }
+  });
+  settingsModal.addEventListener("click", (e) => {
+    if (e.target === settingsModal) settingsModal.classList.remove("active");
+  });
   btnReveal.addEventListener("click", handleReveal);
   btnReset.addEventListener("click", handleReset);
   btnDeleteRoom.addEventListener("click", () => {
@@ -323,8 +359,51 @@ async function joinRoom(
   listenRoom();
 }
 
+// ===== Auto-unlock Timer =====
+function cancelUnlockTimer(): void {
+  if (unlockCountdownId) {
+    clearInterval(unlockCountdownId);
+    unlockCountdownId = null;
+  }
+  countdownRemaining = 0;
+  const el = document.getElementById("countdown-text");
+  if (el) el.remove();
+}
+
+function startUnlockTimer(): void {
+  cancelUnlockTimer();
+  countdownRemaining = autoUnlockSeconds;
+  updateCountdownDisplay();
+
+  unlockCountdownId = setInterval(() => {
+    countdownRemaining--;
+    if (countdownRemaining <= 0) {
+      cancelUnlockTimer();
+      if (currentRoom) {
+        update(ref(db, `rooms/${currentRoom}`), { locked: false });
+      }
+      return;
+    }
+    updateCountdownDisplay();
+  }, 1000);
+}
+
+function updateCountdownDisplay(): void {
+  const revoteBtn = document.getElementById("btn-revote");
+  if (!revoteBtn) return;
+  let el = document.getElementById("countdown-text");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "countdown-text";
+    el.className = "countdown-text";
+    revoteBtn.parentNode!.insertBefore(el, revoteBtn.nextSibling);
+  }
+  el.textContent = `Auto-unlock in ${countdownRemaining}s`;
+}
+
 function handleLeave(): void {
   if (!currentRoom || !currentUser) return;
+  cancelUnlockTimer();
   remove(ref(db, `rooms/${currentRoom}/users/${currentUser.uid}`));
   localStorage.removeItem("scrum-poker-room");
   currentRoom = null;
@@ -452,6 +531,7 @@ async function handleReveal(): Promise<void> {
 
 async function handleReset(): Promise<void> {
   if (!currentRoom || !isPO()) return;
+  cancelUnlockTimer();
 
   const usersSnap = await get(ref(db, `rooms/${currentRoom}/users`));
   if (usersSnap.exists()) {
@@ -548,11 +628,13 @@ function updateUI(roomData: RoomData): void {
     statusText.textContent = "Voting locked — Results revealed";
     if (isPO()) btnReveal.style.display = "none";
     if (isPO()) addRevoteButton();
+    if (isPO() && !unlockCountdownId) startUnlockTimer();
   } else if (locked) {
     statusDot.className = "status-dot locked";
     statusText.textContent = "Voting locked";
     if (isPO()) btnReveal.style.display = "none";
   } else {
+    cancelUnlockTimer();
     const hasVoted = currentUser && users[currentUser.uid]?.vote !== null;
     statusDot.className = hasVoted ? "status-dot voted" : "status-dot";
     statusText.textContent = hasVoted
@@ -707,6 +789,7 @@ function addRevoteButton(): void {
   revoteBtn.textContent = "🔓 Unlock for Revote";
   revoteBtn.addEventListener("click", async () => {
     if (!currentRoom || !isPO()) return;
+    cancelUnlockTimer();
     await update(ref(db, `rooms/${currentRoom}`), {
       revealed: false,
       locked: false,
