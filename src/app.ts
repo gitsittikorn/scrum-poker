@@ -385,6 +385,8 @@ function startUnlockTimer(seconds: number): void {
     countdownRemaining--;
     if (countdownRemaining <= 0) {
       cancelUnlockTimer();
+      countdownRemaining = 0;
+      updateCountdownDisplay();
       if (currentRoom) {
         update(ref(db, `rooms/${currentRoom}`), { locked: false });
       }
@@ -759,7 +761,7 @@ function updateUI(roomData: RoomData): void {
     card.appendChild(info);
     if (drinkers.has(uid)) {
       const drinkerLabel = document.createElement("div");
-      drinkerLabel.className = "drinker-label";
+      drinkerLabel.className = "drinker-label" + (locked ? " drinker-pulse" : "");
       drinkerLabel.textContent = "📢 พูดเลยลูก";
       card.appendChild(drinkerLabel);
     }
@@ -794,9 +796,11 @@ function updateUI(roomData: RoomData): void {
         if (drinkers.has(uid)) {
           if (!drinkerLabel) {
             const label = document.createElement("div");
-            label.className = "drinker-label";
+            label.className = "drinker-label" + (locked ? " drinker-pulse" : "");
             label.textContent = "📢 พูดเลยลูก";
             existing.insertBefore(label, existing.querySelector(".participant-status"));
+          } else {
+            drinkerLabel.classList.toggle("drinker-pulse", locked);
           }
         } else if (drinkerLabel) {
           drinkerLabel.remove();

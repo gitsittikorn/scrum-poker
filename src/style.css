@@ -911,12 +911,15 @@ body {
   border-radius: 6px;
   padding: 4px 10px;
   display: inline-block;
-  animation: drinker-pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes drinker-pulse {
+.drinker-pulse {
+  animation: drinker-blink 1.5s ease-in-out infinite;
+}
+
+@keyframes drinker-blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  50% { opacity: 0.4; }
 }
 
 .consensus.all-match {
