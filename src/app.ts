@@ -34,6 +34,7 @@ interface RoomData {
   autoUnlockSeconds: number;
   revealTime: number;
   users: Record<string, User>;
+  drinkers?: Record<string, boolean>;
 }
 
 interface CurrentUser {
@@ -528,9 +529,18 @@ async function handleCustomVote(): Promise<void> {
 
 async function handleReveal(): Promise<void> {
   if (!currentRoom || !isPO()) return;
+  const usersSnap = await get(ref(db, `rooms/${currentRoom}/users`));
+  const drinkers: Record<string, boolean> = {};
+  if (usersSnap.exists()) {
+    const userList = Object.entries(usersSnap.val() as Record<string, User>);
+    const grouped = groupUsers(userList);
+    const drinkerSet = calcDrinkers(grouped);
+    drinkerSet.forEach((uid) => { drinkers[uid] = true; });
+  }
   await update(ref(db, `rooms/${currentRoom}`), {
     revealed: true,
     locked: true,
+    drinkers,
   });
 }
 
@@ -553,6 +563,7 @@ async function handleReset(): Promise<void> {
     });
     updates["revealed"] = false;
     updates["locked"] = false;
+    updates["drinkers"] = null;
     await update(ref(db, `rooms/${currentRoom}`), updates);
   }
 
@@ -614,6 +625,29 @@ function groupUsers(userList: [string, User][]): GroupedUsers {
   return grouped;
 }
 
+function calcDrinkers(grouped: GroupedUsers): Set<string> {
+  const drinkers = new Set<string>();
+  const processGroup = (list: [string, User][]) => {
+    const voted = list.filter(([, u]) => u.vote != null);
+    const nums = voted.map(([, u]) => parseFloat(u.vote!)).filter((n) => !isNaN(n));
+    if (nums.length <= 1) return;
+    const allSame = nums.every((v) => v === nums[0]);
+    if (allSame) return;
+    const minVal = Math.min(...nums);
+    const maxVal = Math.max(...nums);
+    const minVoters = voted.filter(([, u]) => parseFloat(u.vote!) === minVal);
+    const maxVoters = voted.filter(([, u]) => parseFloat(u.vote!) === maxVal);
+    const pool = Math.random() < 0.5 ? minVoters : maxVoters;
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    drinkers.add(picked[0]);
+  };
+  processGroup(grouped.team);
+  processGroup(grouped.dev);
+  processGroup(grouped.qa);
+  processGroup(grouped.ux);
+  return drinkers;
+}
+
 // ===== UI Updates =====
 function updateUI(roomData: RoomData): void {
   const users = roomData.users || {};
@@ -672,6 +706,7 @@ function updateUI(roomData: RoomData): void {
 
   // Participants — diff-based update to avoid flickering
   const grouped = groupUsers(userList);
+  const drinkers = new Set<string>(roomData.drinkers ? Object.keys(roomData.drinkers) : []);
   participantCount.textContent = String(userList.length);
 
   type RoleKey = "po" | "dev" | "qa" | "ux";
@@ -722,6 +757,12 @@ function updateUI(roomData: RoomData): void {
     info.appendChild(voteSpan);
     card.appendChild(avatar);
     card.appendChild(info);
+    if (drinkers.has(uid)) {
+      const drinkerLabel = document.createElement("div");
+      drinkerLabel.className = "drinker-label";
+      drinkerLabel.textContent = "📢 พูดเลยลูก";
+      card.appendChild(drinkerLabel);
+    }
     card.appendChild(statusDot);
     return card;
   };
@@ -748,6 +789,18 @@ function updateUI(roomData: RoomData): void {
         const isOnline = user.online !== false;
         const newStatusClass = "participant-status " + (isOnline ? "online" : "offline");
         if (statusDot && statusDot.className !== newStatusClass) statusDot.className = newStatusClass;
+
+        const drinkerLabel = existing.querySelector<HTMLElement>(".drinker-label");
+        if (drinkers.has(uid)) {
+          if (!drinkerLabel) {
+            const label = document.createElement("div");
+            label.className = "drinker-label";
+            label.textContent = "📢 พูดเลยลูก";
+            existing.insertBefore(label, existing.querySelector(".participant-status"));
+          }
+        } else if (drinkerLabel) {
+          drinkerLabel.remove();
+        }
       } else {
         container.appendChild(createCard(uid, user, role));
       }

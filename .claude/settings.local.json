@@ -11,7 +11,10 @@
       "Bash(firebase deploy *)",
       "Bash(npx tsc *)",
       "Bash(npm run *)",
-      "Bash(npx firebase *)"
+      "Bash(npx firebase *)",
+      "Bash(pnpm dev *)",
+      "Bash(tasklist)",
+      "Bash(taskkill //F //IM node.exe)"
     ],
     "additionalDirectories": [
       "c:\\TQM\\mu.sittikorn\\TQM\\scum-poker"
