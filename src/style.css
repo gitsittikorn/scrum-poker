@@ -1026,6 +1026,54 @@ body {
 .settings-link:hover {
   text-decoration: underline;
 }
+/* ===== Room Banner ===== */
+.room-banner {
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  margin-top: 8px;
+  animation: fadeIn 0.4s ease;
+}
+.room-banner.hidden {
+  display: none;
+}
+.room-banner-img {
+  width: 100%;
+  max-width: 320px;
+  border-radius: var(--radius);
+  object-fit: contain;
+  position: relative;
+  z-index: 1;
+}
+
+.room-banner {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  margin: 8px auto 0;
+  animation: fadeIn 0.4s ease;
+}
+
+.room-banner::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: calc(var(--radius) + 3px);
+  background: conic-gradient(from var(--border-angle, 0deg), var(--accent), var(--accent2), #ec4899, var(--accent));
+  animation: border-spin 3s linear infinite;
+  z-index: 0;
+}
+
+@property --border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes border-spin {
+  to { --border-angle: 360deg; }
+}
+
 @media (max-width: 700px) {
   .landing-container {
     padding: 16px;

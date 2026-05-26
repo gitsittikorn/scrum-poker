@@ -109,6 +109,7 @@ const settingsModal = $("settings-modal") as HTMLElement;
 const settingsInput = $("settings-auto-unlock") as HTMLInputElement;
 const btnSettingsSave = $("btn-settings-save") as HTMLButtonElement;
 const btnSettingsClose = $("btn-settings-close") as HTMLButtonElement;
+const roomBanner = $("room-banner");
 
 // ===== Init =====
 function init(): void {
@@ -266,6 +267,10 @@ function bindEvents(): void {
 
   usernameInput.addEventListener("keydown", (e: KeyboardEvent) => {
     if (e.key === "Enter") roomSelect.focus();
+  });
+
+  roomSelect.addEventListener("change", () => {
+    roomBanner.classList.toggle("hidden", roomSelect.value !== "Kitsune");
   });
 
   window.addEventListener("beforeunload", () => {
@@ -629,6 +634,7 @@ function groupUsers(userList: [string, User][]): GroupedUsers {
 
 function calcDrinkers(grouped: GroupedUsers): Set<string> {
   const drinkers = new Set<string>();
+  const pickOne = (pool: [string, User][]) => pool[Math.floor(Math.random() * pool.length)];
   const processGroup = (list: [string, User][]) => {
     const voted = list.filter(([, u]) => u.vote != null);
     const nums = voted.map(([, u]) => parseFloat(u.vote!)).filter((n) => !isNaN(n));
@@ -639,9 +645,8 @@ function calcDrinkers(grouped: GroupedUsers): Set<string> {
     const maxVal = Math.max(...nums);
     const minVoters = voted.filter(([, u]) => parseFloat(u.vote!) === minVal);
     const maxVoters = voted.filter(([, u]) => parseFloat(u.vote!) === maxVal);
-    const pool = Math.random() < 0.5 ? minVoters : maxVoters;
-    const picked = pool[Math.floor(Math.random() * pool.length)];
-    drinkers.add(picked[0]);
+    drinkers.add(pickOne(minVoters)[0]);
+    drinkers.add(pickOne(maxVoters)[0]);
   };
   processGroup(grouped.team);
   processGroup(grouped.dev);
