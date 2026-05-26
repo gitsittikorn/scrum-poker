@@ -270,7 +270,9 @@ function bindEvents(): void {
   });
 
   roomSelect.addEventListener("change", () => {
-    roomBanner.classList.toggle("hidden", roomSelect.value !== "Kitsune");
+    const show = roomSelect.value === "Kitsune";
+    roomBanner.classList.toggle("hidden", !show);
+    if (show) spawnFirework(roomBanner);
   });
 
   window.addEventListener("beforeunload", () => {
@@ -967,3 +969,27 @@ function showToast(msg: string): void {
 
 // ===== Start =====
 document.addEventListener("DOMContentLoaded", init);
+
+// ===== Firework Effect =====
+function spawnFirework(container: HTMLElement): void {
+  const rect = container.getBoundingClientRect();
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  const colors = ["#00d4ff", "#a855f7", "#ec4899", "#f59e0b", "#22c55e"];
+
+  for (let i = 0; i < 24; i++) {
+    const p = document.createElement("div");
+    p.className = "firework-particle";
+    const angle = (Math.PI * 2 * i) / 24 + (Math.random() - 0.5) * 0.3;
+    const dist = 40 + Math.random() * 60;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist - Math.abs(Math.sin(angle)) * 30;
+    p.style.setProperty("--dx", `${dx}px`);
+    p.style.setProperty("--dy", `${dy}px`);
+    p.style.left = `${cx}px`;
+    p.style.top = `${cy}px`;
+    p.style.background = colors[i % colors.length];
+    container.appendChild(p);
+    p.addEventListener("animationend", () => p.remove());
+  }
+}

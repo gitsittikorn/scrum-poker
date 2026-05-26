@@ -1074,6 +1074,33 @@ body {
   to { --border-angle: 360deg; }
 }
 
+/* ===== Firework Particles ===== */
+.firework-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 10;
+  animation: firework-burst 1.5s ease-out forwards;
+  box-shadow: 0 0 6px 2px currentColor;
+}
+
+@keyframes firework-burst {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  60% {
+    opacity: 0.8;
+    transform: translate(var(--dx), var(--dy)) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), calc(var(--dy) - 20px)) scale(0);
+  }
+}
+
 @media (max-width: 700px) {
   .landing-container {
     padding: 16px;
