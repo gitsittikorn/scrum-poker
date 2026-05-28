@@ -132,6 +132,51 @@
           <div id="result-summary" class="result-summary"></div>
         </section>
       </main>
+
+      <!-- Chat Panel -->
+      <aside id="chat-panel" class="chat-panel">
+        <div class="chat-header">
+          <span class="chat-title">💬 Chat</span>
+          <button id="btn-chat-close" class="btn btn-icon btn-chat-close">✕</button>
+        </div>
+        <div id="chat-messages" class="chat-messages"></div>
+        <div id="chat-typing" class="chat-typing hidden"></div>
+        <div id="chat-reply-bar" class="chat-reply-bar hidden">
+          <div class="reply-preview">
+            <span class="reply-label">↩ Replying to</span>
+            <span id="reply-to-name" class="reply-to-name"></span>
+            <span id="reply-to-text" class="reply-to-text"></span>
+          </div>
+          <button id="btn-cancel-reply" class="btn-cancel-reply">✕</button>
+        </div>
+        <div class="chat-input-area">
+          <div class="emoji-wrapper">
+            <button id="btn-emoji" class="btn btn-emoji" title="Emoji">😀</button>
+            <div id="emoji-picker" class="emoji-picker hidden"></div>
+          </div>
+          <input type="text" id="chat-input" placeholder="พิมพ์ข้อความ..." maxlength="500" autocomplete="off">
+          <button id="btn-chat-send" class="btn btn-chat-send">➤</button>
+        </div>
+      </aside>
+
+      <!-- Floating Reactions -->
+      <div id="floating-reactions" class="floating-reactions"></div>
+
+      <!-- Bottom Bar -->
+      <div id="bottom-bar" class="bottom-bar">
+        <button id="btn-bar-chat" class="btn-bar" title="Chat">
+          <span class="btn-bar-icon">💬</span>
+          <span class="btn-bar-label">Chat</span>
+          <span id="bar-chat-unread" class="chat-unread hidden"></span>
+        </button>
+        <button id="btn-bar-react" class="btn-bar" title="React">
+          <span class="btn-bar-icon">😀</span>
+          <span class="btn-bar-label">React</span>
+        </button>
+      </div>
+
+      <!-- React Picker (Bottom Bar) -->
+      <div id="react-picker-bar" class="react-picker-bar hidden"></div>
     </div>
 
     <!-- Toast -->
