@@ -26,6 +26,7 @@ import {
   emojiPicker,
 } from "./dom";
 import { EMOJIS } from "./constants";
+import { CHAT_MESSAGE_LIMIT, FLOATING_EMOJI_DURATION_MS, TYPING_TIMEOUT_MS, TYPING_DISPLAY_MS } from "./config";
 import { escapeHtml, formatChatTime } from "./utils";
 import {
   renderReactPickerBar,
@@ -35,6 +36,7 @@ import {
   closeQuickPopup,
   toggleMessageReaction,
 } from "./reactions";
+import { initSoundListener, destroySoundListener } from "./sounds";
 
 let chatOpen = false;
 let chatUnread = 0;
@@ -76,10 +78,11 @@ export function initChat(): void {
   updateChatUnread();
   renderEmojiPicker();
   renderReactPickerBar();
+  initSoundListener();
 
   const messagesQuery = query(
     ref(db, `rooms/${state.currentRoom}/messages`),
-    limitToLast(100)
+    limitToLast(CHAT_MESSAGE_LIMIT)
   );
   chatListenerQuery = messagesQuery;
 
@@ -116,7 +119,7 @@ export function initChat(): void {
       setTimeout(() => {
         if (state.currentRoom && key)
           remove(ref(db, `rooms/${state.currentRoom}/liveReactions/${key}`));
-      }, 4000);
+      }, FLOATING_EMOJI_DURATION_MS);
     }
   });
 
@@ -133,7 +136,7 @@ export function initChat(): void {
     }
     const now = Date.now();
     const names = Object.entries(typing)
-      .filter(([uid, v]) => uid !== state.currentUid && now - v.timestamp < 15000)
+      .filter(([uid, v]) => uid !== state.currentUid && now - v.timestamp < TYPING_DISPLAY_MS)
       .map(([, v]) => v.name);
     if (names.length === 0) {
       chatTyping.classList.add("hidden");
@@ -164,6 +167,7 @@ export function destroyChat(): void {
   renderedMsgIds.clear();
   messageCache.clear();
   cancelReply();
+  destroySoundListener();
   chatMessages.innerHTML = "";
   chatOpen = false;
   chatPanel.classList.remove("open");
@@ -284,7 +288,7 @@ export function handleChatTyping(): void {
     if (state.currentRoom && state.currentUid) {
       remove(ref(db, `rooms/${state.currentRoom}/typing/${state.currentUid}`));
     }
-  }, 3000);
+  }, TYPING_TIMEOUT_MS);
 }
 
 function clearTypingTimeout(): void {

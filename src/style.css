@@ -1608,6 +1608,54 @@ body {
 }
 .react-picker-bar.hidden { display: none; }
 
+/* Sound Picker (Bottom Bar) */
+.sound-picker-bar {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  width: 320px;
+  max-height: 260px;
+  overflow-y: auto;
+  box-shadow: 0 -4px 24px var(--shadow);
+  z-index: 160;
+}
+.sound-picker-bar.hidden { display: none; }
+.sound-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+}
+.sound-item:hover {
+  border-color: var(--accent);
+  background: var(--bg-primary);
+  transform: scale(1.08);
+}
+.sound-item small {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 /* ===== Floating Reactions ===== */
 .floating-reactions {
   position: fixed;
@@ -1630,11 +1678,15 @@ body {
 }
 .floating-emoji-icon { font-size: 1.8rem; }
 .floating-emoji-name {
-  font-size: 0.68rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   white-space: nowrap;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px 8px;
 }
 @keyframes floatUp {
   0% { transform: translateY(0) scale(0.5); opacity: 0; }

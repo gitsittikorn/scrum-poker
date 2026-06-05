@@ -24,3 +24,25 @@ export const EMOJIS = [
   "👀", "🫡", "💪", "🤦", "🤷", "🙈", "💀", "🤖",
 ];
 
+export interface SoundDef {
+  file: string;
+  label: string;
+  emoji: string;
+}
+
+export const SOUNDS: SoundDef[] = [
+  { file: "OMG.mp3", label: "OMG", emoji: "😱" },
+  { file: "จ้ะเอ๋.mp3", label: "จ้ะเอ๋", emoji: "👶" },
+  { file: "ตบมุข 1.mp3", label: "ตบมุข 1", emoji: "👋" },
+  { file: "ตบมุข 2.mp3", label: "ตบมุข 2", emoji: "🤚" },
+  { file: "เบรกมุข.mp3", label: "เบรกมุข", emoji: "🛑" },
+  { file: "อย่าๆๆ.mp3", label: "อย่าๆๆ", emoji: "🙅" },
+  { file: "เศร้า.mp3", label: "เศร้า", emoji: "😢" },
+  { file: "แกไม่รอดแน่.mp3", label: "แกไม่รอด", emoji: "☠️" },
+  { file: "เช็ดกระจก.mp3", label: "เช็ดกระจก", emoji: "🪟" },
+  { file: "เกิดอะไรขึ้น.mp3", label: "เกิดอะไรขึ้น", emoji: "🤨" },
+  { file: "มีอีกไหม.mp3", label: "มีอีกไหม", emoji: "👂" },
+  { file: "ทางของพี่.mp3", label: "ทางของพี่", emoji: "😎" },
+  { file: "net tot.mp3", label: "เน็ตตอ", emoji: "🌐" },
+];
+

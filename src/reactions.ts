@@ -80,7 +80,7 @@ export function renderMessageReactions(
       const count = Object.keys(users).length;
       const isMine = state.currentUid && users[state.currentUid] ? " mine" : "";
       const names = Object.values(users).join(", ");
-      return `<span class="reaction-badge${isMine}" data-emoji="${emoji}" data-msg-id="${msgId}" data-names="${names}">${emoji} <small>${count}</small></span>`;
+      return `<span class="reaction-badge${isMine}" data-emoji="${emoji}" data-msg-id="${msgId}" data-names="${escapeHtml(names)}">${emoji} <small>${count}</small></span>`;
     })
     .join("");
 }

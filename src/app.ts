@@ -25,6 +25,8 @@ import {
   chatMessages,
   emojiPicker,
   roomBanner,
+  btnBarSound,
+  soundPickerBar,
 } from "./dom";
 import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, spawnFirework } from "./ui";
 import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
@@ -32,12 +34,14 @@ import { handleJoinRoom, handleLeave, handleCopyLink, handleDeleteRoom, checkUrl
 import { renderCards, handleReveal, handleReset } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick } from "./reactions";
+import { toggleSoundPicker, sendSound, renderSoundPicker, handleSoundPickerOutsideClick } from "./sounds";
 
 function init(): void {
   checkVersion();
   loadUsername();
   loadTheme();
   renderCards();
+  renderSoundPicker();
   bindEvents();
   checkUrlRoom();
   btnJoinRoom.disabled = true;
@@ -104,6 +108,17 @@ function bindEvents(): void {
     }
   });
 
+  // Sound bar
+  btnBarSound.addEventListener("click", toggleSoundPicker);
+  soundPickerBar.addEventListener("click", (e) => {
+    const target = (e.target as HTMLElement).closest(".sound-item") as HTMLElement;
+    if (target) {
+      const file = target.dataset.file!;
+      sendSound(file);
+      soundPickerBar.classList.add("hidden");
+    }
+  });
+
   // Chat message delegation
   chatMessages.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
@@ -139,6 +154,7 @@ function bindEvents(): void {
     handleEmojiPickerOutsideClick(t);
     handleReactPickerOutsideClick(t);
     handleQuickPopupOutsideClick(t);
+    handleSoundPickerOutsideClick(t);
   });
 
   // Landing page shortcuts

@@ -6,6 +6,7 @@ import {
   remove,
   update,
   onValue,
+  off,
   serverTimestamp,
   onDisconnect,
 } from "./firebase";
@@ -17,6 +18,8 @@ import { escapeHtml } from "./utils";
 import { showPage, showToast, saveUsername } from "./ui";
 import { initChat, destroyChat, sendSystemMessage } from "./chat";
 import { updateUI, cancelUnlockTimer } from "./voting";
+
+let roomListenerRef: ReturnType<typeof ref> | null = null;
 
 export function checkUrlRoom(): void {
   const params = new URLSearchParams(window.location.search);
@@ -148,6 +151,10 @@ export function handleLeave(skipMessage = false): void {
   cancelUnlockTimer();
   if (!skipMessage) sendSystemMessage(`${leavingName} ออกจากห้อง`);
   destroyChat();
+  if (roomListenerRef) {
+    off(roomListenerRef);
+    roomListenerRef = null;
+  }
   remove(
     ref(db, `rooms/${state.currentRoom}/users/${state.currentUser.uid}`)
   );
@@ -166,8 +173,12 @@ export function handleCopyLink(): void {
 }
 
 export function listenRoom(): void {
-  const roomStateRef = ref(db, `rooms/${state.currentRoom}`);
-  onValue(roomStateRef, (snap) => {
+  if (roomListenerRef) {
+    off(roomListenerRef);
+    roomListenerRef = null;
+  }
+  roomListenerRef = ref(db, `rooms/${state.currentRoom}`);
+  onValue(roomListenerRef, (snap) => {
     if (!snap.exists()) {
       showToast("Room closed");
       handleLeave();

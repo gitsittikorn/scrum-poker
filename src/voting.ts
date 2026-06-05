@@ -23,7 +23,7 @@ import { sendSystemMessage } from "./chat";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
-let customPointInput: HTMLInputElement;
+let customPointInput: HTMLInputElement | null = null;
 
 // ===== Auto-unlock Timer =====
 export function cancelUnlockTimer(): void {
@@ -107,7 +107,7 @@ export function renderCards(): void {
   customPointInput.addEventListener("click", (e: Event) => {
     e.stopPropagation();
   });
-  customCard.addEventListener("click", () => customPointInput.focus());
+  customCard.addEventListener("click", () => customPointInput?.focus());
 }
 
 // ===== Voting Actions =====
@@ -127,7 +127,7 @@ export async function handleVote(value: string): Promise<void> {
       (el as HTMLElement).dataset.value === value
     );
   });
-  customPointInput.value = "";
+  if (customPointInput) customPointInput.value = "";
 
   await set(
     ref(db, `rooms/${state.currentRoom}/users/${state.currentUser.uid}/vote`),
@@ -136,6 +136,7 @@ export async function handleVote(value: string): Promise<void> {
 }
 
 export async function handleCustomVote(): Promise<void> {
+  if (!customPointInput) return;
   const value = customPointInput.value.trim();
   if (!value || !state.currentRoom || !state.currentUser) return;
 
@@ -154,7 +155,7 @@ export async function handleCustomVote(): Promise<void> {
     ref(db, `rooms/${state.currentRoom}/users/${state.currentUser.uid}/vote`),
     value
   );
-  customPointInput.value = "";
+  if (customPointInput) customPointInput.value = "";
   showToast("Voted: " + value);
 }
 
@@ -203,7 +204,7 @@ export async function handleReset(): Promise<void> {
   document
     .querySelectorAll(".poker-card")
     .forEach((el) => el.classList.remove("selected"));
-  customPointInput.value = "";
+  if (customPointInput) customPointInput.value = "";
   sendSystemMessage("🔄 เริ่มโหวตใหม่");
   showToast("Reset + offline users removed");
 }
