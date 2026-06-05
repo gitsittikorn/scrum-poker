@@ -1,7 +1,7 @@
 import { db, ref, set, get, remove, push, serverTimestamp } from "./firebase";
 import { state } from "./state";
 import { chatMessages, floatingReactions, reactPickerBar } from "./dom";
-import { EMOJIS, QUICK_REACTIONS } from "./constants";
+import { EMOJIS } from "./constants";
 import { escapeHtml } from "./utils";
 
 let activeQuickPopup: HTMLElement | null = null;
@@ -79,7 +79,8 @@ export function renderMessageReactions(
     .map(([emoji, users]) => {
       const count = Object.keys(users).length;
       const isMine = state.currentUid && users[state.currentUid] ? " mine" : "";
-      return `<span class="reaction-badge${isMine}" data-emoji="${emoji}" data-msg-id="${msgId}">${emoji} <small>${count}</small></span>`;
+      const names = Object.values(users).join(", ");
+      return `<span class="reaction-badge${isMine}" data-emoji="${emoji}" data-msg-id="${msgId}" data-names="${names}">${emoji} <small>${count}</small></span>`;
     })
     .join("");
 }
@@ -90,7 +91,7 @@ export function showQuickReactions(msgId: string): void {
   if (!msgEl) return;
   const popup = document.createElement("div");
   popup.className = "quick-reactions";
-  popup.innerHTML = QUICK_REACTIONS.map(
+  popup.innerHTML = EMOJIS.map(
     (e) =>
       `<button class="quick-react-item" data-emoji="${e}" data-msg-id="${msgId}">${e}</button>`
   ).join("");

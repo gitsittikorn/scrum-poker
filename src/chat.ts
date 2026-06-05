@@ -207,7 +207,8 @@ function renderChatMessage(msg: ChatMessage, msgId: string): void {
           .map(([emoji, users]) => {
             const count = Object.keys(users).length;
             const isMine = state.currentUid && users[state.currentUid] ? " mine" : "";
-            return `<span class="reaction-badge${isMine}" data-emoji="${emoji}" data-msg-id="${msgId}">${emoji} <small>${count}</small></span>`;
+            const names = Object.values(users as Record<string, string>).join(", ");
+            return `<span class="reaction-badge${isMine}" data-emoji="${emoji}" data-msg-id="${msgId}" data-names="${escapeHtml(names)}">${emoji} <small>${count}</small></span>`;
           })
           .join("")
       }</div>`;

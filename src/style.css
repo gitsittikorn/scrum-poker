@@ -1269,8 +1269,8 @@ body {
   word-break: break-word;
 }
 .chat-msg.self .chat-msg-bubble {
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  color: #fff;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-bottom-right-radius: 4px;
 }
 .chat-msg.other .chat-msg-bubble {
@@ -1466,16 +1466,40 @@ body {
   position: relative;
 }
 .reaction-badge {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 2px 6px;
+  padding: 2px 8px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: 10px;
-  font-size: 0.72rem;
+  font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.15s;
+}
+.reaction-badge::after {
+  content: attr(data-names);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.9);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+  z-index: 20;
+}
+.reaction-badge:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
 }
 .reaction-badge:hover { border-color: var(--accent); }
 .reaction-badge.mine {
@@ -1483,7 +1507,7 @@ body {
   background: rgba(0, 212, 255, 0.08);
 }
 .reaction-badge small {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   font-weight: 600;
 }
@@ -1492,22 +1516,28 @@ body {
 .quick-reactions {
   position: absolute;
   bottom: calc(100% + 4px);
-  right: 0;
-  display: flex;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
   gap: 2px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 4px 6px;
+  border-radius: 12px;
+  padding: 6px;
   box-shadow: 0 4px 16px var(--shadow);
   z-index: 10;
+  max-width: 340px;
+}
+.chat-msg.self .quick-reactions {
+  left: auto;
+  right: 0;
 }
 .quick-react-item {
   background: none;
   border: none;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 3px;
   border-radius: 4px;
   transition: all 0.15s;
 }

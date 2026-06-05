@@ -10,7 +10,7 @@ import {
   usernameInput,
   roleSelect,
 } from "./dom";
-import { TOAST_DURATION, DEFAULT_AUTO_UNLOCK_SECONDS } from "./constants";
+import { TOAST_DURATION_MS, AUTO_UNLOCK_SECONDS } from "./config";
 
 export function showPage(page: "landing" | "room"): void {
   landingPage.classList.remove("active");
@@ -28,7 +28,7 @@ export function showToast(msg: string): void {
   toastTimeout = setTimeout(() => {
     toastEl.classList.remove("show");
     setTimeout(() => toastEl.classList.add("hidden"), 300);
-  }, TOAST_DURATION);
+  }, TOAST_DURATION_MS);
 }
 
 export function loadTheme(): void {
@@ -64,7 +64,7 @@ export async function openSettings(): Promise<void> {
   if (!state.currentRoom) return;
   const snap = await get(ref(db, `rooms/${state.currentRoom}/autoUnlockSeconds`));
   settingsInput.value = String(
-    snap.exists() ? snap.val() : DEFAULT_AUTO_UNLOCK_SECONDS
+    snap.exists() ? snap.val() : AUTO_UNLOCK_SECONDS
   );
   settingsModal.classList.add("active");
 }

@@ -12,7 +12,7 @@ import {
 import { state } from "./state";
 import type { RoomData } from "./types";
 import { roleSelect, roomSelect, roomCodeDisplay, userBadge } from "./dom";
-import { DEFAULT_AUTO_UNLOCK_SECONDS } from "./constants";
+import { AUTO_UNLOCK_SECONDS } from "./config";
 import { escapeHtml } from "./utils";
 import { showPage, showToast, saveUsername } from "./ui";
 import { initChat, destroyChat, sendSystemMessage } from "./chat";
@@ -63,7 +63,7 @@ export async function handleJoinRoom(): Promise<void> {
         createdAt: serverTimestamp(),
         revealed: false,
         locked: false,
-        autoUnlockSeconds: DEFAULT_AUTO_UNLOCK_SECONDS,
+        autoUnlockSeconds: AUTO_UNLOCK_SECONDS,
       });
     }
     await joinRoom(roomCode, true);

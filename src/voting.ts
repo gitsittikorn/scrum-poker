@@ -16,7 +16,8 @@ import {
   resultSummary,
   participantCount,
 } from "./dom";
-import { CARDS, DEFAULT_AUTO_UNLOCK_SECONDS } from "./constants";
+import { CARDS } from "./constants";
+import { AUTO_UNLOCK_SECONDS } from "./config";
 import { showToast } from "./ui";
 import { sendSystemMessage } from "./chat";
 
@@ -288,7 +289,7 @@ export function updateUI(roomData: RoomData): void {
     if (isPO()) addRevoteButton();
     if (isPO() && !unlockCountdownId)
       startUnlockTimer(
-        roomData.autoUnlockSeconds || DEFAULT_AUTO_UNLOCK_SECONDS
+        roomData.autoUnlockSeconds || AUTO_UNLOCK_SECONDS
       );
   } else if (locked) {
     statusDot.className = "status-dot locked";

@@ -15,9 +15,7 @@ export const CARDS: CardDef[] = [
   { value: "21", label: "เสร็จกันยา" },
 ];
 
-export const TOAST_DURATION = 3000;
 export const APP_VERSION = "2025-05-09-v2";
-export const DEFAULT_AUTO_UNLOCK_SECONDS = 20;
 
 export const EMOJIS = [
   "😀", "😂", "🤣", "😊", "😅", "😎", "🤔", "😏", "🙄", "🥳", "🤩", "😤",
@@ -26,4 +24,3 @@ export const EMOJIS = [
   "👀", "🫡", "💪", "🤦", "🤷", "🙈", "💀", "🤖",
 ];
 
-export const QUICK_REACTIONS = ["👍", "❤️", "😂", "🤔", "🎉", "🔥"];
