@@ -36,7 +36,7 @@ export function preloadSounds(): void {
 export function renderSoundPicker(): void {
   soundPickerBar.innerHTML = SOUNDS.map(
     (s) =>
-      `<button class="sound-item" data-file="${s.file}" data-emoji="${s.emoji}" title="${s.label}">${s.emoji} <small>${s.label}</small></button>`
+      `<button class="sound-item" data-file="${s.file}" data-emoji="${s.emoji}" title="${s.label}">${s.emoji} <small>${s.label}</small></button>`,
   ).join("");
 }
 
@@ -50,14 +50,12 @@ export function toggleSoundPicker(): void {
 export function playSound(file: string): void {
   const cached = audioCache.get(file);
   if (cached) {
-    // Clone the cached audio so overlapping plays work
     const audio = cached.cloneNode() as HTMLAudioElement;
     audio.volume = SOUND_VOLUME;
     audio.play().catch(() => {
       /* browser blocked autoplay — ignore */
     });
   } else {
-    // Fallback: load on demand (shouldn't happen if preloaded)
     const audio = new Audio(`/sounds/${file}`);
     audio.volume = SOUND_VOLUME;
     audio.play().catch(() => {
@@ -78,7 +76,7 @@ export async function sendSound(file: string): Promise<void> {
   });
 }
 
-/** Listen for sound events from Firebase (called from initChat / joinRoom) */
+/** Listen for sound events from Firebase */
 export function initSoundListener(): void {
   destroySoundListener();
   if (!state.currentRoom) return;
@@ -108,7 +106,7 @@ export function initSoundListener(): void {
   });
 }
 
-/** Clean up sound listener (called from destroyChat / handleLeave) */
+/** Clean up sound listener */
 export function destroySoundListener(): void {
   if (soundListenerQuery) {
     off(soundListenerQuery);
