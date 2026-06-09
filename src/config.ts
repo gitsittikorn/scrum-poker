@@ -44,4 +44,4 @@ export const TYPING_TIMEOUT_MS = 3000;
 export const TYPING_DISPLAY_MS = 15000;
 
 /** ระดับเสียง (0.0 - 1.0) */
-export const SOUND_VOLUME = 0.8;
+export const SOUND_VOLUME = 0.6;
