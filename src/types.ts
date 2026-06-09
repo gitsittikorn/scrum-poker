@@ -16,6 +16,7 @@ export interface FeatureFlags {
   chat: boolean;
   react: boolean;
   sound: boolean;
+  wheel: boolean;
 }
 
 export interface RoomData {

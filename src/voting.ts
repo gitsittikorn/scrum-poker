@@ -92,7 +92,7 @@ export function renderCards(): void {
   const customCard = document.createElement("div");
   customCard.className = "poker-card custom-card";
   customCard.innerHTML = `
-    <input type="number" id="custom-point-input" placeholder="..." min="0" step="0.5">
+    <input type="number" id="custom-point-input" placeholder="..." min="0" step="0.5" maxlength="5">
     <span class="card-label">Custom<br>( Enter )</span>
   `;
   cardsContainer.appendChild(customCard);

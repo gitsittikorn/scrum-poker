@@ -14,6 +14,7 @@ import {
   featureChat,
   featureReact,
   featureSound,
+  featureWheel,
   cleanupTimeInput,
   btnBarChat,
   btnBarReact,
@@ -23,10 +24,12 @@ import {
   btnDbReport,
   dbReportModal,
   btnDbReportClose,
+  btnWheel,
 } from "./dom";
 import { TOAST_DURATION_MS, AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
 import type { User } from "./types";
 import { forceCloseChat } from "./chat";
+import { forceCloseWheel } from "./wheel";
 
 export function showPage(page: "landing" | "room"): void {
   landingPage.classList.remove("active");
@@ -102,12 +105,8 @@ export async function openSettings(): Promise<void> {
     autoUnlockGroup.classList.add("hidden");
   }
 
-  // Database report button — visible to PO only
-  if (isPO()) {
-    btnDbReport.classList.remove("hidden");
-  } else {
-    btnDbReport.classList.add("hidden");
-  }
+  // Database report button — visible to everyone
+  btnDbReport.classList.remove("hidden");
 
   // Admin section — visible to all PO
   if (isPO()) {
@@ -121,11 +120,13 @@ export async function openSettings(): Promise<void> {
       featureChat.checked = f.chat ?? true;
       featureReact.checked = f.react ?? true;
       featureSound.checked = f.sound ?? true;
+      featureWheel.checked = f.wheel ?? true;
     } else {
       featurePoker.checked = true;
       featureChat.checked = true;
       featureReact.checked = true;
       featureSound.checked = true;
+      featureWheel.checked = true;
     }
 
     // Load cleanup time from global settings
@@ -164,6 +165,7 @@ export async function saveSettings(): Promise<void> {
       chat: featureChat.checked,
       react: featureReact.checked,
       sound: featureSound.checked,
+      wheel: featureWheel.checked,
     };
 
     // Save cleanup time to global settings
@@ -204,9 +206,13 @@ export function applyFeatureFlags(): void {
   btnBarSound.classList.toggle("hidden", !FEATURES.sound);
   soundPickerBar.classList.add("hidden");
 
+  // Wheel
+  btnWheel.classList.toggle("hidden", !FEATURES.wheel);
+  if (!FEATURES.wheel) forceCloseWheel();
+
   // Bottom bar — hide entirely if all features off
   const bottomBar = document.getElementById("bottom-bar");
-  const anyFeature = FEATURES.chat || FEATURES.react || FEATURES.sound;
+  const anyFeature = FEATURES.chat || FEATURES.react || FEATURES.sound || FEATURES.wheel;
   bottomBar?.classList.toggle("hidden", !anyFeature);
 }
 

@@ -25,7 +25,7 @@
         <div class="landing-form">
           <div class="form-group">
             <label for="username-input">ชื่อของคุณ</label>
-            <input type="text" id="username-input" placeholder="ใส่ชื่อที่ต้องการแสดง..." maxlength="20" autocomplete="off">
+            <input type="text" id="username-input" placeholder="ใส่ชื่อที่ต้องการแสดง..." maxlength="15" autocomplete="off">
           </div>
 
           <div class="form-group">
@@ -74,7 +74,7 @@
         <div class="header-right">
           <div id="user-badge" class="user-badge"></div>
           <button id="btn-home" class="btn btn-icon" title="กลับหน้าแรก">🏠</button>
-          <button id="btn-db-report" class="btn btn-icon hidden" title="Database Usage">📊</button>
+          <button id="btn-db-report" class="btn btn-icon" title="Database Usage">📊</button>
           <button id="btn-copy-link" class="btn btn-icon" title="คัดลอกลิงก์">🔗</button>
           <button id="btn-toggle-theme" class="btn btn-icon" title="Dark/Light mode">☀️</button>
           <button id="btn-settings" class="btn btn-icon" title="Settings">⚙️</button>
@@ -134,6 +134,56 @@
         </section>
       </main>
 
+      <!-- Wheel Panel (slides from left) -->
+      <aside id="wheel-panel" class="wheel-panel">
+        <div class="wheel-resize-handle"></div>
+        <div class="wheel-header">
+          <span class="wheel-title">🎡 Random Wheel</span>
+          <button id="btn-wheel-close" class="btn btn-icon">✕</button>
+        </div>
+        <div class="wheel-body">
+          <div id="wheel-canvas-container" class="wheel-canvas-container">
+            <div class="wheel-pointer"></div>
+            <canvas id="wheel-canvas" width="360" height="360"></canvas>
+          </div>
+          <div id="wheel-winner-display" class="wheel-winner-display hidden"></div>
+          <div class="wheel-controls">
+            <button id="btn-wheel-spin" class="btn btn-primary wheel-btn-spin">🎡 Spin</button>
+            <button id="btn-wheel-shuffle" class="btn btn-icon" title="Shuffle">🔀</button>
+            <button id="btn-wheel-reset" class="btn btn-icon" title="เริ่มใหม่">🔄</button>
+            <button id="btn-wheel-clear" class="btn btn-icon btn-delete-icon" title="Clear">🗑</button>
+          </div>
+          <div class="wheel-options">
+            <label class="wheel-option-label">
+              Duplicate:
+              <select id="wheel-duplicate-select" class="wheel-select">
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
+                <option value="3">3×</option>
+                <option value="4">4×</option>
+                <option value="5">5×</option>
+              </select>
+            </label>
+            <label class="toggle-label wheel-toggle-label">
+              <span class="toggle-text">ลบผู้ถูกสุ่ม</span>
+              <input type="checkbox" id="wheel-remove-winner" aria-label="Remove winner from wheel">
+              <span class="toggle-switch" role="switch" aria-checked="false"></span>
+            </label>
+            <label class="toggle-label wheel-toggle-label">
+              <span class="toggle-text">สุ่มตำแหน่งอัตโนมัติ</span>
+              <input type="checkbox" id="wheel-auto-shuffle" checked aria-label="Shuffle before each spin">
+              <span class="toggle-switch" role="switch" aria-checked="true"></span>
+            </label>
+          </div>
+          <div class="wheel-section-title">Entries <span id="wheel-entry-count" class="badge">0</span></div>
+          <div class="wheel-add-row">
+            <input type="text" id="wheel-add-input" placeholder="เพิ่มชื่อ..." maxlength="15" autocomplete="off">
+            <button id="btn-wheel-add" class="btn btn-primary">+</button>
+          </div>
+          <div id="wheel-member-list" class="wheel-member-list"></div>
+        </div>
+      </aside>
+
       <!-- Chat Panel -->
       <aside id="chat-panel" class="chat-panel">
         <div class="chat-header">
@@ -165,10 +215,9 @@
 
       <!-- Bottom Bar -->
       <div id="bottom-bar" class="bottom-bar">
-        <button id="btn-bar-chat" class="btn-bar" title="Chat">
-          <span class="btn-bar-icon">💬</span>
-          <span class="btn-bar-label">Chat</span>
-          <span id="bar-chat-unread" class="chat-unread hidden"></span>
+        <button id="btn-wheel" class="btn-bar" title="Random Wheel">
+          <span class="btn-bar-icon">🎡</span>
+          <span class="btn-bar-label">Wheel</span>
         </button>
         <button id="btn-bar-react" class="btn-bar" title="React">
           <span class="btn-bar-icon">😀</span>
@@ -177,6 +226,11 @@
         <button id="btn-bar-sound" class="btn-bar" title="Sound">
           <span class="btn-bar-icon">🔊</span>
           <span class="btn-bar-label">Sound</span>
+        </button>
+        <button id="btn-bar-chat" class="btn-bar" title="Chat">
+          <span class="btn-bar-icon">💬</span>
+          <span class="btn-bar-label">Chat</span>
+          <span id="bar-chat-unread" class="chat-unread hidden"></span>
         </button>
       </div>
 
@@ -229,6 +283,11 @@
                 <label class="toggle-label">
                   <span class="toggle-text">🔊 Sound</span>
                   <input type="checkbox" id="feature-sound" checked aria-label="Sound feature toggle">
+                  <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                </label>
+                <label class="toggle-label">
+                  <span class="toggle-text">🎡 Wheel</span>
+                  <input type="checkbox" id="feature-wheel" checked aria-label="Wheel feature toggle">
                   <span class="toggle-switch" role="switch" aria-checked="true"></span>
                 </label>
               </div>

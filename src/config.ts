@@ -21,6 +21,8 @@ export const FEATURES = {
   react: true,
   /** Sound — เอฟเฟกต์เสียงจาก bottom bar */
   sound: true,
+  /** Wheel — กงล้อสุ่มชื่อสมาชิก */
+  wheel: true,
 };
 
 /** วินาทีที่จะ auto-unlock หลังจาก reveal (ค่า default สำหรับห้องใหม่) */

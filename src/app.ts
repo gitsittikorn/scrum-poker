@@ -30,6 +30,14 @@ import {
   btnDbReport,
   dbReportModal,
   btnDbReportClose,
+  btnWheel,
+  btnWheelClose,
+  btnWheelSpin,
+  btnWheelShuffle,
+  btnWheelReset,
+  btnWheelClear,
+  btnWheelAdd,
+  wheelAddInput,
 } from "./dom";
 import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, spawnFirework, applyFeatureFlags, openDbReport, closeDbReport } from "./ui";
 import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
@@ -38,6 +46,7 @@ import { renderCards, handleReveal, handleReset } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
 import { toggleSoundPicker, sendSound, renderSoundPicker, handleSoundPickerOutsideClick, playSound } from "./sounds";
+import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
 import { state } from "./state";
 import { FEATURES } from "./config";
 
@@ -84,6 +93,18 @@ function bindEvents(): void {
   btnDbReportClose.addEventListener("click", closeDbReport);
   dbReportModal.addEventListener("click", (e) => {
     if (e.target === dbReportModal) closeDbReport();
+  });
+
+  // Wheel panel
+  btnWheel.addEventListener("click", toggleWheel);
+  btnWheelClose.addEventListener("click", () => toggleWheel());
+  btnWheelSpin.addEventListener("click", handleSpin);
+  btnWheelShuffle.addEventListener("click", handleShuffle);
+  btnWheelReset.addEventListener("click", handleWheelReset);
+  btnWheelClear.addEventListener("click", handleClear);
+  btnWheelAdd.addEventListener("click", handleAddEntry);
+  wheelAddInput.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "Enter") handleAddEntry();
   });
 
   // Sync aria-checked on toggle switches

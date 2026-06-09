@@ -18,6 +18,7 @@ import { escapeHtml } from "./utils";
 import { showPage, showToast, saveUsername, applyFeatureFlags, closeSettings } from "./ui";
 import { initChat, destroyChat, sendSystemMessage } from "./chat";
 import { updateUI, cancelUnlockTimer } from "./voting";
+import { destroyWheel } from "./wheel";
 
 let roomListenerRef: ReturnType<typeof ref> | null = null;
 
@@ -27,6 +28,7 @@ let prevFeatures: FeatureFlags = {
   chat: true,
   react: true,
   sound: true,
+  wheel: true,
 };
 
 export function checkUrlRoom(): void {
@@ -146,7 +148,7 @@ export async function joinRoom(
   userBadge.innerHTML = `${roleIcon} ${escapeHtml(state.currentUser!.name)} <span class="user-role">(${roleName})</span>`;
 
   // Reset prevFeatures before listening
-  prevFeatures = { poker: true, chat: true, react: true, sound: true };
+  prevFeatures = { poker: true, chat: true, react: true, sound: true, wheel: true };
 
   showPage("room");
   listenRoom();
@@ -167,6 +169,7 @@ export function handleLeave(skipMessage = false): void {
   cancelUnlockTimer();
   if (!skipMessage) sendSystemMessage(`${leavingName} ออกจากห้อง`);
   destroyChat();
+  destroyWheel();
   if (roomListenerRef) {
     off(roomListenerRef);
     roomListenerRef = null;
@@ -220,16 +223,18 @@ export function listenRoom(): void {
           chat: data.features.chat ?? true,
           react: data.features.react ?? true,
           sound: data.features.sound ?? true,
+          wheel: data.features.wheel ?? true,
         }
-      : { poker: true, chat: true, react: true, sound: true };
+      : { poker: true, chat: true, react: true, sound: true, wheel: true };
 
     const featuresChanged =
       prevFeatures.poker !== newFeatures.poker ||
       prevFeatures.chat !== newFeatures.chat ||
       prevFeatures.react !== newFeatures.react ||
-      prevFeatures.sound !== newFeatures.sound;
+      prevFeatures.sound !== newFeatures.sound ||
+      prevFeatures.wheel !== newFeatures.wheel;
 
-    // Only re-init listeners when chat/react/sound flags changed (not poker)
+    // Only re-init listeners when chat/react/sound flags changed (not poker/wheel)
     const listenersChanged =
       prevFeatures.chat !== newFeatures.chat ||
       prevFeatures.react !== newFeatures.react ||
@@ -240,6 +245,7 @@ export function listenRoom(): void {
       FEATURES.chat = newFeatures.chat;
       FEATURES.react = newFeatures.react;
       FEATURES.sound = newFeatures.sound;
+      FEATURES.wheel = newFeatures.wheel;
       prevFeatures = { ...newFeatures };
       // Re-init chat/react/sound listeners only when those flags changed
       // isReinit = true → shows all messages (joinedAt = 0)

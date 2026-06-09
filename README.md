@@ -1,4 +1,4 @@
-# Scrum Poker
+# 🃏 Scrum Poker
 
 เว็บ Planning Poker สำหรับทีม Agile — ใช้ร่วมกันได้หลายคนแบบ real-time
 
@@ -8,8 +8,8 @@
 
 ## วิธีใช้งาน
 
-1. เปิดเว็บ → ใส่ชื่อ → เลือก Role → เลือกห้อง → กด **เข้าร่วมห้อง**
-2. เลือกคะแนนจากไพ่ หรือพิมพ์เลขเอง (กด Enter เพื่อ submit)
+1. เปิดเว็บ → ใส่ชื่อ (สูงสุด 15 ตัวอักษร) → เลือก Role → เลือกห้อง → กด **เข้าร่วมห้อง**
+2. เลือกคะแนนจากไพ่ หรือพิมพ์เลขเอง (กด Enter เพื่อ submit, สูงสุด 5 ตัวอักษร)
 3. รอทุกคนโหวตเสร็จ → PO กด **Reveal** เปิดเผยคะแนน
 4. ระบบจะนับถอยหลัง auto-unlock อัตโนมัติ สมาชิกสามารถเปลี่ยนคะแนนได้โดยไม่ต้องรอ PO ปลดล็อค
 5. PO กด **Reset** เพื่อเริ่มรอบใหม่
@@ -51,7 +51,7 @@ Role ใช้แยกคอลัมน์สมาชิก + คำนวณ
 ### แถว 2
 | 4 | 5 | 8 | 13 | 21 | กำหนดเอง |
 |---|---|---|---|---|---|
-| 2 วัน | 2.5 วัน | 4 วัน | ผีหลอก | เสร็จกันยา | พิมพ์เลขเอง (Enter) |
+| 2 วัน | 2.5 วัน | 4 วัน | ผีหลอก | เสร็จกันยา | พิมพ์เลขเอง (สูงสุด 5 ตัวอักษร) |
 
 ---
 
@@ -60,10 +60,73 @@ Role ใช้แยกคอลัมน์สมาชิก + คำนวณ
 | การกระทำ | PO | Dev | QA | UX/UI |
 |---|---|---|---|---|
 | โหวตเลือกคะแนน | ✅ | ✅ | ✅ | ✅ |
+| 🎡 ใช้ Random Wheel | ✅ | ✅ | ✅ | ✅ |
+| 💬 ใช้ Chat | ✅ | ✅ | ✅ | ✅ |
+| 😀 ส่ง Reaction | ✅ | ✅ | ✅ | ✅ |
+| 🔊 ส่งเสียง | ✅ | ✅ | ✅ | ✅ |
+| 📊 ดู Database Usage | ✅ | ✅ | ✅ | ✅ |
 | 👁 Reveal เปิดเผยคะแนน | ✅ | — | — | — |
-| 🔓 Unlock ปลดล็อคโหวต | ✅ | — | — | — |
 | 🔄 Reset เคลียร์คะแนน | ✅ | — | — | — |
 | 🗑 ลบห้อง | ✅ | — | — | — |
+| ⚙️ ตั้งค่าห้อง | ✅ | — | — | — |
+
+---
+
+## 🎡 Random Wheel (กงล้อสุ่มชื่อ)
+
+สุ่มชื่อสมาชิกในห้อง ดึงรายชื่อจาก Firebase อัตโนมัติ
+
+### วิธีใช้
+1. กดปุ่ม 🎡 **Wheel** ที่ Bottom Bar
+2. Panel จะ slide ออกมาจากด้านซ้าย พร้อมกงล้อแสดงรายชื่อสมาชิก
+3. กด **🎡 Spin** เพื่อสุ่ม — กงล้อหมุน 5 วินาที พร้อมเสียง tick
+4. เมื่อหมุนเสร็จ แสดงผู้ถูกสุ่ม + เสียง "แกไม่รอดแน่" + จุดไฟฉลอง
+5. รายชื่อที่ถูกสุ่มจะถูกลบออกจากกงล้ออัตโนมัติ
+
+### ปุ่มควบคุม
+| ปุ่ม | ทำงาน |
+|---|---|
+| 🎡 **Spin** | สุ่มผู้โชคดี |
+| 🔀 **Shuffle** | สลับตำแหน่งชื่อบนกงล้อ |
+| 🔄 **เริ่มใหม่** | ดึงรายชื่อสมาชิกจาก Firebase ใหม่ |
+| 🗑 **Clear** | ลบรายชื่อทั้งหมด |
+
+### ตัวเลือก
+- **Duplicate** — เพิ่มชื่อซ้ำ (2×-5×) เพื่อเพิ่มโอกาสถูกสุ่ม
+- **ลบผู้ถูกสุ่ม** — เปิดแล้วชื่อที่ถูกสุ่มจะหายจากกงล้ออัตโนมัติ
+- **สุ่มตำแหน่งอัตโนมัติ** — shuffle ตำแหน่งทุกรอบก่อนหมุน ป้องกันเดาล่วงหน้า
+
+### จัดการรายชื่อ
+- เพิ่มชื่อใหม่ได้ (สูงสุด 15 ตัวอักษร)
+- ลบ / แก้ไขชื่อแต่ละรายการได้
+- ลากขอบขวาของ panel เพื่อปรับความกว้าง (320-800px)
+
+---
+
+## 💬 Chat
+
+แชท real-time ด้านขวา กดปุ่ม 💬 **Chat** ที่ Bottom Bar เพื่อเปิด/ปิด
+
+- ส่งข้อความ + emoji picker (40 emoji)
+- ตอบกลับ (Reply/Quote) ข้อความได้
+- ข้อความระบบ: แจ้งเตือนเข้า/ออก/Reveal/Reset อัตโนมัติ
+- Typing indicator แบบ real-time
+- แสดงผู้อ่านไม่หมด (unread badge)
+
+---
+
+## 😀 Reactions
+
+ส่ง emoji ลอยขึ้นจากด้านล่าง ทุกคนในห้องเห็นแบบ real-time
+
+- กด **React** ที่ Bottom Bar → เลือก emoji
+- กด ❤️😂🤔 ฯลฯ ที่ข้อความแชทได้ (message reactions)
+
+---
+
+## 🔊 Sound Effects
+
+ส่งเสียงเอฟเฟกต์ให้ทุกคนในห้องได้ยิน (เสียง 15 เสียง)
 
 ---
 
@@ -74,25 +137,33 @@ Role ใช้แยกคอลัมน์สมาชิก + คำนวณ
 | ปุ่ม | ทำงาน |
 |---|---|
 | 👁 **Reveal** | เปิดเผยคะแนนทั้งหมด + ล็อคโหวต + เริ่มนับถอยหลัง auto-unlock |
-| 🔓 **Unlock** | ปลดล็อค + ซ่อนคะแนน (ยกเลิก auto-unlock) |
 | 🔄 **Reset** | เคลียร์คะแนนทั้งหมด + เตะคน offline ออกจากห้อง |
 
 ### Auto-unlock
 
 หลังจาก PO กด Reveal ระบบจะนับถอยหลัง (default 20 วินาที):
-- **ครบเวลา** → ปลดล็อคอัติโนมัติ สมาชิกเปลี่ยนคะแนนได้ทันที โดยยังเห็นคะแนนเดิมอยู่
-- **PO กด Unlock ก่อนครบ** → ปลดล็อค + ซ่อนคะแนน
-- **PO กด Reset** → ยกเลิกการนับถอยหลัง
+- **ครบเวลา** → ปลดล็อคอัตโนมัติ สมาชิกเปลี่ยนคะแนนได้ทันที โดยยังเห็นคะแนนเดิมอยู่
+- **PO กด Reset** → ยกเลือกการนับถอยหลัง
 
 ### Header (มุมขวาบน)
 
 | ปุ่ม | ทำงาน |
 |---|---|
 | 🏠 **Home** | กลับหน้าแรก |
+| 📊 **Database Usage** | ดูขนาดข้อมูล Firebase (ทุกคนเห็น) |
 | 🔗 **แชร์** | คัดลอกลิงก์ห้องส่งให้เพื่อน |
 | ☀️/🌙 **Theme** | สลับ Dark/Light mode |
-| ⚙️ **Settings** | ตั้งค่า auto-unlock timeout (เก็บแยกตามห้อง, PO ทุกคนเห็นค่าเดียวกัน) |
-| 🗑 **ลบห้อง** | ลบห้องทั้งห้อง ทุกคนต้องเข้าใหม่ (มี confirm ก่อนลบ) |
+| ⚙️ **Settings** | ตั้งค่า auto-unlock + feature flags (เฉพาะ PO) |
+| 🗑 **ลบห้อง** | ลบห้องทั้งห้อง ทุกคนต้องเข้าใหม่ (เฉพาะ PO, มี confirm) |
+
+### Bottom Bar (ด้านล่าง)
+
+| ปุ่ม | ทำงาน |
+|---|---|
+| 🎡 **Wheel** | เปิด/ปิด panel กงล้อสุ่มชื่อ |
+| 😀 **React** | เปิด emoji picker ส่ง floating reaction |
+| 🔊 **Sound** | เปิด sound picker ส่งเสียง |
+| 💬 **Chat** | เปิด/ปิดแชท panel |
 
 ---
 
@@ -117,26 +188,36 @@ Role ใช้แยกคอลัมน์สมาชิก + คำนวณ
 
 ---
 
+## 📊 Database Usage
+
+ดูขนาดข้อมูล Firebase ได้ทุกคน (กดปุ่ม 📊 ที่ header)
+- แสดงจำนวนห้อง, ผู้ใช้, ข้อความแชท
+- แสดงขนาดข้อมูล + % ที่ใช้จาก 1 GB (Spark plan)
+- มีลิงก์ไป Firebase Console ดู monthly usage
+
+---
+
 ## การพัฒนา
 
 ### ต้องการ
 
 - Node.js 18+
+- pnpm
 - Firebase CLI (`npm install -g firebase-tools`)
 
 ### รัน local
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 เปิด http://localhost:5173
 
-### Deploy
+### Build & Deploy
 
 ```bash
-npm run build
+pnpm build
 firebase deploy
 ```
 
@@ -147,7 +228,9 @@ firebase deploy
 - Vanilla TypeScript (ไม่มี framework)
 - Firebase Realtime Database
 - Firebase Anonymous Auth
-- Vite
+- Vite 6+
+- HTML5 Canvas (กงล้อสุ่มชื่อ)
+- pnpm
 
 ---
 
@@ -155,10 +238,24 @@ firebase deploy
 
 ```
 src/
-├── index.html       ← หน้าเว็บ
-├── style.css        ← CSS + dark mode + responsive
-├── firebase.ts      ← Firebase config
-└── app.ts           ← Logic ทั้งหมด
+├── index.html       ← SPA: landing page + room page
+├── style.css        ← CSS + dark/light theme + responsive
+├── app.ts           ← Entry point: init() + bindEvents()
+├── firebase.ts      ← Firebase SDK init + re-exports
+├── types.ts         ← TypeScript interfaces
+├── constants.ts     ← CARDS, EMOJIS, SOUNDS, APP_VERSION
+├── config.ts        ← Feature flags + ค่า default
+├── state.ts         ← Shared mutable state + isPO()
+├── dom.ts           ← DOM element references
+├── utils.ts         ← escapeHtml, formatChatTime
+├── auth.ts          ← Firebase auth, version check, auto-rejoin
+├── room.ts          ← Room lifecycle: join/leave/listen/delete
+├── voting.ts        ← Card rendering, vote, reveal, results
+├── chat.ts          ← Chat panel, messages, typing, emoji, reply
+├── reactions.ts     ← Floating reactions, message reactions
+├── sounds.ts        ← Sound effects, Firebase sound listener
+├── ui.ts            ← Theme, toast, settings, firework, DB report
+└── wheel.ts         ← Random Wheel: canvas, spin, entry management
 ```
 
 ---

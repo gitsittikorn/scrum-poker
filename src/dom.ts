@@ -59,9 +59,29 @@ export const featurePoker = $("feature-poker") as HTMLInputElement;
 export const featureChat = $("feature-chat") as HTMLInputElement;
 export const featureReact = $("feature-react") as HTMLInputElement;
 export const featureSound = $("feature-sound") as HTMLInputElement;
+export const featureWheel = $("feature-wheel") as HTMLInputElement;
 export const cleanupTimeInput = $("cleanup-time") as HTMLInputElement;
 
 // DB Report
 export const btnDbReport = $("btn-db-report") as HTMLButtonElement;
 export const dbReportModal = $("db-report-modal") as HTMLElement;
 export const btnDbReportClose = $("btn-db-report-close") as HTMLButtonElement;
+
+// Wheel
+export const btnWheel = $("btn-wheel") as HTMLButtonElement;
+export const wheelPanel = $("wheel-panel");
+export const btnWheelClose = $("btn-wheel-close") as HTMLButtonElement;
+export const wheelCanvas = $("wheel-canvas") as HTMLCanvasElement;
+export const wheelCanvasContainer = $("wheel-canvas-container");
+export const wheelWinnerDisplay = $("wheel-winner-display");
+export const wheelMemberList = $("wheel-member-list");
+export const wheelAddInput = $("wheel-add-input") as HTMLInputElement;
+export const btnWheelAdd = $("btn-wheel-add") as HTMLButtonElement;
+export const btnWheelSpin = $("btn-wheel-spin") as HTMLButtonElement;
+export const btnWheelShuffle = $("btn-wheel-shuffle") as HTMLButtonElement;
+export const btnWheelReset = $("btn-wheel-reset") as HTMLButtonElement;
+export const btnWheelClear = $("btn-wheel-clear") as HTMLButtonElement;
+export const wheelDuplicateSelect = $("wheel-duplicate-select") as HTMLSelectElement;
+export const wheelRemoveWinnerToggle = $("wheel-remove-winner") as HTMLInputElement;
+export const wheelAutoShuffleToggle = $("wheel-auto-shuffle") as HTMLInputElement;
+export const wheelEntryCount = $("wheel-entry-count");
