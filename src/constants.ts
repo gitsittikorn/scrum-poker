@@ -44,5 +44,7 @@ export const SOUNDS: SoundDef[] = [
   { file: "มีอีกไหม.mp3", label: "มีอีกไหม", emoji: "👂" },
   { file: "ทางของพี่.mp3", label: "ทางของพี่", emoji: "😎" },
   { file: "net tot.mp3", label: "เน็ตตอ", emoji: "🌐" },
+  { file: "บุฟเฟ่.mp3", label: "บุฟเฟ่", emoji: "🍽️" },
+  { file: "ปรบมือ.mp3", label: "ปรบมือ", emoji: "👏" },
 ];
 

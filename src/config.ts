@@ -7,6 +7,22 @@
  *  (ถ้ารัน dev server จะ hot-reload ให้อัตโนมัติ)
  */
 
+/**
+ * 🚩 Feature Flags — เปิด/ปิด feature เพื่อจำกัด Firebase quota
+ *
+ * ตั้งเป็น false เพื่อปิด feature นั้น (ซ่อน UI + ไม่ส่ง/รับ Firebase)
+ */
+export const FEATURES = {
+  /** Poker point — การ์ดโหวต, Reveal, Reset */
+  poker: true,
+  /** Chat — แชทแผงขวา, ข้อความ, typing indicator */
+  chat: true,
+  /** React — floating emoji จาก bottom bar */
+  react: true,
+  /** Sound — เอฟเฟกต์เสียงจาก bottom bar */
+  sound: true,
+};
+
 /** วินาทีที่จะ auto-unlock หลังจาก reveal (ค่า default สำหรับห้องใหม่) */
 export const AUTO_UNLOCK_SECONDS = 20;
 
@@ -17,7 +33,7 @@ export const TOAST_DURATION_MS = 3000;
 export const CHAT_MESSAGE_LIMIT = 100;
 
 /** ระยะเวลาแสดง floating emoji (ms) */
-export const FLOATING_EMOJI_DURATION_MS = 4000;
+export const FLOATING_EMOJI_DURATION_MS = 5000;
 
 /** ระยะเวลา typing indicator (ms) */
 export const TYPING_TIMEOUT_MS = 3000;

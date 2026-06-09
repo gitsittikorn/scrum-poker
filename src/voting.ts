@@ -1,4 +1,4 @@
-import { db, ref, set, get, update } from "./firebase";
+import { db, ref, set, get, update, remove } from "./firebase";
 import { state, isPO } from "./state";
 import type { User, RoomData, Role, GroupedUsers } from "./types";
 import {
@@ -18,7 +18,7 @@ import {
 } from "./dom";
 import { CARDS } from "./constants";
 import { AUTO_UNLOCK_SECONDS } from "./config";
-import { showToast } from "./ui";
+import { showToast, showNotVotedModal } from "./ui";
 import { sendSystemMessage } from "./chat";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
@@ -159,24 +159,48 @@ export async function handleCustomVote(): Promise<void> {
   showToast("Voted: " + value);
 }
 
+// ===== Kick User (PO only) =====
+export async function handleKick(targetUid: string, targetName: string): Promise<void> {
+  if (!state.currentRoom || !isPO()) return;
+  await update(ref(db, `rooms/${state.currentRoom}`), {
+    [`kicked/${targetUid}`]: true,
+    [`users/${targetUid}`]: null,
+  });
+  sendSystemMessage(`🥾 ${targetName} ถูกเตะออกจากห้อง`);
+  showToast(`เตะ ${targetName} ออกจากห้องแล้ว`);
+}
+
 export async function handleReveal(): Promise<void> {
   if (!state.currentRoom || !isPO()) return;
   const usersSnap = await get(ref(db, `rooms/${state.currentRoom}/users`));
-  const speakers: Record<string, boolean> = {};
-  if (usersSnap.exists()) {
-    const userList = Object.entries(usersSnap.val() as Record<string, User>);
-    const grouped = groupUsers(userList);
-    const speakerSet = pickSpeakers(grouped);
-    speakerSet.forEach((uid) => {
-      speakers[uid] = true;
-    });
+  if (!usersSnap.exists()) return;
+
+  const users = usersSnap.val() as Record<string, User>;
+  const userList = Object.entries(users);
+
+  // Check if all online non-PO users have voted
+  const notVoted = userList.filter(
+    ([, user]) => user.online !== false && user.role !== "po" && user.vote == null
+  );
+  if (notVoted.length > 0) {
+    const names = notVoted.map(([, u]) => u.name).join(", ");
+    showNotVotedModal(names);
+    return;
   }
+
+  // All voted — proceed with reveal
+  const grouped = groupUsers(userList);
+  const speakers: Record<string, boolean> = {};
+  const speakerSet = pickSpeakers(grouped);
+  speakerSet.forEach((uid) => {
+    speakers[uid] = true;
+  });
+
   await update(ref(db, `rooms/${state.currentRoom}`), {
     revealed: true,
     locked: true,
     drinkers: speakers, // Firebase field kept as "drinkers" for backward compat
   });
-  sendSystemMessage("👁 การ์ดเปิดแล้ว!");
 }
 
 export async function handleReset(): Promise<void> {
@@ -205,7 +229,6 @@ export async function handleReset(): Promise<void> {
     .querySelectorAll(".poker-card")
     .forEach((el) => el.classList.remove("selected"));
   if (customPointInput) customPointInput.value = "";
-  sendSystemMessage("🔄 เริ่มโหวตใหม่");
   showToast("Reset + offline users removed");
 }
 
@@ -393,6 +416,19 @@ export function updateUI(roomData: RoomData): void {
         "speaker-label" + (locked ? " speaker-pulse" : "");
       speakerLabel.textContent = "📢 พูดเลยลูก";
       card.appendChild(speakerLabel);
+    }
+    if (isPO() && uid !== state.currentUid) {
+      const kickBtn = document.createElement("button");
+      kickBtn.className = "btn-kick";
+      kickBtn.title = "เตะออกจากห้อง";
+      kickBtn.textContent = "🥾";
+      kickBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (confirm(`เตะ ${user.name} ออกจากห้อง?`)) {
+          handleKick(uid, user.name);
+        }
+      });
+      card.appendChild(kickBtn);
     }
     card.appendChild(statusDot);
     return card;

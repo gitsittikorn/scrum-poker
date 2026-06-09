@@ -10,17 +10,33 @@ import {
 } from "./firebase";
 import { state } from "./state";
 import { soundPickerBar } from "./dom";
-import { SOUNDS } from "./constants";
-import { SOUND_VOLUME } from "./config";
+import { SOUNDS, type SoundDef } from "./constants";
+import { SOUND_VOLUME, FEATURES } from "./config";
+import { animateFloatingEmoji } from "./reactions";
 
 let soundPickerOpen = false;
 let soundListenerQuery: ReturnType<typeof ref> | null = null;
+
+/** Audio cache — preloaded for instant playback */
+const audioCache = new Map<string, HTMLAudioElement>();
+
+/** Preload all sound files so first play is instant */
+export function preloadSounds(): void {
+  for (const s of SOUNDS) {
+    if (!audioCache.has(s.file)) {
+      const audio = new Audio(`/sounds/${s.file}`);
+      audio.volume = SOUND_VOLUME;
+      audio.preload = "auto";
+      audioCache.set(s.file, audio);
+    }
+  }
+}
 
 /** Render sound picker buttons */
 export function renderSoundPicker(): void {
   soundPickerBar.innerHTML = SOUNDS.map(
     (s) =>
-      `<button class="sound-item" data-file="${s.file}" title="${s.label}">${s.emoji} <small>${s.label}</small></button>`
+      `<button class="sound-item" data-file="${s.file}" data-emoji="${s.emoji}" title="${s.label}">${s.emoji} <small>${s.label}</small></button>`
   ).join("");
 }
 
@@ -30,17 +46,29 @@ export function toggleSoundPicker(): void {
   soundPickerBar.classList.toggle("hidden", !soundPickerOpen);
 }
 
-/** Play a local audio file */
+/** Play a local audio file using preloaded cache */
 export function playSound(file: string): void {
-  const audio = new Audio(`/sounds/${file}`);
-  audio.volume = SOUND_VOLUME;
-  audio.play().catch(() => {
-    /* browser blocked autoplay — ignore */
-  });
+  const cached = audioCache.get(file);
+  if (cached) {
+    // Clone the cached audio so overlapping plays work
+    const audio = cached.cloneNode() as HTMLAudioElement;
+    audio.volume = SOUND_VOLUME;
+    audio.play().catch(() => {
+      /* browser blocked autoplay — ignore */
+    });
+  } else {
+    // Fallback: load on demand (shouldn't happen if preloaded)
+    const audio = new Audio(`/sounds/${file}`);
+    audio.volume = SOUND_VOLUME;
+    audio.play().catch(() => {
+      /* browser blocked autoplay — ignore */
+    });
+  }
 }
 
 /** Send sound event to Firebase so everyone hears it */
 export async function sendSound(file: string): Promise<void> {
+  if (!FEATURES.sound) return;
   if (!state.currentRoom || !state.currentUser) return;
   await set(push(ref(db, `rooms/${state.currentRoom}/sounds`)), {
     file,
@@ -55,6 +83,9 @@ export function initSoundListener(): void {
   destroySoundListener();
   if (!state.currentRoom) return;
 
+  // Preload sounds on first room join so playback is instant
+  preloadSounds();
+
   const soundsRef = ref(db, `rooms/${state.currentRoom}/sounds`);
   soundListenerQuery = soundsRef;
 
@@ -62,6 +93,11 @@ export function initSoundListener(): void {
     const data = snap.val();
     if (data) {
       playSound(data.file);
+      // Show floating emoji for other users' sounds
+      if (data.senderUid !== state.currentUid) {
+        const emoji = getSoundEmoji(data.file);
+        animateFloatingEmoji(emoji, data.senderName);
+      }
       const key = snap.key;
       setTimeout(() => {
         if (state.currentRoom && key) {
@@ -90,4 +126,10 @@ export function handleSoundPickerOutsideClick(target: HTMLElement): void {
     soundPickerBar.classList.add("hidden");
     soundPickerOpen = false;
   }
+}
+
+/** Look up the emoji for a sound file */
+function getSoundEmoji(file: string): string {
+  const sound = SOUNDS.find((s) => s.file === file);
+  return sound ? sound.emoji : "🔊";
 }

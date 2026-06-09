@@ -1,5 +1,5 @@
 import { db, ref, get, update } from "./firebase";
-import { state } from "./state";
+import { state, isPO } from "./state";
 import {
   toastEl,
   settingsModal,
@@ -9,8 +9,24 @@ import {
   btnToggleTheme,
   usernameInput,
   roleSelect,
+  adminSettings,
+  featurePoker,
+  featureChat,
+  featureReact,
+  featureSound,
+  cleanupTimeInput,
+  btnBarChat,
+  btnBarReact,
+  reactPickerBar,
+  btnBarSound,
+  soundPickerBar,
+  btnDbReport,
+  dbReportModal,
+  btnDbReportClose,
 } from "./dom";
-import { TOAST_DURATION_MS, AUTO_UNLOCK_SECONDS } from "./config";
+import { TOAST_DURATION_MS, AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
+import type { User } from "./types";
+import { forceCloseChat } from "./chat";
 
 export function showPage(page: "landing" | "room"): void {
   landingPage.classList.remove("active");
@@ -62,10 +78,63 @@ export function saveUsername(name: string): void {
 
 export async function openSettings(): Promise<void> {
   if (!state.currentRoom) return;
-  const snap = await get(ref(db, `rooms/${state.currentRoom}/autoUnlockSeconds`));
-  settingsInput.value = String(
-    snap.exists() ? snap.val() : AUTO_UNLOCK_SECONDS
-  );
+
+  // Save button — visible to PO only
+  const saveBtn = document.getElementById("btn-settings-save")!;
+  const closeLink = document.getElementById("settings-close-link")!;
+  if (isPO()) {
+    saveBtn.classList.remove("hidden");
+    closeLink.classList.add("hidden");
+  } else {
+    saveBtn.classList.add("hidden");
+    closeLink.classList.remove("hidden");
+  }
+
+  // Auto-unlock timeout — visible to PO only
+  const autoUnlockGroup = document.getElementById("settings-auto-unlock-group")!;
+  if (isPO()) {
+    autoUnlockGroup.classList.remove("hidden");
+    const snap = await get(ref(db, `rooms/${state.currentRoom}/autoUnlockSeconds`));
+    settingsInput.value = String(
+      snap.exists() ? snap.val() : AUTO_UNLOCK_SECONDS
+    );
+  } else {
+    autoUnlockGroup.classList.add("hidden");
+  }
+
+  // Database report button — visible to PO only
+  if (isPO()) {
+    btnDbReport.classList.remove("hidden");
+  } else {
+    btnDbReport.classList.add("hidden");
+  }
+
+  // Admin section — visible to all PO
+  if (isPO()) {
+    adminSettings.classList.remove("hidden");
+
+    // Load feature flags from Firebase
+    const featuresSnap = await get(ref(db, `rooms/${state.currentRoom}/features`));
+    if (featuresSnap.exists()) {
+      const f = featuresSnap.val();
+      featurePoker.checked = f.poker ?? true;
+      featureChat.checked = f.chat ?? true;
+      featureReact.checked = f.react ?? true;
+      featureSound.checked = f.sound ?? true;
+    } else {
+      featurePoker.checked = true;
+      featureChat.checked = true;
+      featureReact.checked = true;
+      featureSound.checked = true;
+    }
+
+    // Load cleanup time from global settings
+    const cleanupSnap = await get(ref(db, `settings/cleanupTime`));
+    cleanupTimeInput.value = cleanupSnap.exists() ? cleanupSnap.val() : "19:00";
+  } else {
+    adminSettings.classList.add("hidden");
+  }
+
   settingsModal.classList.add("active");
 }
 
@@ -74,16 +143,184 @@ export function closeSettings(): void {
 }
 
 export async function saveSettings(): Promise<void> {
-  const val = parseInt(settingsInput.value, 10);
-  if (val >= 5 && state.currentRoom) {
-    await update(ref(db, `rooms/${state.currentRoom}`), {
-      autoUnlockSeconds: val,
-    });
-    settingsModal.classList.remove("active");
-    showToast(`Auto-unlock set to ${val}s`);
-  } else {
-    showToast("Minimum 5 seconds");
+  if (!state.currentRoom) return;
+
+  const updates: Record<string, unknown> = {};
+
+  // Auto-unlock — only save if PO
+  if (isPO()) {
+    const val = parseInt(settingsInput.value, 10);
+    if (val < 5 || val > 300) {
+      showToast("ค่าต้องอยู่ระหว่าง 5-300 วินาที");
+      return;
+    }
+    updates.autoUnlockSeconds = val;
   }
+
+  // Save admin settings if PO
+  if (isPO()) {
+    updates["features"] = {
+      poker: featurePoker.checked,
+      chat: featureChat.checked,
+      react: featureReact.checked,
+      sound: featureSound.checked,
+    };
+
+    // Save cleanup time to global settings
+    const cleanupTime = cleanupTimeInput.value;
+    if (cleanupTime) {
+      await update(ref(db, `settings`), { cleanupTime });
+    }
+  }
+
+  await update(ref(db, `rooms/${state.currentRoom}`), updates);
+  settingsModal.classList.remove("active");
+  showToast("Settings saved");
+}
+
+/** Show/hide UI based on feature flags — toggles classes on AND off */
+export function applyFeatureFlags(): void {
+  // Poker
+  const votingStatus = document.querySelector(".voting-status");
+  const votingSection = document.querySelector(".voting-section");
+  const adminControls = document.querySelector(".admin-controls");
+  votingStatus?.classList.toggle("hidden", !FEATURES.poker);
+  votingSection?.classList.toggle("hidden", !FEATURES.poker);
+  adminControls?.classList.toggle("hidden", !FEATURES.poker);
+
+  // Chat
+  btnBarChat.classList.toggle("hidden", !FEATURES.chat);
+  if (!FEATURES.chat) {
+    forceCloseChat(); // Reset chatOpen boolean + close panel
+  }
+
+  // React
+  btnBarReact.classList.toggle("hidden", !FEATURES.react);
+  reactPickerBar.classList.add("hidden");
+  const floatingEl = document.getElementById("floating-reactions");
+  floatingEl?.classList.toggle("hidden", !FEATURES.react && !FEATURES.sound);
+
+  // Sound
+  btnBarSound.classList.toggle("hidden", !FEATURES.sound);
+  soundPickerBar.classList.add("hidden");
+
+  // Bottom bar — hide entirely if all features off
+  const bottomBar = document.getElementById("bottom-bar");
+  const anyFeature = FEATURES.chat || FEATURES.react || FEATURES.sound;
+  bottomBar?.classList.toggle("hidden", !anyFeature);
+}
+
+export async function openDbReport(): Promise<void> {
+  dbReportModal.classList.add("active");
+  await loadDbReport();
+}
+
+export function closeDbReport(): void {
+  dbReportModal.classList.remove("active");
+}
+
+async function loadDbReport(): Promise<void> {
+  const container = document.getElementById("db-report-content");
+  if (!container) return;
+
+  try {
+    const [roomsSnap, settingsSnap] = await Promise.all([
+      get(ref(db, "rooms")),
+      get(ref(db, "settings")),
+    ]);
+
+    let totalRooms = 0;
+    let totalUsers = 0;
+    let onlineUsers = 0;
+    let totalMessages = 0;
+
+    const roomsData = roomsSnap.exists() ? roomsSnap.val() as Record<string, any> : {};
+
+    for (const [, room] of Object.entries(roomsData)) {
+      totalRooms++;
+      if (room.users) {
+        const users = Object.values(room.users) as User[];
+        totalUsers += users.length;
+        onlineUsers += users.filter(u => u.online !== false).length;
+      }
+      if (room.messages) {
+        totalMessages += Object.keys(room.messages).length;
+      }
+    }
+
+    // Estimate data size
+    const roomsJson = JSON.stringify(roomsData);
+    const settingsJson = settingsSnap.exists() ? JSON.stringify(settingsSnap.val()) : "{}";
+    const totalSizeBytes = new Blob([roomsJson + settingsJson]).size;
+    const sizeKB = (totalSizeBytes / 1024).toFixed(1);
+    const sizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(3);
+
+    // Spark plan: 1 GB stored data limit
+    const limitMB = 1024;
+    const percentUsed = ((totalSizeBytes / (limitMB * 1024 * 1024)) * 100).toFixed(4);
+
+    container.innerHTML = `
+      <div class="report-row"><span>📦 ห้องทั้งหมด</span><span class="report-value">${totalRooms} ห้อง</span></div>
+      <div class="report-row"><span>👥 ผู้ใช้ทั้งหมด</span><span class="report-value">${totalUsers} คน <small>(${onlineUsers} online)</small></span></div>
+      <div class="report-row"><span>💬 ข้อความแชท</span><span class="report-value">${totalMessages} ข้อความ</span></div>
+      <div class="report-divider"></div>
+      <div class="report-row"><span>💾 ขนาดข้อมูล</span><span class="report-value">${sizeMB} MB (${sizeKB} KB)</span></div>
+      <div class="report-row"><span>📊 ใช้จาก 1 GB <small>(Spark plan)</small></span><span class="report-value">${percentUsed}%</span></div>
+      <div class="report-bar"><div class="report-bar-fill" style="width:${Math.max(0.5, parseFloat(percentUsed))}%"></div></div>
+      <div class="report-divider"></div>
+      <a href="https://console.firebase.google.com/project/_/usage" target="_blank" class="settings-link">📋 ดู Monthly Usage ที่ Firebase Console</a>
+    `;
+  } catch (err) {
+    container.innerHTML = `<small style="color:var(--danger)">❌ โหลดข้อมูลไม่สำเร็จ</small>`;
+    console.error("[DB Report] Error:", err);
+  }
+}
+
+export function showNotVotedModal(names: string): void {
+  // Remove any existing not-voted modal
+  const existing = document.getElementById("not-voted-modal");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "not-voted-modal";
+  overlay.className = "modal-overlay active";
+
+  const content = document.createElement("div");
+  content.className = "modal-content";
+
+  const header = document.createElement("div");
+  header.className = "modal-header";
+  const h2 = document.createElement("h2");
+  h2.textContent = "🃏 รอคนกด point";
+  header.appendChild(h2);
+
+  const body = document.createElement("div");
+  body.className = "modal-body";
+  const p = document.createElement("p");
+  p.className = "not-voted-text";
+  p.appendChild(document.createTextNode("เชิญ "));
+  const strong = document.createElement("strong");
+  strong.textContent = names;
+  p.appendChild(strong);
+  p.appendChild(document.createTextNode(" กด point ด้วย"));
+  body.appendChild(p);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "btn btn-primary";
+  closeBtn.style.width = "100%";
+  closeBtn.textContent = "ปิด";
+  closeBtn.addEventListener("click", () => overlay.remove());
+
+  content.appendChild(header);
+  content.appendChild(body);
+  content.appendChild(closeBtn);
+  overlay.appendChild(content);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  document.getElementById("app")!.appendChild(overlay);
 }
 
 export function spawnFirework(container: HTMLElement): void {

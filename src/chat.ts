@@ -26,15 +26,12 @@ import {
   emojiPicker,
 } from "./dom";
 import { EMOJIS } from "./constants";
-import { CHAT_MESSAGE_LIMIT, FLOATING_EMOJI_DURATION_MS, TYPING_TIMEOUT_MS, TYPING_DISPLAY_MS } from "./config";
+import { CHAT_MESSAGE_LIMIT, FLOATING_EMOJI_DURATION_MS, TYPING_TIMEOUT_MS, TYPING_DISPLAY_MS, FEATURES } from "./config";
 import { escapeHtml, formatChatTime } from "./utils";
 import {
   renderReactPickerBar,
   animateFloatingEmoji,
   renderMessageReactions,
-  showQuickReactions,
-  closeQuickPopup,
-  toggleMessageReaction,
 } from "./reactions";
 import { initSoundListener, destroySoundListener } from "./sounds";
 
@@ -49,6 +46,9 @@ let replyTo: { msgId: string; senderName: string; text: string } | null = null;
 let liveReactionListenerRef: ReturnType<typeof query> | null = null;
 const messageCache = new Map<string, { senderName: string; text: string }>();
 
+/** Timestamp when user joined — messages before this are hidden */
+let joinedAt = 0;
+
 export function toggleChat(): void {
   chatOpen = !chatOpen;
   chatPanel.classList.toggle("open", chatOpen);
@@ -60,6 +60,12 @@ export function toggleChat(): void {
   }
 }
 
+/** Force-close chat panel and reset state — called when chat feature is disabled */
+export function forceCloseChat(): void {
+  chatOpen = false;
+  chatPanel.classList.remove("open");
+}
+
 function updateChatUnread(): void {
   if (chatUnread > 0) {
     chatUnreadBadge.textContent = String(chatUnread > 99 ? "99+" : chatUnread);
@@ -69,8 +75,11 @@ function updateChatUnread(): void {
   }
 }
 
-export function initChat(): void {
+export function initChat(isReinit = false): void {
   destroyChat();
+  // On fresh join: only show messages from now on.
+  // On feature-toggle reinit (isReinit): show all messages.
+  joinedAt = isReinit ? 0 : Date.now() - 2000; // 2 s buffer for clock skew
   renderedMsgIds.clear();
   messageCache.clear();
   chatMessages.innerHTML = "";
@@ -78,76 +87,89 @@ export function initChat(): void {
   updateChatUnread();
   renderEmojiPicker();
   renderReactPickerBar();
-  initSoundListener();
 
-  const messagesQuery = query(
-    ref(db, `rooms/${state.currentRoom}/messages`),
-    limitToLast(CHAT_MESSAGE_LIMIT)
-  );
-  chatListenerQuery = messagesQuery;
+  // Sound listener — only if sound feature enabled
+  if (FEATURES.sound) initSoundListener();
 
-  onChildAdded(messagesQuery, (snap) => {
-    const msg = snap.val() as ChatMessage;
-    const msgId = snap.key!;
-    if (renderedMsgIds.has(msgId)) return;
-    renderedMsgIds.add(msgId);
-    renderChatMessage(msg, msgId);
+  // Chat messages + typing — only if chat feature enabled
+  if (FEATURES.chat) {
+    const messagesQuery = query(
+      ref(db, `rooms/${state.currentRoom}/messages`),
+      limitToLast(CHAT_MESSAGE_LIMIT)
+    );
+    chatListenerQuery = messagesQuery;
 
-    if (!chatOpen && msg.type === "user" && msg.senderUid !== state.currentUid) {
-      chatUnread++;
-      updateChatUnread();
-    }
-    scrollChatToBottom();
-  });
+    onChildAdded(messagesQuery, (snap) => {
+      const msg = snap.val() as ChatMessage;
+      const msgId = snap.key!;
+      if (renderedMsgIds.has(msgId)) return;
+      // Filter: hide messages from before the user joined
+      if (joinedAt > 0 && msg.timestamp && msg.timestamp < joinedAt) return;
+      renderedMsgIds.add(msgId);
+      renderChatMessage(msg, msgId);
 
-  onChildChanged(messagesQuery, (snap) => {
-    const msg = snap.val() as ChatMessage;
-    const msgId = snap.key!;
-    renderMessageReactions(msgId, msg.reactions || null);
-  });
+      if (!chatOpen && msg.type === "user" && msg.senderUid !== state.currentUid) {
+        chatUnread++;
+        updateChatUnread();
+      }
+      scrollChatToBottom();
+    });
 
-  const liveReactionQuery = query(
-    ref(db, `rooms/${state.currentRoom}/liveReactions`),
-    limitToLast(20)
-  );
-  liveReactionListenerRef = liveReactionQuery;
-  onChildAdded(liveReactionQuery, (snap) => {
-    const data = snap.val();
-    if (data) {
-      animateFloatingEmoji(data.emoji, data.senderName);
-      const key = snap.key;
-      setTimeout(() => {
-        if (state.currentRoom && key)
-          remove(ref(db, `rooms/${state.currentRoom}/liveReactions/${key}`));
-      }, FLOATING_EMOJI_DURATION_MS);
-    }
-  });
+    onChildChanged(messagesQuery, (snap) => {
+      const msg = snap.val() as ChatMessage;
+      const msgId = snap.key!;
+      renderMessageReactions(msgId, msg.reactions || null);
+    });
 
-  const typingRef = ref(db, `rooms/${state.currentRoom}/typing`);
-  typingListenerRef = typingRef;
-  onValue(typingRef, (snap) => {
-    const typing = snap.val() as Record<
-      string,
-      { name: string; timestamp: number }
-    > | null;
-    if (!typing) {
-      chatTyping.classList.add("hidden");
-      return;
-    }
-    const now = Date.now();
-    const names = Object.entries(typing)
-      .filter(([uid, v]) => uid !== state.currentUid && now - v.timestamp < TYPING_DISPLAY_MS)
-      .map(([, v]) => v.name);
-    if (names.length === 0) {
-      chatTyping.classList.add("hidden");
-    } else {
-      chatTyping.classList.remove("hidden");
-      chatTyping.textContent =
-        names.length === 1
-          ? `${names[0]} กำลังพิมพ์...`
-          : `${names.join(", ")} กำลังพิมพ์...`;
-    }
-  });
+    const typingRef = ref(db, `rooms/${state.currentRoom}/typing`);
+    typingListenerRef = typingRef;
+    onValue(typingRef, (snap) => {
+      const typing = snap.val() as Record<
+        string,
+        { name: string; timestamp: number }
+      > | null;
+      if (!typing) {
+        chatTyping.classList.add("hidden");
+        return;
+      }
+      const now = Date.now();
+      const names = Object.entries(typing)
+        .filter(([uid, v]) => uid !== state.currentUid && now - v.timestamp < TYPING_DISPLAY_MS)
+        .map(([, v]) => v.name);
+      if (names.length === 0) {
+        chatTyping.classList.add("hidden");
+      } else {
+        chatTyping.classList.remove("hidden");
+        chatTyping.textContent =
+          names.length === 1
+            ? `${names[0]} กำลังพิมพ์...`
+            : `${names.join(", ")} กำลังพิมพ์...`;
+      }
+    });
+  } // end FEATURES.chat
+
+  // Live reactions — only if react feature enabled
+  if (FEATURES.react) {
+    const liveReactionQuery = query(
+      ref(db, `rooms/${state.currentRoom}/liveReactions`),
+      limitToLast(20)
+    );
+    liveReactionListenerRef = liveReactionQuery;
+    onChildAdded(liveReactionQuery, (snap) => {
+      const data = snap.val();
+      if (data) {
+        // Skip own reactions — already shown locally on click
+        if (data.senderUid !== state.currentUid) {
+          animateFloatingEmoji(data.emoji, data.senderName);
+        }
+        const key = snap.key;
+        setTimeout(() => {
+          if (state.currentRoom && key)
+            remove(ref(db, `rooms/${state.currentRoom}/liveReactions/${key}`));
+        }, FLOATING_EMOJI_DURATION_MS);
+      }
+    });
+  } // end FEATURES.react
 }
 
 export function destroyChat(): void {
@@ -240,6 +262,7 @@ function scrollChatToBottom(): void {
 }
 
 export async function sendChatMessage(): Promise<void> {
+  if (!FEATURES.chat) return;
   const text = chatInput.value.trim();
   if (!text || !state.currentRoom || !state.currentUser) return;
 
@@ -257,7 +280,7 @@ export async function sendChatMessage(): Promise<void> {
   };
 
   if (replyTo) {
-    msgData.replyTo = { senderName: replyTo.senderName, text: replyTo.text };
+    msgData.replyTo = { msgId: replyTo.msgId, senderName: replyTo.senderName, text: replyTo.text };
     cancelReply();
   }
 
@@ -277,6 +300,7 @@ export async function sendSystemMessage(text: string): Promise<void> {
 }
 
 export function handleChatTyping(): void {
+  if (!FEATURES.chat) return;
   if (!state.currentRoom || !state.currentUid || !state.currentUser) return;
   set(ref(db, `rooms/${state.currentRoom}/typing/${state.currentUid}`), {
     name: state.currentUser.name,

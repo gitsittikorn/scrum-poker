@@ -27,22 +27,28 @@ import {
   roomBanner,
   btnBarSound,
   soundPickerBar,
+  btnDbReport,
+  dbReportModal,
+  btnDbReportClose,
 } from "./dom";
-import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, spawnFirework } from "./ui";
+import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, spawnFirework, applyFeatureFlags, openDbReport, closeDbReport } from "./ui";
 import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
-import { handleJoinRoom, handleLeave, handleCopyLink, handleDeleteRoom, checkUrlRoom, setupBeforeUnload } from "./room";
+import { handleJoinRoom, handleLeave, handleCopyLink, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler } from "./room";
 import { renderCards, handleReveal, handleReset } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
-import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick } from "./reactions";
-import { toggleSoundPicker, sendSound, renderSoundPicker, handleSoundPickerOutsideClick } from "./sounds";
+import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
+import { toggleSoundPicker, sendSound, renderSoundPicker, handleSoundPickerOutsideClick, playSound } from "./sounds";
+import { state } from "./state";
+import { FEATURES } from "./config";
 
 function init(): void {
   checkVersion();
   loadUsername();
   loadTheme();
-  renderCards();
-  renderSoundPicker();
+  if (FEATURES.poker) renderCards();
+  if (FEATURES.sound) renderSoundPicker();
   bindEvents();
+  applyFeatureFlags();
   checkUrlRoom();
   btnJoinRoom.disabled = true;
   btnJoinRoom.textContent = "กำลังเชื่อมต่อ...";
@@ -51,6 +57,7 @@ function init(): void {
     btnJoinRoom.textContent = "เข้าร่วมห้อง";
     autoRejoinFromUrl();
   });
+  startCleanupScheduler();
 }
 
 function bindEvents(): void {
@@ -69,12 +76,34 @@ function bindEvents(): void {
   settingsModal.addEventListener("click", (e) => {
     if (e.target === settingsModal) closeSettings();
   });
+  // Close link for non-PO users
+  document.getElementById("settings-close-link")?.addEventListener("click", closeSettings);
+
+  // DB Report modal
+  btnDbReport.addEventListener("click", openDbReport);
+  btnDbReportClose.addEventListener("click", closeDbReport);
+  dbReportModal.addEventListener("click", (e) => {
+    if (e.target === dbReportModal) closeDbReport();
+  });
+
+  // Sync aria-checked on toggle switches
+  document.querySelectorAll<HTMLInputElement>('.toggle-label input[type="checkbox"]').forEach((cb) => {
+    cb.addEventListener("change", () => {
+      const sw = cb.nextElementSibling;
+      if (sw) sw.setAttribute("aria-checked", String(cb.checked));
+    });
+  });
 
   btnReveal.addEventListener("click", handleReveal);
   btnReset.addEventListener("click", handleReset);
   btnDeleteRoom.addEventListener("click", () => {
-    if (confirm("ต้องการลบห้องทั้งหมด? ทุกคนจะถูกออกจากห้อง")) {
+    if (confirm("⚠️ ต้องการลบห้องนี้?\n\nทุกคนจะถูกออกจากห้อง")) {
       handleDeleteRoom();
+    }
+  });
+  document.getElementById("btn-clear-all")?.addEventListener("click", () => {
+    if (confirm("⚠️ ต้องการเคลียร์ข้อมูลทุกห้อง?\n\n• ข้อความแชททั้งหมดจะถูกลบ\n• คะแนนโหวตจะถูกรีเซ็ต\n• ทุกคนจะถูกออกจากห้องทันที")) {
+      handleClearAllRooms();
     }
   });
 
@@ -99,21 +128,27 @@ function bindEvents(): void {
   });
 
   // React bar
-  btnBarReact.addEventListener("click", toggleReactPicker);
+  btnBarReact.addEventListener("click", () => { if (FEATURES.react) toggleReactPicker(); });
   reactPickerBar.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
-    if (target.classList.contains("emoji-item")) {
-      sendLiveReaction(target.dataset.emoji!);
+    if (target.classList.contains("emoji-item") && FEATURES.react) {
+      const emoji = target.dataset.emoji!;
+      // Show floating emoji locally immediately (don't wait for Firebase)
+      if (state.currentUser) animateFloatingEmoji(emoji, state.currentUser.name);
+      sendLiveReaction(emoji);
       reactPickerBar.classList.add("hidden");
     }
   });
 
   // Sound bar
-  btnBarSound.addEventListener("click", toggleSoundPicker);
+  btnBarSound.addEventListener("click", () => { if (FEATURES.sound) toggleSoundPicker(); });
   soundPickerBar.addEventListener("click", (e) => {
     const target = (e.target as HTMLElement).closest(".sound-item") as HTMLElement;
-    if (target) {
+    if (target && FEATURES.sound) {
       const file = target.dataset.file!;
+      const emoji = target.dataset.emoji!;
+      // Show floating emoji locally immediately (don't wait for Firebase)
+      if (state.currentUser) animateFloatingEmoji(emoji, state.currentUser.name);
       sendSound(file);
       soundPickerBar.classList.add("hidden");
     }

@@ -52,3 +52,16 @@ export const btnBarReact = $("btn-bar-react") as HTMLButtonElement;
 export const reactPickerBar = $("react-picker-bar");
 export const btnBarSound = $("btn-bar-sound") as HTMLButtonElement;
 export const soundPickerBar = $("sound-picker-bar");
+
+// Admin settings
+export const adminSettings = $("admin-settings");
+export const featurePoker = $("feature-poker") as HTMLInputElement;
+export const featureChat = $("feature-chat") as HTMLInputElement;
+export const featureReact = $("feature-react") as HTMLInputElement;
+export const featureSound = $("feature-sound") as HTMLInputElement;
+export const cleanupTimeInput = $("cleanup-time") as HTMLInputElement;
+
+// DB Report
+export const btnDbReport = $("btn-db-report") as HTMLButtonElement;
+export const dbReportModal = $("db-report-modal") as HTMLElement;
+export const btnDbReportClose = $("btn-db-report-close") as HTMLButtonElement;

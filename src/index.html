@@ -74,6 +74,7 @@
         <div class="header-right">
           <div id="user-badge" class="user-badge"></div>
           <button id="btn-home" class="btn btn-icon" title="กลับหน้าแรก">🏠</button>
+          <button id="btn-db-report" class="btn btn-icon hidden" title="Database Usage">📊</button>
           <button id="btn-copy-link" class="btn btn-icon" title="คัดลอกลิงก์">🔗</button>
           <button id="btn-toggle-theme" class="btn btn-icon" title="Dark/Light mode">☀️</button>
           <button id="btn-settings" class="btn btn-icon" title="Settings">⚙️</button>
@@ -107,7 +108,7 @@
             <span class="title-icon">👥</span> สมาชิก
             <span class="badge" id="participant-count">0</span>
           </div>
-          <div class="participants-columns four-col">
+          <div class="participants-columns">
             <div class="participant-col">
               <div class="col-header po">PO</div>
               <div id="col-team" class="col-list"></div>
@@ -197,12 +198,74 @@
           <button id="btn-settings-close" class="btn btn-icon">✕</button>
         </div>
         <div class="modal-body">
-          <div class="form-group">
+          <div class="form-group" id="settings-auto-unlock-group">
             <label for="settings-auto-unlock">Auto-unlock timeout (วินาที)</label>
             <input type="number" id="settings-auto-unlock" min="5" max="300" step="5" value="20">
           </div>
+
+          <!-- Admin Section (visible only to PO) -->
+          <div id="admin-settings" class="admin-settings hidden">
+            <div class="settings-divider"></div>
+            <div class="settings-section-title">🔒 Admin Settings</div>
+
+            <div class="form-group">
+              <label>Feature Flags</label>
+              <div class="toggle-group">
+                <label class="toggle-label">
+                  <span class="toggle-text">🃏 Poker</span>
+                  <input type="checkbox" id="feature-poker" checked aria-label="Poker feature toggle">
+                  <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                </label>
+                <label class="toggle-label">
+                  <span class="toggle-text">💬 Chat</span>
+                  <input type="checkbox" id="feature-chat" checked aria-label="Chat feature toggle">
+                  <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                </label>
+                <label class="toggle-label">
+                  <span class="toggle-text">😀 React</span>
+                  <input type="checkbox" id="feature-react" checked aria-label="React feature toggle">
+                  <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                </label>
+                <label class="toggle-label">
+                  <span class="toggle-text">🔊 Sound</span>
+                  <input type="checkbox" id="feature-sound" checked aria-label="Sound feature toggle">
+                  <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="cleanup-time">🕐 ตั้งเวลาเคลียร์ข้อมูลทุกห้อง</label>
+              <input type="time" id="cleanup-time" value="19:00">
+              <small class="form-hint">ทุกวันเวลาที่ตั้ง ระบบจะลบข้อความแชทและข้อมูลชั่วคราวทั้งหมด</small>
+            </div>
+
+            <div class="settings-divider"></div>
+            <div class="form-group">
+              <label>🗑 เคลียร์ข้อมูลทุกห้อง</label>
+              <button id="btn-clear-all" class="btn btn-delete" style="width:100%">เคลียร์ข้อมูลทั้งหมด</button>
+              <small class="form-hint">ลบข้อมูลทุกห้อง + เตะทุกคนออกจากห้องทันที</small>
+            </div>
+          </div>
+
           <button id="btn-settings-save" class="btn btn-primary" style="width:100%">Save</button>
+          <a id="settings-close-link" class="settings-link" href="javascript:void(0)">ปิด</a>
           <a href="https://github.com/gitsittikorn/scrum-poker/blob/main/README.md" target="_blank" class="settings-link">📖 ดู README</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Database Usage Modal -->
+    <div id="db-report-modal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>📊 Firebase Database Usage</h2>
+          <button id="btn-db-report-close" class="btn btn-icon">✕</button>
+        </div>
+        <div class="modal-body">
+          <div id="db-report-content" class="db-report">
+            <small class="form-hint">กำลังโหลดข้อมูล...</small>
+          </div>
         </div>
       </div>
     </div>

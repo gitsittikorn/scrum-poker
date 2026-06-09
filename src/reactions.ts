@@ -2,6 +2,7 @@ import { db, ref, set, get, remove, push, serverTimestamp } from "./firebase";
 import { state } from "./state";
 import { chatMessages, floatingReactions, reactPickerBar } from "./dom";
 import { EMOJIS } from "./constants";
+import { FEATURES } from "./config";
 import { escapeHtml } from "./utils";
 
 let activeQuickPopup: HTMLElement | null = null;
@@ -19,6 +20,7 @@ export function renderReactPickerBar(): void {
 }
 
 export async function sendLiveReaction(emoji: string): Promise<void> {
+  if (!FEATURES.react) return;
   if (!state.currentRoom || !state.currentUser) return;
   await set(push(ref(db, `rooms/${state.currentRoom}/liveReactions`)), {
     emoji,
@@ -30,13 +32,20 @@ export async function sendLiveReaction(emoji: string): Promise<void> {
 
 export function animateFloatingEmoji(emoji: string, name: string): void {
   const el = document.createElement("div");
-  el.className = "floating-emoji";
-  el.style.left = `${Math.random() * 80}px`;
+  // Set initial positioning inline so the element is correctly placed
+  // even before the animation class is added (prevents 1-frame layout glitch)
+  el.style.cssText = `position:absolute;bottom:0;left:${Math.random() * 80}px;display:flex;align-items:center;gap:8px;pointer-events:none;opacity:0;`;
   el.innerHTML = `
     <span class="floating-emoji-icon">${emoji}</span>
     <span class="floating-emoji-name">${escapeHtml(name)}</span>
   `;
   floatingReactions.appendChild(el);
+  // Use rAF to ensure the browser has laid out the element before starting animation
+  // This prevents the "name cut off on first press" bug
+  requestAnimationFrame(() => {
+    el.style.opacity = "";
+    el.classList.add("floating-emoji-active");
+  });
   el.addEventListener("animationend", () => el.remove());
 }
 

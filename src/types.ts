@@ -11,6 +11,13 @@ export interface User {
   lastSeen: number;
 }
 
+export interface FeatureFlags {
+  poker: boolean;
+  chat: boolean;
+  react: boolean;
+  sound: boolean;
+}
+
 export interface RoomData {
   createdAt: number;
   revealed: boolean;
@@ -20,6 +27,10 @@ export interface RoomData {
   users: Record<string, User>;
   /** Firebase field kept as "drinkers" for backward compat; conceptually = speakers who must explain */
   drinkers?: Record<string, boolean>;
+  /** Per-room feature flags — absent means all enabled */
+  features?: FeatureFlags;
+  /** UIDs of users kicked from this room — cleared on rejoin or room cleanup */
+  kicked?: Record<string, boolean>;
 }
 
 export interface CurrentUser {
@@ -34,7 +45,7 @@ export interface ChatMessage {
   senderRole: string;
   type: "user" | "system";
   timestamp: number;
-  replyTo?: { senderName: string; text: string } | null;
+  replyTo?: { msgId?: string; senderName: string; text: string } | null;
   reactions?: Record<string, Record<string, string>> | null;
 }
 
