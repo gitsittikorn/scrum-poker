@@ -325,24 +325,11 @@ body {
 }
 
 .btn-delete-icon {
-  border: 1.5px solid var(--danger) !important;
   color: var(--danger) !important;
 }
 .btn-delete-icon:hover {
-  background: var(--danger) !important;
-  color: #fff !important;
-}
-
-.btn-custom-vote {
-  background: var(--accent2);
-  color: #fff;
-  padding: 10px 20px;
-  font-size: 0.9rem;
-  box-shadow: 0 2px 8px var(--accent2-glow);
-}
-.btn-custom-vote:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px var(--accent2-glow);
+  border-color: var(--danger) !important;
+  color: var(--danger) !important;
 }
 
 /* ===== User Badge ===== */
@@ -893,22 +880,78 @@ body {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 0.85rem;
-  padding: 2px 4px;
+  font-size: 1.2rem;
+  padding: 4px 6px;
   border-radius: 4px;
   opacity: 0;
   pointer-events: none;
   transition: all 0.15s;
   flex-shrink: 0;
 }
-.participant-card:hover .btn-kick {
-  opacity: 0.5;
+.participant-card:hover .kick-wrapper .btn-kick {
+  opacity: 0.6;
   pointer-events: auto;
 }
 .btn-kick:hover {
   opacity: 1 !important;
   background: rgba(239, 68, 68, 0.15);
-  transform: scale(1.2);
+  transform: scale(1.3);
+}
+/* Kick confirm popup */
+.kick-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+.kick-confirm {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  box-shadow: 0 4px 16px var(--shadow);
+  z-index: 160;
+  white-space: nowrap;
+  animation: fadeInUp 0.15s ease-out;
+}
+.kick-confirm-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.kick-confirm-btn {
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+.kick-confirm-btn.yes {
+  background: var(--danger);
+  color: #fff;
+}
+.kick-confirm-btn.yes:hover {
+  background: #dc2626;
+}
+.kick-confirm-btn.no {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.kick-confirm-btn.no:hover {
+  background: var(--bg-card);
+}
+/* Keep kick button visible when popup is open */
+.kick-wrapper:hover .btn-kick,
+.kick-confirm:not(.hidden) ~ .btn-kick {
+  opacity: 0.6;
+  pointer-events: auto;
 }
 
 /* Not-voted Modal */
@@ -1084,6 +1127,35 @@ body {
   font-weight: 800;
   margin-bottom: 16px;
   color: var(--warning);
+}
+
+/* Collapsible toggle */
+.collapsible-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 8px 0;
+  transition: color 0.15s;
+}
+.collapsible-toggle:hover {
+  color: var(--accent);
+}
+.collapsible-arrow {
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+}
+.collapsible-toggle.open .collapsible-arrow {
+  transform: rotate(180deg);
+}
+.collapsible-content.hidden {
+  display: none;
 }
 
 .toggle-group {
@@ -1305,6 +1377,7 @@ body {
   right: 0;
   width: 380px;
   height: 100vh;
+  padding-bottom: 68px;
   background: var(--bg-secondary);
   border-left: 1px solid var(--border);
   display: flex;
@@ -1727,13 +1800,27 @@ body {
   left: 0;
   right: 0;
   display: flex;
-  justify-content: center;
-  gap: 32px;
+  align-items: center;
+  justify-content: space-between;
   padding: 8px 20px;
   background: var(--bg-secondary);
   border-top: 1px solid var(--border);
   z-index: 150;
   backdrop-filter: blur(10px);
+}
+.bottom-bar-center {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.bottom-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 .btn-bar {
   display: flex;
@@ -1755,6 +1842,73 @@ body {
 }
 .btn-bar-icon { font-size: 1.3rem; }
 #btn-wheel .btn-bar-icon { font-size: 1.8rem; }
+.btn-leave-bar {
+  border-radius: var(--radius-sm);
+}
+.btn-leave-bar:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+.btn-delete-bar {
+  border-radius: var(--radius-sm);
+  opacity: 0.7;
+}
+.btn-delete-bar:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+  opacity: 1;
+}
+/* Leave confirm popup */
+.leave-wrapper {
+  position: relative;
+}
+.leave-confirm {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  box-shadow: 0 4px 16px var(--shadow);
+  z-index: 160;
+  white-space: nowrap;
+  animation: fadeInUp 0.15s ease-out;
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.leave-confirm-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.leave-confirm-btn {
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+.leave-confirm-btn.yes {
+  background: var(--danger);
+  color: #fff;
+}
+.leave-confirm-btn.yes:hover {
+  background: #dc2626;
+}
+.leave-confirm-btn.no {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.leave-confirm-btn.no:hover {
+  background: var(--bg-card);
+}
 .btn-bar-label {
   font-size: 0.62rem;
   font-weight: 700;
@@ -1773,13 +1927,26 @@ body {
   border-radius: var(--radius-sm);
   padding: 8px;
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(8, 36px);
   gap: 2px;
-  width: 280px;
-  max-height: 200px;
-  overflow-y: auto;
+  max-width: calc(100vw - 32px);
   box-shadow: 0 -4px 24px var(--shadow);
   z-index: 160;
+}
+.react-picker-bar .emoji-item {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.react-picker-bar .emoji-item:hover {
+  background: var(--bg-card);
+  transform: scale(1.2);
 }
 .react-picker-bar.hidden { display: none; }
 
@@ -1794,9 +1961,9 @@ body {
   border-radius: var(--radius-sm);
   padding: 8px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 4px;
-  width: 320px;
+  width: 400px;
   max-height: 260px;
   overflow-y: auto;
   box-shadow: 0 -4px 24px var(--shadow);
@@ -1849,7 +2016,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  animation: floatUp 4s ease-out forwards;
+  animation: floatUp 5.5s ease-out forwards;
   pointer-events: none;
 }
 .floating-emoji-icon { font-size: 2.8rem; }
@@ -1876,7 +2043,7 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  width: 600px;
+  width: 560px;
   height: 100vh;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
@@ -1991,31 +2158,45 @@ body {
 }
 .wheel-btn-spin {
   flex: 1;
-  padding: 12px 20px;
-  font-size: 1.1rem;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.wheel-btn-spin:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0284c7, #0891b2);
+}
+.spin-icon {
+  font-size: 1.6rem;
+  vertical-align: middle;
 }
 .wheel-controls .btn-icon {
   flex-shrink: 0;
-  font-size: 2rem;
-  padding: 12px 18px;
+  font-size: 1.4rem;
+  padding: 8px 12px;
 }
 .wheel-btn-spin:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.wheel-controls .btn-icon {
-  flex-shrink: 0;
-}
-
 /* Options */
+/* Toggle row: ลบผู้ถูกสุ่ม full width, รวม PO ด้วย ชิดขวา */
 .wheel-options {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px 12px;
   background: var(--bg-card);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
+}
+.wheel-options > .toggle-label:first-of-type {
+  flex: 1 1 100%;
+}
+.wheel-options > .toggle-label:nth-of-type(2) {
+  margin-left: auto;
 }
 .wheel-option-label {
   font-size: 0.85rem;
@@ -2035,8 +2216,13 @@ body {
   cursor: pointer;
 }
 .wheel-toggle-label {
-  padding: 4px 8px;
-  min-height: 36px;
+  padding: 6px 12px;
+  min-height: 40px;
+  gap: 10px;
+  justify-content: space-between;
+  width: fit-content;
+  min-width: 180px;
+  font-weight: 400;
 }
 
 /* Member list */

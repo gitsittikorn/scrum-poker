@@ -7,8 +7,6 @@ export const roleSelect = $("role-select") as HTMLSelectElement;
 export const roomSelect = $("room-select") as HTMLSelectElement;
 export const btnJoinRoom = $("btn-join-room") as HTMLButtonElement;
 export const btnLeave = $("btn-leave") as HTMLButtonElement;
-export const btnHome = $("btn-home") as HTMLButtonElement;
-export const btnCopyLink = $("btn-copy-link") as HTMLButtonElement;
 export const btnToggleTheme = $("btn-toggle-theme") as HTMLButtonElement;
 export const roomCodeDisplay = $("room-code-display");
 export const userBadge = $("user-badge");
@@ -63,13 +61,7 @@ export const featureWheel = $("feature-wheel") as HTMLInputElement;
 export const cleanupTimeInput = $("cleanup-time") as HTMLInputElement;
 
 // User settings
-export const userSettings = $("user-settings");
 export const muteOthersSound = $("mute-others-sound") as HTMLInputElement;
-
-// DB Report
-export const btnDbReport = $("btn-db-report") as HTMLButtonElement;
-export const dbReportModal = $("db-report-modal") as HTMLElement;
-export const btnDbReportClose = $("btn-db-report-close") as HTMLButtonElement;
 
 // Wheel
 export const btnWheel = $("btn-wheel") as HTMLButtonElement;
@@ -87,5 +79,4 @@ export const btnWheelReset = $("btn-wheel-reset") as HTMLButtonElement;
 export const btnWheelClear = $("btn-wheel-clear") as HTMLButtonElement;
 export const wheelDuplicateSelect = $("wheel-duplicate-select") as HTMLSelectElement;
 export const wheelRemoveWinnerToggle = $("wheel-remove-winner") as HTMLInputElement;
-export const wheelAutoShuffleToggle = $("wheel-auto-shuffle") as HTMLInputElement;
 export const wheelEntryCount = $("wheel-entry-count");

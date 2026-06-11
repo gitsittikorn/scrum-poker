@@ -46,5 +46,15 @@ export const SOUNDS: SoundDef[] = [
   { file: "ต่อเน็ต.mp3", label: "ต่อเน็ต", emoji: "🌐" },
   { file: "บุฟเฟ่.mp3", label: "บุฟเฟ่", emoji: "🍽️" },
   { file: "ปรบมือ.mp3", label: "ปรบมือ", emoji: "👏" },
+  { file: "ของขึ้น.mp3", label: "ของขึ้น", emoji: "🚀" },
+  { file: "ของดี.mp3", label: "ของดี", emoji: "👍" },
+  { file: "มีกลิ่น.mp3", label: "มีกลิ่น", emoji: "👃" },
+  { file: "อย่าเสี่ยง.mp3", label: "อย่าเสี่ยง", emoji: "⚠️" },
+  { file: "เด็กๆ.mp3", label: "เด็กๆ", emoji: "👶" },
+  { file: "ไอ้สัส.mp3", label: "ไอ้สัส", emoji: "🤬" },
+  { file: "ผิดอะไร.mp3", label: "ผิดอะไร", emoji: "❓" },
+  { file: "ร่างกาย.mp3", label: "ร่างกาย", emoji: "💪" },
+  { file: "อย่ามั่ว.mp3", label: "อย่ามั่ว", emoji: "🚫" },
+  { file: "เสียงอยู่ไส.mp3", label: "เสียงอยู่ไส", emoji: "🔊" },
 ];
 

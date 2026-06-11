@@ -2,7 +2,7 @@
 // Replace with your Firebase project config — see SETUP.md
 
 import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import { getAuth, signInAnonymously } from "firebase/auth";
 import {
   get,
   getDatabase,
@@ -41,7 +41,6 @@ export {
   db,
   get,
   off,
-  onAuthStateChanged,
   onChildAdded,
   onChildChanged,
   onDisconnect,

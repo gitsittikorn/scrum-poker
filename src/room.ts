@@ -153,6 +153,7 @@ export async function joinRoom(
   prevFeatures = { poker: true, chat: true, react: true, sound: true, wheel: true };
 
   showPage("room");
+  applyFeatureFlags(); // Apply role-based visibility (e.g. delete button for PO)
   listenRoom();
   initChat(); // isReinit = false → sets joinedAt
   sendSystemMessage(`${state.currentUser!.name} เข้าร่วมแล้ว`);
@@ -168,6 +169,7 @@ export function handleLeave(skipMessage = false): void {
   const leavingName = state.currentUser.name;
   const roomCode = state.currentRoom;
   const uid = state.currentUser.uid;
+  const role = state.currentRole;
   cancelUnlockTimer();
   if (!skipMessage) sendSystemMessage(`${leavingName} ออกจากห้อง`);
   destroyChat();
@@ -183,17 +185,19 @@ export function handleLeave(skipMessage = false): void {
   showPage("landing");
   window.history.replaceState(null, "", window.location.pathname);
 
-  // Set offline → remove user → cleanup check if room empty
-  set(ref(db, `rooms/${roomCode}/users/${uid}/online`), false)
-    .then(() => remove(ref(db, `rooms/${roomCode}/users/${uid}`)))
-    .then(() => cleanupIfRoomEmpty(roomCode))
-    .catch(console.error);
-}
-
-export function handleCopyLink(): void {
-  if (!state.currentRoom) return;
-  const url = `${window.location.origin}${window.location.pathname}?room=${state.currentRoom}`;
-  navigator.clipboard.writeText(url).then(() => showToast("Link copied!"));
+  // Set offline and clear vote — keep user record for wheel/history
+  // Skip when deleting room (room already removed, no need to write)
+  if (!skipMessage) {
+    set(ref(db, `rooms/${roomCode}/users/${uid}`), {
+      name: leavingName,
+      role: role,
+      vote: null,
+      online: false,
+      lastSeen: serverTimestamp(),
+    })
+      .then(() => cleanupIfRoomEmpty(roomCode))
+      .catch(console.error);
+  }
 }
 
 export function listenRoom(): void {

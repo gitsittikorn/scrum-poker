@@ -3,8 +3,6 @@ import {
   roomSelect,
   btnJoinRoom,
   btnLeave,
-  btnHome,
-  btnCopyLink,
   btnToggleTheme,
   btnSettings,
   btnSettingsClose,
@@ -27,9 +25,6 @@ import {
   roomBanner,
   btnBarSound,
   soundPickerBar,
-  btnDbReport,
-  dbReportModal,
-  btnDbReportClose,
   muteOthersSound,
   btnWheel,
   btnWheelClose,
@@ -40,13 +35,13 @@ import {
   btnWheelAdd,
   wheelAddInput,
 } from "./dom";
-import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, spawnFirework, applyFeatureFlags, openDbReport, closeDbReport } from "./ui";
+import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, spawnFirework, applyFeatureFlags, openDbReport } from "./ui";
 import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
-import { handleJoinRoom, handleLeave, handleCopyLink, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler, listenForceRefresh, writeForceRefreshVersion } from "./room";
+import { handleJoinRoom, handleLeave, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler, listenForceRefresh, writeForceRefreshVersion } from "./room";
 import { renderCards, handleReveal, handleReset } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
-import { toggleSoundPicker, sendSound, renderSoundPicker, handleSoundPickerOutsideClick, playSound } from "./sounds";
+import { toggleSoundPicker, sendSound, renderSoundPicker, handleSoundPickerOutsideClick } from "./sounds";
 import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
 import { state } from "./state";
 import { FEATURES } from "./config";
@@ -72,11 +67,30 @@ function init(): void {
   listenForceRefresh();
 }
 
+function closeAllBottomPopups(): void {
+  document.getElementById("leave-confirm")?.classList.add("hidden");
+  document.getElementById("delete-confirm")?.classList.add("hidden");
+}
+
 function bindEvents(): void {
   btnJoinRoom.addEventListener("click", handleJoinRoom);
-  btnLeave.addEventListener("click", () => handleLeave());
-  btnHome.addEventListener("click", () => handleLeave());
-  btnCopyLink.addEventListener("click", handleCopyLink);
+  btnLeave.addEventListener("click", () => {
+    closeAllBottomPopups();
+    document.getElementById("leave-confirm")!.classList.remove("hidden");
+  });
+  document.getElementById("btn-leave-yes")!.addEventListener("click", () => {
+    closeAllBottomPopups();
+    handleLeave();
+  });
+  document.getElementById("btn-leave-no")!.addEventListener("click", () => {
+    closeAllBottomPopups();
+  });
+  // Close leave/delete popup when clicking outside
+  document.addEventListener("click", (e) => {
+    if (!(e.target as HTMLElement).closest(".leave-wrapper")) {
+      closeAllBottomPopups();
+    }
+  });
   btnToggleTheme.addEventListener("click", toggleTheme);
 
   btnSettings.addEventListener("click", openSettings);
@@ -91,11 +105,19 @@ function bindEvents(): void {
   // Close link for non-PO users
   document.getElementById("settings-close-link")?.addEventListener("click", closeSettings);
 
-  // DB Report modal
-  btnDbReport.addEventListener("click", openDbReport);
-  btnDbReportClose.addEventListener("click", closeDbReport);
-  dbReportModal.addEventListener("click", (e) => {
-    if (e.target === dbReportModal) closeDbReport();
+  // DB Report collapsible toggle
+  document.getElementById("btn-db-report-toggle")!.addEventListener("click", () => {
+    const toggle = document.getElementById("btn-db-report-toggle")!;
+    const content = document.getElementById("db-report-collapsible")!;
+    const isOpen = !content.classList.contains("hidden");
+    if (isOpen) {
+      content.classList.add("hidden");
+      toggle.classList.remove("open");
+    } else {
+      content.classList.remove("hidden");
+      toggle.classList.add("open");
+      openDbReport();
+    }
   });
 
   // Wheel panel
@@ -126,9 +148,15 @@ function bindEvents(): void {
   btnReveal.addEventListener("click", handleReveal);
   btnReset.addEventListener("click", handleReset);
   btnDeleteRoom.addEventListener("click", () => {
-    if (confirm("⚠️ ต้องการลบห้องนี้?\n\nทุกคนจะถูกออกจากห้อง")) {
-      handleDeleteRoom();
-    }
+    closeAllBottomPopups();
+    document.getElementById("delete-confirm")!.classList.remove("hidden");
+  });
+  document.getElementById("btn-delete-yes")!.addEventListener("click", () => {
+    closeAllBottomPopups();
+    handleDeleteRoom();
+  });
+  document.getElementById("btn-delete-no")!.addEventListener("click", () => {
+    closeAllBottomPopups();
   });
   document.getElementById("btn-clear-all")?.addEventListener("click", () => {
     if (confirm("⚠️ ต้องการเคลียร์ข้อมูลทุกห้อง?\n\n• ข้อความแชททั้งหมดจะถูกลบ\n• คะแนนโหวตจะถูกรีเซ็ต\n• ทุกคนจะถูกออกจากห้องทันที")) {

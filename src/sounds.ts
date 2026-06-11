@@ -10,7 +10,7 @@ import {
 } from "./firebase";
 import { state } from "./state";
 import { soundPickerBar } from "./dom";
-import { SOUNDS, type SoundDef } from "./constants";
+import { SOUNDS } from "./constants";
 import { SOUND_VOLUME, FEATURES } from "./config";
 import { animateFloatingEmoji } from "./reactions";
 

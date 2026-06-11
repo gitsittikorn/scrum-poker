@@ -10,7 +10,6 @@ import {
   wheelEntryCount,
   wheelDuplicateSelect,
   wheelRemoveWinnerToggle,
-  wheelAutoShuffleToggle,
   btnWheelSpin,
 } from "./dom";
 import { sendSound } from "./sounds";
@@ -26,7 +25,7 @@ let selectedWinner: string | null = null;
 let isOpen = false;
 let isSpinning = false;
 let removeWinner = false;
-let autoShuffle = true;
+let includePO = false;
 let spinHistory: string[] = [];
 let currentRotation = 0;
 let animFrameId: number | null = null;
@@ -51,7 +50,9 @@ async function fetchMembers(): Promise<string[]> {
   const snap = await get(ref(db, `rooms/${state.currentRoom}/users`));
   if (!snap.exists()) return [];
   const users = snap.val() as Record<string, User>;
-  return Object.values(users).map((u) => u.name);
+  return Object.values(users)
+    .filter((u) => includePO || u.role !== "po")
+    .map((u) => u.name);
 }
 
 // ── Canvas Rendering ───────────────────────────────────────────────
@@ -179,7 +180,7 @@ function spin(): void {
   wheelWinnerDisplay.classList.add("hidden");
   btnWheelSpin.disabled = true;
 
-  if (autoShuffle) shuffleEntries();
+  shuffleEntries(); // Always shuffle
 
   spinWinnerIndex = Math.floor(Math.random() * wheelEntries.length);
   const n = wheelEntries.length;
@@ -414,10 +415,21 @@ function setupEventDelegation(): void {
     if (sw) sw.setAttribute("aria-checked", String(removeWinner));
   }, { signal });
 
-  wheelAutoShuffleToggle.addEventListener("change", () => {
-    autoShuffle = wheelAutoShuffleToggle.checked;
-    const sw = wheelAutoShuffleToggle.nextElementSibling;
-    if (sw) sw.setAttribute("aria-checked", String(autoShuffle));
+  // Include PO toggle — rebuild wheel entries on change
+  let includePoSeq = 0;
+  const includePoToggle = document.getElementById("wheel-include-po") as HTMLInputElement;
+  includePoToggle?.addEventListener("change", async () => {
+    includePO = includePoToggle.checked;
+    const sw = includePoToggle.nextElementSibling;
+    if (sw) sw.setAttribute("aria-checked", String(includePO));
+    // Guard against rapid toggling — only latest request applies
+    const seq = ++includePoSeq;
+    const members = await fetchMembers();
+    if (seq !== includePoSeq) return; // Stale result, discard
+    originalMembers = members;
+    rebuildWheelEntries();
+    drawWheel(currentRotation);
+    renderMemberList();
   }, { signal });
 
   // Resize handle
@@ -490,7 +502,6 @@ async function initWheel(): Promise<void> {
   wheelRemoveWinnerToggle.checked = true;
   const removeSw = wheelRemoveWinnerToggle.nextElementSibling;
   if (removeSw) removeSw.setAttribute("aria-checked", "true");
-  autoShuffle = true;
   selectedWinner = null;
   wheelWinnerDisplay.classList.add("hidden");
   currentRotation = 0;

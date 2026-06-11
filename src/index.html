@@ -65,7 +65,6 @@
     <div id="room-page" class="page">
       <header class="room-header">
         <div class="header-left">
-          <button id="btn-leave" class="btn btn-icon" title="ออกจากห้อง">✕</button>
           <div class="room-info">
             <span class="room-label">ROOM</span>
             <span id="room-code-display" class="room-code"></span>
@@ -73,12 +72,8 @@
         </div>
         <div class="header-right">
           <div id="user-badge" class="user-badge"></div>
-          <button id="btn-home" class="btn btn-icon" title="กลับหน้าแรก">🏠</button>
-          <button id="btn-db-report" class="btn btn-icon" title="Database Usage">📊</button>
-          <button id="btn-copy-link" class="btn btn-icon" title="คัดลอกลิงก์">🔗</button>
           <button id="btn-toggle-theme" class="btn btn-icon" title="Dark/Light mode">☀️</button>
           <button id="btn-settings" class="btn btn-icon" title="Settings">⚙️</button>
-          <button id="btn-delete-room" class="btn btn-icon btn-delete-icon" title="ลบห้อง">🗑</button>
         </div>
       </header>
 
@@ -148,10 +143,10 @@
           </div>
           <div id="wheel-winner-display" class="wheel-winner-display hidden"></div>
           <div class="wheel-controls">
-            <button id="btn-wheel-spin" class="btn btn-primary wheel-btn-spin">🎡 Spin</button>
+            <button id="btn-wheel-spin" class="btn btn-primary wheel-btn-spin"><span class="spin-icon">🎡</span> Spin</button>
             <button id="btn-wheel-shuffle" class="btn btn-icon" title="Shuffle">🔀</button>
             <button id="btn-wheel-reset" class="btn btn-icon" title="เริ่มใหม่">🔄</button>
-            <button id="btn-wheel-clear" class="btn btn-icon btn-delete-icon" title="Clear">🗑</button>
+            <button id="btn-wheel-clear" class="btn btn-icon btn-delete-icon" title="Clear">🗑️</button>
           </div>
           <div class="wheel-options">
             <label class="wheel-option-label">
@@ -170,9 +165,9 @@
               <span class="toggle-switch" role="switch" aria-checked="false"></span>
             </label>
             <label class="toggle-label wheel-toggle-label">
-              <span class="toggle-text">สุ่มตำแหน่งอัตโนมัติ</span>
-              <input type="checkbox" id="wheel-auto-shuffle" checked aria-label="Shuffle before each spin">
-              <span class="toggle-switch" role="switch" aria-checked="true"></span>
+              <span class="toggle-text">รวม PO ด้วย</span>
+              <input type="checkbox" id="wheel-include-po" aria-label="Include PO in wheel">
+              <span class="toggle-switch" role="switch" aria-checked="false"></span>
             </label>
           </div>
           <div class="wheel-section-title">Entries <span id="wheel-entry-count" class="badge">0</span></div>
@@ -215,23 +210,49 @@
 
       <!-- Bottom Bar -->
       <div id="bottom-bar" class="bottom-bar">
-        <button id="btn-wheel" class="btn-bar" title="Random Wheel">
-          <span class="btn-bar-icon">🎡</span>
-          <span class="btn-bar-label">Wheel</span>
-        </button>
-        <button id="btn-bar-react" class="btn-bar" title="React">
-          <span class="btn-bar-icon">😀</span>
-          <span class="btn-bar-label">React</span>
-        </button>
-        <button id="btn-bar-sound" class="btn-bar" title="Sound">
-          <span class="btn-bar-icon">🔊</span>
-          <span class="btn-bar-label">Sound</span>
-        </button>
-        <button id="btn-bar-chat" class="btn-bar" title="Chat">
-          <span class="btn-bar-icon">💬</span>
-          <span class="btn-bar-label">Chat</span>
-          <span id="bar-chat-unread" class="chat-unread hidden"></span>
-        </button>
+        <div class="bottom-bar-center">
+          <button id="btn-wheel" class="btn-bar" title="Random Wheel">
+            <span class="btn-bar-icon">🎡</span>
+            <span class="btn-bar-label">Wheel</span>
+          </button>
+          <button id="btn-bar-react" class="btn-bar" title="React">
+            <span class="btn-bar-icon">😀</span>
+            <span class="btn-bar-label">React</span>
+          </button>
+          <button id="btn-bar-sound" class="btn-bar" title="Sound">
+            <span class="btn-bar-icon">🔊</span>
+            <span class="btn-bar-label">Sound</span>
+          </button>
+          <button id="btn-bar-chat" class="btn-bar" title="Chat">
+            <span class="btn-bar-icon">💬</span>
+            <span class="btn-bar-label">Chat</span>
+            <span id="bar-chat-unread" class="chat-unread hidden"></span>
+          </button>
+        </div>
+        <div class="bottom-bar-right">
+          <div class="leave-wrapper" id="delete-room-wrapper" style="display:none">
+            <button id="btn-delete-room" class="btn-bar btn-delete-bar" title="ลบห้อง">
+              <span class="btn-bar-icon" style="font-size:1.6rem;color:var(--danger)">🗑️</span>
+              <span class="btn-bar-label">ลบห้อง</span>
+            </button>
+            <div id="delete-confirm" class="leave-confirm hidden">
+              <span class="leave-confirm-text">ลบห้องนี้?</span>
+              <button id="btn-delete-yes" class="leave-confirm-btn yes">ลบ</button>
+              <button id="btn-delete-no" class="leave-confirm-btn no">ยกเลิก</button>
+            </div>
+          </div>
+          <div class="leave-wrapper">
+            <button id="btn-leave" class="btn-bar btn-leave-bar" title="ออกจากห้อง">
+              <span class="btn-bar-icon" style="font-size:1.6rem">🚪</span>
+              <span class="btn-bar-label">Leave</span>
+            </button>
+            <div id="leave-confirm" class="leave-confirm hidden">
+              <span class="leave-confirm-text">ออกจากห้อง?</span>
+              <button id="btn-leave-yes" class="leave-confirm-btn yes">ออก</button>
+              <button id="btn-leave-no" class="leave-confirm-btn no">ยกเลิก</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- React Picker (Bottom Bar) -->
@@ -268,6 +289,18 @@
                 <span class="toggle-text">🔇 ปิดเสียงจากคนอื่น</span>
               </label>
               <small class="form-hint">ปิดเสียงที่คนอื่นกด แต่ยังกดเสียงได้ตามปกติ</small>
+            </div>
+          </div>
+
+          <!-- DB Report Collapsible (all roles) -->
+          <div class="settings-divider"></div>
+          <button id="btn-db-report-toggle" class="collapsible-toggle" type="button">
+            <span>📊 การใช้งาน Database</span>
+            <span class="collapsible-arrow">▼</span>
+          </button>
+          <div id="db-report-collapsible" class="collapsible-content hidden">
+            <div id="db-report-inline" class="db-report">
+              <small class="form-hint">กำลังโหลดข้อมูล...</small>
             </div>
           </div>
 
@@ -328,20 +361,7 @@
       </div>
     </div>
 
-    <!-- Database Usage Modal -->
-    <div id="db-report-modal" class="modal-overlay">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>📊 Firebase Database Usage</h2>
-          <button id="btn-db-report-close" class="btn btn-icon">✕</button>
-        </div>
-        <div class="modal-body">
-          <div id="db-report-content" class="db-report">
-            <small class="form-hint">กำลังโหลดข้อมูล...</small>
-          </div>
-        </div>
-      </div>
-    </div>
+
   </div>
 
   <script type="module" src="./app.ts"></script>

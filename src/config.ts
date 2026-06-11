@@ -26,7 +26,7 @@ export const FEATURES = {
 };
 
 /** วินาทีที่จะ auto-unlock หลังจาก reveal (ค่า default สำหรับห้องใหม่) */
-export const AUTO_UNLOCK_SECONDS = 20;
+export const AUTO_UNLOCK_SECONDS = 30;
 
 /** ระยะเวลาแสดง toast notification (ms) */
 export const TOAST_DURATION_MS = 3000;

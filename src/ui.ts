@@ -21,10 +21,7 @@ import {
   reactPickerBar,
   btnBarSound,
   soundPickerBar,
-  btnDbReport,
-  dbReportModal,
   muteOthersSound,
-  btnDbReportClose,
   btnWheel,
 } from "./dom";
 import { TOAST_DURATION_MS, AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
@@ -105,9 +102,6 @@ export async function openSettings(): Promise<void> {
   } else {
     autoUnlockGroup.classList.add("hidden");
   }
-
-  // Database report button — visible to everyone
-  btnDbReport.classList.remove("hidden");
 
   // User settings — visible to all roles
   muteOthersSound.checked = localStorage.getItem("scrum-poker-mute-others") === "true";
@@ -220,19 +214,14 @@ export function applyFeatureFlags(): void {
   const bottomBar = document.getElementById("bottom-bar");
   const anyFeature = FEATURES.chat || FEATURES.react || FEATURES.sound || FEATURES.wheel;
   bottomBar?.classList.toggle("hidden", !anyFeature);
+
+  // Delete room button — PO only
+  const deleteWrapper = document.getElementById("delete-room-wrapper");
+  if (deleteWrapper) deleteWrapper.style.display = isPO() ? "" : "none";
 }
 
 export async function openDbReport(): Promise<void> {
-  dbReportModal.classList.add("active");
-  await loadDbReport();
-}
-
-export function closeDbReport(): void {
-  dbReportModal.classList.remove("active");
-}
-
-async function loadDbReport(): Promise<void> {
-  const container = document.getElementById("db-report-content");
+  const container = document.getElementById("db-report-inline");
   if (!container) return;
 
   try {

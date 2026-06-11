@@ -20,6 +20,7 @@ import { CARDS } from "./constants";
 import { AUTO_UNLOCK_SECONDS } from "./config";
 import { showToast, showNotVotedModal } from "./ui";
 import { sendSystemMessage } from "./chat";
+import { escapeHtml } from "./utils";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
@@ -178,9 +179,9 @@ export async function handleReveal(): Promise<void> {
   const users = usersSnap.val() as Record<string, User>;
   const userList = Object.entries(users);
 
-  // Check if all online non-PO users have voted
+  // Check if all non-PO users (online + offline) have voted
   const notVoted = userList.filter(
-    ([, user]) => user.online !== false && user.role !== "po" && user.vote == null
+    ([, user]) => user.role !== "po" && user.vote == null
   );
   if (notVoted.length > 0) {
     const names = notVoted.map(([, u]) => u.name).join(", ");
@@ -211,12 +212,8 @@ export async function handleReset(): Promise<void> {
   if (usersSnap.exists()) {
     const updates: Record<string, unknown> = {};
     const users = usersSnap.val() as Record<string, User>;
-    Object.entries(users).forEach(([uid, user]) => {
-      if (user.online === false) {
-        updates[`users/${uid}`] = null;
-      } else {
-        updates[`users/${uid}/vote`] = null;
-      }
+    Object.entries(users).forEach(([uid]) => {
+      updates[`users/${uid}/vote`] = null;
     });
     updates["revealed"] = false;
     updates["locked"] = false;
@@ -229,7 +226,7 @@ export async function handleReset(): Promise<void> {
     .querySelectorAll(".poker-card")
     .forEach((el) => el.classList.remove("selected"));
   if (customPointInput) customPointInput.value = "";
-  showToast("Reset + offline users removed");
+  showToast("Reset complete");
 }
 
 // ===== Grouping & Speaker Picker =====
@@ -422,13 +419,39 @@ export function updateUI(roomData: RoomData): void {
       kickBtn.className = "btn-kick";
       kickBtn.title = "เตะออกจากห้อง";
       kickBtn.textContent = "🥾";
+
+      // Confirm popup
+      const popup = document.createElement("div");
+      popup.className = "kick-confirm hidden";
+      popup.innerHTML = `
+        <span class="kick-confirm-text">เตะ ${escapeHtml(user.name)}?</span>
+        <button class="kick-confirm-btn yes" type="button">เตะ</button>
+        <button class="kick-confirm-btn no" type="button">ยกเลิก</button>
+      `;
+
       kickBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (confirm(`เตะ ${user.name} ออกจากห้อง?`)) {
-          handleKick(uid, user.name);
-        }
+        const wasOpen = !popup.classList.contains("hidden");
+        // Close all kick popups first
+        document.querySelectorAll(".kick-confirm").forEach(el => el.classList.add("hidden"));
+        // Toggle: if it was closed, open it
+        if (!wasOpen) popup.classList.remove("hidden");
       });
-      card.appendChild(kickBtn);
+      popup.querySelector(".yes")!.addEventListener("click", (e) => {
+        e.stopPropagation();
+        popup.classList.add("hidden");
+        handleKick(uid, user.name);
+      });
+      popup.querySelector(".no")!.addEventListener("click", (e) => {
+        e.stopPropagation();
+        popup.classList.add("hidden");
+      });
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "kick-wrapper";
+      wrapper.appendChild(kickBtn);
+      wrapper.appendChild(popup);
+      card.appendChild(wrapper);
     }
     card.appendChild(statusDot);
     return card;
