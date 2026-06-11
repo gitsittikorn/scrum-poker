@@ -23,6 +23,7 @@ import {
   soundPickerBar,
   btnDbReport,
   dbReportModal,
+  muteOthersSound,
   btnDbReportClose,
   btnWheel,
 } from "./dom";
@@ -107,6 +108,11 @@ export async function openSettings(): Promise<void> {
 
   // Database report button — visible to everyone
   btnDbReport.classList.remove("hidden");
+
+  // User settings — visible to all roles
+  muteOthersSound.checked = localStorage.getItem("scrum-poker-mute-others") === "true";
+  const sw = muteOthersSound.nextElementSibling;
+  if (sw) sw.setAttribute("aria-checked", String(muteOthersSound.checked));
 
   // Admin section — visible to all PO
   if (isPO()) {

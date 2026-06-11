@@ -62,6 +62,10 @@ export const featureSound = $("feature-sound") as HTMLInputElement;
 export const featureWheel = $("feature-wheel") as HTMLInputElement;
 export const cleanupTimeInput = $("cleanup-time") as HTMLInputElement;
 
+// User settings
+export const userSettings = $("user-settings");
+export const muteOthersSound = $("mute-others-sound") as HTMLInputElement;
+
 // DB Report
 export const btnDbReport = $("btn-db-report") as HTMLButtonElement;
 export const dbReportModal = $("db-report-modal") as HTMLElement;

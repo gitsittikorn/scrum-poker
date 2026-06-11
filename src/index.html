@@ -257,6 +257,20 @@
             <input type="number" id="settings-auto-unlock" min="5" max="300" step="5" value="20">
           </div>
 
+          <!-- User Settings (all roles) -->
+          <div id="user-settings">
+            <div class="settings-divider"></div>
+            <div class="settings-section-title">⚙️ ตั้งค่าส่วนตัว</div>
+            <div class="toggle-group">
+              <label class="toggle-label">
+                <input type="checkbox" id="mute-others-sound" aria-label="Mute sounds from others">
+                <span class="toggle-switch" role="switch" aria-checked="false"></span>
+                <span class="toggle-text">🔇 ปิดเสียงจากคนอื่น</span>
+              </label>
+              <small class="form-hint">ปิดเสียงที่คนอื่นกด แต่ยังกดเสียงได้ตามปกติ</small>
+            </div>
+          </div>
+
           <!-- Admin Section (visible only to PO) -->
           <div id="admin-settings" class="admin-settings hidden">
             <div class="settings-divider"></div>

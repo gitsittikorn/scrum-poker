@@ -30,6 +30,7 @@ import {
   btnDbReport,
   dbReportModal,
   btnDbReportClose,
+  muteOthersSound,
   btnWheel,
   btnWheelClose,
   btnWheelSpin,
@@ -41,7 +42,7 @@ import {
 } from "./dom";
 import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, spawnFirework, applyFeatureFlags, openDbReport, closeDbReport } from "./ui";
 import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
-import { handleJoinRoom, handleLeave, handleCopyLink, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler } from "./room";
+import { handleJoinRoom, handleLeave, handleCopyLink, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler, listenForceRefresh, writeForceRefreshVersion } from "./room";
 import { renderCards, handleReveal, handleReset } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
@@ -64,9 +65,11 @@ function init(): void {
   initAuth().then(() => {
     btnJoinRoom.disabled = false;
     btnJoinRoom.textContent = "เข้าร่วมห้อง";
+    writeForceRefreshVersion();
     autoRejoinFromUrl();
   });
   startCleanupScheduler();
+  listenForceRefresh();
 }
 
 function bindEvents(): void {
@@ -113,6 +116,11 @@ function bindEvents(): void {
       const sw = cb.nextElementSibling;
       if (sw) sw.setAttribute("aria-checked", String(cb.checked));
     });
+  });
+
+  // Mute others' sounds toggle (saves immediately to localStorage)
+  muteOthersSound.addEventListener("change", () => {
+    localStorage.setItem("scrum-poker-mute-others", String(muteOthersSound.checked));
   });
 
   btnReveal.addEventListener("click", handleReveal);

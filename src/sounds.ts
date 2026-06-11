@@ -46,6 +46,11 @@ export function toggleSoundPicker(): void {
   soundPickerBar.classList.toggle("hidden", !soundPickerOpen);
 }
 
+/** Check if user has muted sounds from others */
+export function isMuteOthers(): boolean {
+  return localStorage.getItem("scrum-poker-mute-others") === "true";
+}
+
 /** Play a local audio file using preloaded cache */
 export function playSound(file: string): void {
   const cached = audioCache.get(file);
@@ -65,13 +70,14 @@ export function playSound(file: string): void {
 }
 
 /** Send sound event to Firebase so everyone hears it */
-export async function sendSound(file: string): Promise<void> {
+export async function sendSound(file: string, bypassMute = false): Promise<void> {
   if (!FEATURES.sound) return;
   if (!state.currentRoom || !state.currentUser) return;
   await set(push(ref(db, `rooms/${state.currentRoom}/sounds`)), {
     file,
     senderName: state.currentUser.name,
     senderUid: state.currentUser.uid,
+    bypassMute,
     timestamp: serverTimestamp(),
   });
 }
@@ -90,9 +96,13 @@ export function initSoundListener(): void {
   onChildAdded(soundsRef, (snap) => {
     const data = snap.val();
     if (data) {
-      playSound(data.file);
+      // Play sound unless muted and from another user (bypass for wheel etc.)
+      const isOwn = data.senderUid === state.currentUid;
+      if (isOwn || !isMuteOthers() || data.bypassMute) {
+        playSound(data.file);
+      }
       // Show floating emoji for other users' sounds
-      if (data.senderUid !== state.currentUid) {
+      if (!isOwn) {
         const emoji = getSoundEmoji(data.file);
         animateFloatingEmoji(emoji, data.senderName);
       }

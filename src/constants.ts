@@ -15,7 +15,7 @@ export const CARDS: CardDef[] = [
   { value: "21", label: "เสร็จกันยา" },
 ];
 
-export const APP_VERSION = "2025-05-09-v2";
+export const APP_VERSION = "2025-06-11-v1";
 
 export const EMOJIS = [
   "😀", "😂", "🤣", "😊", "😅", "😎", "🤔", "😏", "🙄", "🥳", "🤩", "😤",
@@ -43,7 +43,7 @@ export const SOUNDS: SoundDef[] = [
   { file: "เกิดอะไรขึ้น.mp3", label: "เกิดอะไรขึ้น", emoji: "🤨" },
   { file: "มีอีกไหม.mp3", label: "มีอีกไหม", emoji: "👂" },
   { file: "ทางของพี่.mp3", label: "ทางของพี่", emoji: "😎" },
-  { file: "net tot.mp3", label: "เน็ตตอ", emoji: "🌐" },
+  { file: "ต่อเน็ต.mp3", label: "ต่อเน็ต", emoji: "🌐" },
   { file: "บุฟเฟ่.mp3", label: "บุฟเฟ่", emoji: "🍽️" },
   { file: "ปรบมือ.mp3", label: "ปรบมือ", emoji: "👏" },
 ];

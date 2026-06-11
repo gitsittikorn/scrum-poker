@@ -14,6 +14,7 @@ import { state } from "./state";
 import type { RoomData, User, FeatureFlags } from "./types";
 import { roleSelect, roomSelect, roomCodeDisplay, userBadge } from "./dom";
 import { AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
+import { APP_VERSION } from "./constants";
 import { escapeHtml } from "./utils";
 import { showPage, showToast, saveUsername, applyFeatureFlags, closeSettings } from "./ui";
 import { initChat, destroyChat, sendSystemMessage } from "./chat";
@@ -21,6 +22,7 @@ import { updateUI, cancelUnlockTimer } from "./voting";
 import { destroyWheel } from "./wheel";
 
 let roomListenerRef: ReturnType<typeof ref> | null = null;
+let forceRefreshRef: ReturnType<typeof ref> | null = null;
 
 /** Track previous feature flags to detect changes */
 let prevFeatures: FeatureFlags = {
@@ -322,6 +324,34 @@ export function startCleanupScheduler(): void {
   checkCleanup();
   // Check every 60 seconds
   cleanupInterval = setInterval(checkCleanup, 60_000);
+}
+
+// ===== Force Refresh (via Firebase RTDB) =====
+
+/** Listen for force refresh version — reload all clients when changed */
+export function listenForceRefresh(): void {
+  destroyForceRefreshListener();
+  forceRefreshRef = ref(db, "settings/forceRefreshVersion");
+  onValue(forceRefreshRef, (snap) => {
+    const remoteVersion = snap.val() as string | null;
+    if (remoteVersion && remoteVersion !== APP_VERSION) {
+      console.log(`[ForceRefresh] Remote=${remoteVersion}, Local=${APP_VERSION} — reloading`);
+      location.reload();
+    }
+  });
+}
+
+/** Write current APP_VERSION to Firebase so old clients trigger force refresh */
+export function writeForceRefreshVersion(): void {
+  set(ref(db, "settings/forceRefreshVersion"), APP_VERSION);
+}
+
+/** Clean up force refresh listener */
+function destroyForceRefreshListener(): void {
+  if (forceRefreshRef) {
+    off(forceRefreshRef);
+    forceRefreshRef = null;
+  }
 }
 
 async function checkCleanup(): Promise<void> {

@@ -13,7 +13,7 @@ import {
   wheelAutoShuffleToggle,
   btnWheelSpin,
 } from "./dom";
-import { playSound } from "./sounds";
+import { sendSound } from "./sounds";
 import { spawnFirework, showToast } from "./ui";
 import { escapeHtml } from "./utils";
 import type { User } from "./types";
@@ -61,7 +61,7 @@ function drawWheel(rotation: number): void {
   if (!ctx) return;
 
   const dpr = window.devicePixelRatio || 1;
-  const size = 360;
+  const size = 400;
   canvas.width = size * dpr;
   canvas.height = size * dpr;
   canvas.style.width = `${size}px`;
@@ -235,7 +235,7 @@ function onSpinComplete(): void {
   wheelWinnerDisplay.textContent = `🎉 ${winner}`;
   wheelWinnerDisplay.classList.remove("hidden");
 
-  playSound("แกไม่รอดแน่.mp3");
+  sendSound("แกไม่รอดแน่.mp3", true);
   spawnFirework(wheelCanvasContainer);
   spinHistory.push(winner);
   showToast(`🎡 ผู้ถูกสุ่ม: ${winner}`);
