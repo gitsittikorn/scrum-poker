@@ -1,5 +1,5 @@
 import { db, ref, get, update } from "./firebase";
-import { state, isPO } from "./state";
+import { state, isPO, isSuperAdmin } from "./state";
 import {
   toastEl,
   settingsModal,
@@ -23,11 +23,17 @@ import {
   soundPickerBar,
   muteOthersSound,
   btnWheel,
+  toggleLabelPoker,
+  toggleLabelChat,
+  toggleLabelReact,
+  toggleLabelSound,
+  toggleLabelWheel,
 } from "./dom";
 import { TOAST_DURATION_MS, AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
-import type { User } from "./types";
+import type { User, FeatureFlags, FeaturePermissions } from "./types";
 import { forceCloseChat } from "./chat";
 import { forceCloseWheel } from "./wheel";
+import { loadFeaturePermissions } from "./admin";
 
 export function showPage(page: "landing" | "room"): void {
   landingPage.classList.remove("active");
@@ -77,8 +83,84 @@ export function saveUsername(name: string): void {
   localStorage.setItem("scrum-poker-role", roleSelect.value);
 }
 
+/** Apply admin permission to a feature toggle — disable + show badge if not allowed */
+function applyPermissionToToggle(
+  checkbox: HTMLInputElement,
+  toggleLabel: HTMLElement,
+  allowed: boolean
+): void {
+  const badge = toggleLabel.querySelector(".admin-only-badge");
+  if (!allowed) {
+    checkbox.disabled = true;
+    toggleLabel.classList.add("disabled");
+    badge?.classList.remove("hidden");
+  } else {
+    checkbox.disabled = false;
+    toggleLabel.classList.remove("disabled");
+    badge?.classList.add("hidden");
+  }
+}
+
+/** Real-time: update settings modal checkboxes when permissions change from super admin */
+export function updateSettingsPermissions(permissions: FeaturePermissions, autoUnlockEditable?: boolean): void {
+  applyPermissionToToggle(featurePoker, toggleLabelPoker, permissions.poker);
+  applyPermissionToToggle(featureChat, toggleLabelChat, permissions.chat);
+  applyPermissionToToggle(featureReact, toggleLabelReact, permissions.react);
+  applyPermissionToToggle(featureSound, toggleLabelSound, permissions.sound);
+  applyPermissionToToggle(featureWheel, toggleLabelWheel, permissions.wheel);
+  // Auto-unlock input: disable if super admin locked it
+  if (autoUnlockEditable !== undefined) {
+    settingsInput.disabled = !autoUnlockEditable;
+    const autoUnlockGroup = document.getElementById("settings-auto-unlock-group");
+    if (!autoUnlockEditable) {
+      autoUnlockGroup?.classList.add("disabled");
+    } else {
+      autoUnlockGroup?.classList.remove("disabled");
+    }
+  }
+}
+
+/** Real-time: update settings modal when feature state changes from super admin or PO */
+export function updateSettingsFeatureState(features: FeatureFlags, autoUnlockSeconds?: number): void {
+  featurePoker.checked = features.poker;
+  featureChat.checked = features.chat;
+  featureReact.checked = features.react;
+  featureSound.checked = features.sound;
+  featureWheel.checked = features.wheel;
+  // Update auto-unlock input if value provided
+  if (autoUnlockSeconds !== undefined) {
+    settingsInput.value = String(autoUnlockSeconds);
+  }
+  // Update user settings visibility based on sound feature
+  const userSettings = document.getElementById("user-settings");
+  if (userSettings) {
+    userSettings.classList.toggle("hidden", !FEATURES.sound);
+  }
+}
+
 export async function openSettings(): Promise<void> {
   if (!state.currentRoom) return;
+
+  // Super admin (admin room) — show DB Report, cleanup time, clear all, README
+  if (isSuperAdmin()) {
+    const saveBtn = document.getElementById("btn-settings-save")!;
+    const closeLink = document.getElementById("settings-close-link")!;
+    saveBtn.classList.add("hidden");
+    closeLink.classList.remove("hidden");
+    document.getElementById("settings-auto-unlock-group")?.classList.add("hidden");
+    document.getElementById("user-settings")?.classList.add("hidden");
+    adminSettings.classList.add("hidden");
+    document.getElementById("super-admin-settings")?.classList.remove("hidden");
+    // Load cleanup time
+    const cleanupSnap = await get(ref(db, `settings/cleanupTime`));
+    cleanupTimeInput.value = cleanupSnap.exists() ? cleanupSnap.val() : "19:00";
+    settingsModal.classList.add("active");
+    return;
+  }
+
+  document.getElementById("super-admin-settings")?.classList.add("hidden");
+
+  // User settings visibility is controlled by FEATURES.sound check below
 
   // Save button — visible to PO only
   const saveBtn = document.getElementById("btn-settings-save")!;
@@ -103,12 +185,18 @@ export async function openSettings(): Promise<void> {
     autoUnlockGroup.classList.add("hidden");
   }
 
-  // User settings — visible to all roles
-  muteOthersSound.checked = localStorage.getItem("scrum-poker-mute-others") === "true";
-  const sw = muteOthersSound.nextElementSibling;
-  if (sw) sw.setAttribute("aria-checked", String(muteOthersSound.checked));
+  // User settings — visible only when sound feature is enabled (from any source: PO toggle or super admin)
+  const userSettings = document.getElementById("user-settings")!;
+  if (FEATURES.sound) {
+    userSettings.classList.remove("hidden");
+    muteOthersSound.checked = localStorage.getItem("scrum-poker-mute-others") === "true";
+    const sw = muteOthersSound.nextElementSibling;
+    if (sw) sw.setAttribute("aria-checked", String(muteOthersSound.checked));
+  } else {
+    userSettings.classList.add("hidden");
+  }
 
-  // Admin section — visible to all PO
+  // PO section — visible to PO only
   if (isPO()) {
     adminSettings.classList.remove("hidden");
 
@@ -128,6 +216,14 @@ export async function openSettings(): Promise<void> {
       featureSound.checked = true;
       featureWheel.checked = true;
     }
+
+    // Load feature permissions from admin (super admin controls)
+    const permissions = await loadFeaturePermissions(state.currentRoom!);
+    applyPermissionToToggle(featurePoker, toggleLabelPoker, permissions.poker);
+    applyPermissionToToggle(featureChat, toggleLabelChat, permissions.chat);
+    applyPermissionToToggle(featureReact, toggleLabelReact, permissions.react);
+    applyPermissionToToggle(featureSound, toggleLabelSound, permissions.sound);
+    applyPermissionToToggle(featureWheel, toggleLabelWheel, permissions.wheel);
 
     // Load cleanup time from global settings
     const cleanupSnap = await get(ref(db, `settings/cleanupTime`));
@@ -160,18 +256,15 @@ export async function saveSettings(): Promise<void> {
 
   // Save admin settings if PO
   if (isPO()) {
-    updates["features"] = {
-      poker: featurePoker.checked,
-      chat: featureChat.checked,
-      react: featureReact.checked,
-      sound: featureSound.checked,
-      wheel: featureWheel.checked,
-    };
-
-    // Save cleanup time to global settings
-    const cleanupTime = cleanupTimeInput.value;
-    if (cleanupTime) {
-      await update(ref(db, `settings`), { cleanupTime });
+    // Only save features that PO is allowed to control (not disabled by admin)
+    const features: Record<string, boolean> = {};
+    if (!featurePoker.disabled) features.poker = featurePoker.checked;
+    if (!featureChat.disabled) features.chat = featureChat.checked;
+    if (!featureReact.disabled) features.react = featureReact.checked;
+    if (!featureSound.disabled) features.sound = featureSound.checked;
+    if (!featureWheel.disabled) features.wheel = featureWheel.checked;
+    if (Object.keys(features).length > 0) {
+      updates["features"] = features;
     }
   }
 

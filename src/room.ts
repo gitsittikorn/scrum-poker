@@ -11,18 +11,20 @@ import {
   onDisconnect,
 } from "./firebase";
 import { state } from "./state";
-import type { RoomData, User, FeatureFlags } from "./types";
+import type { RoomData, User, FeatureFlags, FeaturePermissions } from "./types";
 import { roleSelect, roomSelect, roomCodeDisplay, userBadge } from "./dom";
 import { AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
 import { APP_VERSION } from "./constants";
 import { escapeHtml } from "./utils";
-import { showPage, showToast, saveUsername, applyFeatureFlags, closeSettings } from "./ui";
+import { showPage, showToast, saveUsername, applyFeatureFlags, closeSettings, updateSettingsPermissions, updateSettingsFeatureState } from "./ui";
 import { initChat, destroyChat, sendSystemMessage } from "./chat";
 import { updateUI, cancelUnlockTimer } from "./voting";
 import { destroyWheel } from "./wheel";
+import { initSuperAdminPanel, destroySuperAdminPanel } from "./admin";
 
 let roomListenerRef: ReturnType<typeof ref> | null = null;
 let forceRefreshRef: ReturnType<typeof ref> | null = null;
+let permissionsListenerRef: ReturnType<typeof ref> | null = null;
 
 /** Track previous feature flags to detect changes */
 let prevFeatures: FeatureFlags = {
@@ -129,6 +131,12 @@ export async function joinRoom(
   );
   await onDisconnect(presenceRef).set(false);
 
+  const typingPresenceRef = ref(
+    db,
+    `rooms/${roomCode}/typing/${state.currentUser!.uid}`
+  );
+  onDisconnect(typingPresenceRef).remove();
+
   const role = roleSelect.value;
   const roleIcon =
     role === "dev"
@@ -137,7 +145,9 @@ export async function joinRoom(
         ? "🐛"
         : role === "ux"
           ? "🎨"
-          : "📋";
+          : role === "admin"
+            ? "🛡️"
+            : "📋";
   const roleName =
     role === "dev"
       ? "Dev"
@@ -145,8 +155,10 @@ export async function joinRoom(
         ? "QA"
         : role === "ux"
           ? "UX/UI"
-          : "PO";
-  userBadge.className = `user-badge ${role}`;
+          : role === "admin"
+            ? "Admin"
+            : "PO";
+  userBadge.className = `user-badge ${role === "admin" ? "admin" : role}`;
   userBadge.innerHTML = `${roleIcon} ${escapeHtml(state.currentUser!.name)} <span class="user-role">(${roleName})</span>`;
 
   // Reset prevFeatures before listening
@@ -154,14 +166,43 @@ export async function joinRoom(
 
   showPage("room");
   applyFeatureFlags(); // Apply role-based visibility (e.g. delete button for PO)
+
+  // Super admin: show admin panel if in admin room
+  state.isSuperAdmin = roomCode === "admin";
+  if (state.isSuperAdmin) {
+    initSuperAdminPanel();
+    // Hide poker UI — admin room only shows super admin panel
+    const votingStatus = document.querySelector(".voting-status");
+    const votingSection = document.querySelector(".voting-section");
+    const adminControls = document.querySelector(".admin-controls");
+    const participantsSection = document.querySelector(".participants-section");
+    votingStatus?.classList.add("hidden");
+    votingSection?.classList.add("hidden");
+    adminControls?.classList.add("hidden");
+    participantsSection?.classList.add("hidden");
+    // Bottom bar: hide center buttons, hide delete room, show only leave on the right
+    const bottomBar = document.getElementById("bottom-bar");
+    const bottomBarCenter = document.querySelector(".bottom-bar-center");
+    const deleteWrapper = document.getElementById("delete-room-wrapper");
+    bottomBar?.classList.remove("hidden");
+    bottomBarCenter?.classList.add("hidden");
+    if (deleteWrapper) deleteWrapper.style.display = "none";
+  }
+
   listenRoom();
+  if (!state.isSuperAdmin) listenPermissions(); // Admin room doesn't need PO permission listener
   initChat(); // isReinit = false → sets joinedAt
   sendSystemMessage(`${state.currentUser!.name} เข้าร่วมแล้ว`);
-  const typingPresenceRef = ref(
-    db,
-    `rooms/${roomCode}/typing/${state.currentUser!.uid}`
-  );
-  onDisconnect(typingPresenceRef).remove();
+}
+
+/** Cancel onDisconnect handlers for the given room — prevents stale writes after leaving */
+function cancelOnDisconnect(roomCode: string, uid: string): void {
+  try {
+    onDisconnect(ref(db, `rooms/${roomCode}/users/${uid}/online`)).cancel();
+    onDisconnect(ref(db, `rooms/${roomCode}/typing/${uid}`)).cancel();
+  } catch {
+    // cancel() can throw if the handler was already removed — ignore
+  }
 }
 
 export function handleLeave(skipMessage = false): void {
@@ -171,12 +212,29 @@ export function handleLeave(skipMessage = false): void {
   const uid = state.currentUser.uid;
   const role = state.currentRole;
   cancelUnlockTimer();
+  cancelOnDisconnect(roomCode, uid);
   if (!skipMessage) sendSystemMessage(`${leavingName} ออกจากห้อง`);
   destroyChat();
   destroyWheel();
+  // Clean up any lingering not-voted modal
+  document.getElementById("not-voted-modal")?.remove();
+  if (state.isSuperAdmin) destroySuperAdminPanel();
+  state.isSuperAdmin = false;
+  // Restore bottom bar center that was hidden in admin room
+  const bottomBarCenter = document.querySelector(".bottom-bar-center");
+  bottomBarCenter?.classList.remove("hidden");
+  // Restore sections hidden in admin room
+  document.querySelector(".voting-status")?.classList.remove("hidden");
+  document.querySelector(".voting-section")?.classList.remove("hidden");
+  document.querySelector(".admin-controls")?.classList.remove("hidden");
+  document.querySelector(".participants-section")?.classList.remove("hidden");
   if (roomListenerRef) {
     off(roomListenerRef);
     roomListenerRef = null;
+  }
+  if (permissionsListenerRef) {
+    off(permissionsListenerRef);
+    permissionsListenerRef = null;
   }
   localStorage.removeItem("scrum-poker-room");
   state.currentRoom = null;
@@ -259,7 +317,33 @@ export function listenRoom(): void {
       applyFeatureFlags();
     }
 
+    // Always update settings modal if open (features + auto-unlock)
+    updateSettingsFeatureState(newFeatures, data.autoUnlockSeconds);
+
     updateUI(data);
+  });
+}
+
+/** Listen to admin/featurePermissions for the current room — updates settings modal reactively */
+function listenPermissions(): void {
+  if (permissionsListenerRef) {
+    off(permissionsListenerRef);
+    permissionsListenerRef = null;
+  }
+  if (!state.currentRoom) return;
+  permissionsListenerRef = ref(db, `admin/featurePermissions/${state.currentRoom}`);
+  onValue(permissionsListenerRef, (snap) => {
+    const permissions: FeaturePermissions = snap.exists()
+      ? {
+          poker: snap.val().poker ?? true,
+          chat: snap.val().chat ?? true,
+          react: snap.val().react ?? true,
+          sound: snap.val().sound ?? true,
+          wheel: snap.val().wheel ?? true,
+        }
+      : { poker: true, chat: true, react: true, sound: true, wheel: true };
+    const autoUnlockEditable = snap.exists() ? (snap.val().autoUnlockEditable ?? true) : true;
+    updateSettingsPermissions(permissions, autoUnlockEditable);
   });
 }
 

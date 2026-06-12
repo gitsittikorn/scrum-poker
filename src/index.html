@@ -35,6 +35,7 @@
               <option value="dev">👨‍💻 Dev</option>
               <option value="qa">🐛 QA</option>
               <option value="ux">🎨 UX/UI</option>
+              <option id="admin-role-option" value="admin" style="display:none">🛡️ Admin</option>
             </select>
           </div>
 
@@ -47,6 +48,7 @@
               <option value="UXUI">UX/UI</option>
               <option value="Cold">ห้องเย็น</option>
               <option value="ColdJiab">ห้องเย็นเจี๊ยบ</option>
+              <option id="admin-room-option" value="admin" style="display:none">admin</option>
             </select>
           </div>
 
@@ -76,6 +78,23 @@
           <button id="btn-settings" class="btn btn-icon" title="Settings">⚙️</button>
         </div>
       </header>
+
+      <!-- Super Admin Panel (visible only in admin room) -->
+      <div id="super-admin-panel" class="super-admin-panel hidden">
+        <div class="super-admin-header">
+          <span class="super-admin-title">🛡️ Super Admin Panel</span>
+          <span class="super-admin-subtitle">จัดการ Feature Permissions แต่ละห้อง</span>
+        </div>
+        <div class="super-admin-room-tabs" id="super-admin-room-tabs">
+          <!-- Room tabs rendered by JS -->
+        </div>
+        <div id="super-admin-permissions" class="super-admin-permissions hidden">
+          <div class="super-admin-room-name" id="super-admin-room-name"></div>
+          <div class="toggle-group" id="super-admin-toggles">
+            <!-- Permission toggles rendered by JS -->
+          </div>
+        </div>
+      </div>
 
       <main class="room-content">
         <!-- Voting Status -->
@@ -292,51 +311,61 @@
             </div>
           </div>
 
-          <!-- DB Report Collapsible (all roles) -->
-          <div class="settings-divider"></div>
-          <button id="btn-db-report-toggle" class="collapsible-toggle" type="button">
-            <span>📊 การใช้งาน Database</span>
-            <span class="collapsible-arrow">▼</span>
-          </button>
-          <div id="db-report-collapsible" class="collapsible-content hidden">
-            <div id="db-report-inline" class="db-report">
-              <small class="form-hint">กำลังโหลดข้อมูล...</small>
-            </div>
-          </div>
-
-          <!-- Admin Section (visible only to PO) -->
+          <!-- PO Section (visible only to PO) -->
           <div id="admin-settings" class="admin-settings hidden">
             <div class="settings-divider"></div>
-            <div class="settings-section-title">🔒 Admin Settings</div>
+            <div class="settings-section-title">📋 PO Settings</div>
 
             <div class="form-group">
               <label>Feature Flags</label>
               <div class="toggle-group">
-                <label class="toggle-label">
+                <label class="toggle-label" id="toggle-label-poker">
                   <span class="toggle-text">🃏 Poker</span>
                   <input type="checkbox" id="feature-poker" checked aria-label="Poker feature toggle">
                   <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                  <span class="admin-only-badge hidden">🔒 admin only</span>
                 </label>
-                <label class="toggle-label">
+                <label class="toggle-label" id="toggle-label-chat">
                   <span class="toggle-text">💬 Chat</span>
                   <input type="checkbox" id="feature-chat" checked aria-label="Chat feature toggle">
                   <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                  <span class="admin-only-badge hidden">🔒 admin only</span>
                 </label>
-                <label class="toggle-label">
+                <label class="toggle-label" id="toggle-label-react">
                   <span class="toggle-text">😀 React</span>
                   <input type="checkbox" id="feature-react" checked aria-label="React feature toggle">
                   <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                  <span class="admin-only-badge hidden">🔒 admin only</span>
                 </label>
-                <label class="toggle-label">
+                <label class="toggle-label" id="toggle-label-sound">
                   <span class="toggle-text">🔊 Sound</span>
                   <input type="checkbox" id="feature-sound" checked aria-label="Sound feature toggle">
                   <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                  <span class="admin-only-badge hidden">🔒 admin only</span>
                 </label>
-                <label class="toggle-label">
+                <label class="toggle-label" id="toggle-label-wheel">
                   <span class="toggle-text">🎡 Wheel</span>
                   <input type="checkbox" id="feature-wheel" checked aria-label="Wheel feature toggle">
                   <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                  <span class="admin-only-badge hidden">🔒 admin only</span>
                 </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Super Admin Section (visible only in admin room) -->
+          <div id="super-admin-settings" class="admin-settings hidden">
+            <div class="settings-divider"></div>
+            <div class="settings-section-title">🛡️ Super Admin</div>
+
+            <div class="settings-divider"></div>
+            <button id="btn-db-report-toggle" class="collapsible-toggle" type="button">
+              <span>📊 การใช้งาน Database</span>
+              <span class="collapsible-arrow">▼</span>
+            </button>
+            <div id="db-report-collapsible" class="collapsible-content hidden">
+              <div id="db-report-inline" class="db-report">
+                <small class="form-hint">กำลังโหลดข้อมูล...</small>
               </div>
             </div>
 
@@ -345,6 +374,8 @@
               <input type="time" id="cleanup-time" value="19:00">
               <small class="form-hint">ทุกวันเวลาที่ตั้ง ระบบจะลบข้อความแชทและข้อมูลชั่วคราวทั้งหมด</small>
             </div>
+
+            <button id="btn-super-admin-save-cleanup" class="btn btn-primary" style="width:100%">💾 บันทึกเวลาเคลียร์ข้อมูล</button>
 
             <div class="settings-divider"></div>
             <div class="form-group">

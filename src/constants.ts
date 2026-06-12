@@ -15,6 +15,8 @@ export const CARDS: CardDef[] = [
   { value: "21", label: "เสร็จกันยา" },
 ];
 
+export const SUPER_ADMIN_NAME = "admin889";
+
 export const APP_VERSION = "2025-06-11-v1";
 
 export const EMOJIS = [

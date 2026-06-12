@@ -354,12 +354,13 @@ export function updateUI(roomData: RoomData): void {
   );
   participantCount.textContent = String(userList.length);
 
-  type RoleKey = "po" | "dev" | "qa" | "ux";
+  type RoleKey = "po" | "dev" | "qa" | "ux" | "admin";
   const roleIcons: Record<RoleKey, string> = {
     po: "📋",
     dev: "👨‍💻",
     qa: "🐛",
     ux: "🎨",
+    admin: "🛡️",
   };
 
   const updateVoteSpan = (
