@@ -1,6 +1,7 @@
 import {
   usernameInput,
   roomSelect,
+  roleSelect,
   btnJoinRoom,
   btnLeave,
   btnToggleTheme,
@@ -34,10 +35,14 @@ import {
   btnWheelClear,
   btnWheelAdd,
   wheelAddInput,
+  adminRoomOption,
+  adminRoleOption,
+  cleanupTimeInput,
 } from "./dom";
-import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, spawnFirework, applyFeatureFlags, openDbReport } from "./ui";
+import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, showToast, spawnFirework, applyFeatureFlags, openDbReport } from "./ui";
 import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
 import { handleJoinRoom, handleLeave, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler, listenForceRefresh, writeForceRefreshVersion } from "./room";
+import { db, ref, update } from "./firebase";
 import { renderCards, handleReveal, handleReset } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
@@ -45,11 +50,17 @@ import { toggleSoundPicker, sendSound, renderSoundPicker, handleSoundPickerOutsi
 import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
 import { state } from "./state";
 import { FEATURES } from "./config";
+import { SUPER_ADMIN_NAME } from "./constants";
 
 function init(): void {
   checkVersion();
   loadUsername();
   loadTheme();
+  // Show admin room/role options if saved username is super admin
+  if (usernameInput.value.trim() === SUPER_ADMIN_NAME) {
+    adminRoomOption.style.display = "";
+    adminRoleOption.style.display = "";
+  }
   if (FEATURES.poker) renderCards();
   if (FEATURES.sound) renderSoundPicker();
   bindEvents();
@@ -164,6 +175,16 @@ function bindEvents(): void {
     }
   });
 
+  // Super admin: save cleanup time
+  document.getElementById("btn-super-admin-save-cleanup")?.addEventListener("click", async () => {
+    const cleanupTime = cleanupTimeInput.value;
+    if (cleanupTime) {
+      await update(ref(db, `settings`), { cleanupTime });
+      closeSettings();
+      showToast("💾 บันทึกเวลาเคลียร์ข้อมูลแล้ว");
+    }
+  });
+
   // Chat events
   btnBarChat.addEventListener("click", toggleChat);
   btnChatClose.addEventListener("click", () => toggleChat());
@@ -252,6 +273,20 @@ function bindEvents(): void {
   // Landing page shortcuts
   usernameInput.addEventListener("keydown", (e: KeyboardEvent) => {
     if (e.key === "Enter") roomSelect.focus();
+  });
+
+  // Show/hide admin room option based on username
+  usernameInput.addEventListener("input", () => {
+    const isAdmin = usernameInput.value.trim() === SUPER_ADMIN_NAME;
+    adminRoomOption.style.display = isAdmin ? "" : "none";
+    adminRoleOption.style.display = isAdmin ? "" : "none";
+    // If admin was selected and username changed, reset selection
+    if (!isAdmin && roomSelect.value === "admin") {
+      roomSelect.value = "";
+    }
+    if (!isAdmin && roleSelect.value === "admin") {
+      roleSelect.value = "po";
+    }
   });
 
   roomSelect.addEventListener("change", () => {

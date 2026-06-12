@@ -50,6 +50,14 @@ export interface ChatMessage {
   reactions?: Record<string, Record<string, string>> | null;
 }
 
+export interface FeaturePermissions {
+  poker: boolean;
+  chat: boolean;
+  react: boolean;
+  sound: boolean;
+  wheel: boolean;
+}
+
 export type Role = "team" | "dev" | "qa" | "ux";
 
 export interface GroupedUsers {

@@ -6,6 +6,8 @@ export const state = {
   currentUid: null as string | null,
   selectedCard: null as string | null,
   currentRole: null as string | null,
+  isSuperAdmin: false,
 };
 
-export const isPO = (): boolean => state.currentRole === "po";
+export const isPO = (): boolean => state.currentRole === "po" || state.currentRole === "admin";
+export const isSuperAdmin = (): boolean => state.isSuperAdmin;

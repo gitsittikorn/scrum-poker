@@ -363,6 +363,11 @@ body {
   color: var(--ux-color);
   border: 1px solid rgba(236, 72, 153, 0.3);
 }
+.user-badge.admin {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
 
 .user-role {
   font-weight: 400;
@@ -1003,6 +1008,197 @@ body {
 .col-2 { grid-template-columns: 1fr 1fr; }
 .col-3 { grid-template-columns: 1fr 1fr 1fr; }
 .col-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+/* ===== Super Admin Panel ===== */
+.super-admin-panel {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 20px 0;
+}
+.super-admin-panel.hidden { display: none; }
+
+.super-admin-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.super-admin-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--warning), var(--danger));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.super-admin-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.super-admin-room-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.super-admin-room-tab {
+  padding: 8px 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.super-admin-room-tab:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+.super-admin-room-tab.active {
+  border-color: var(--accent);
+  background: rgba(0, 212, 255, 0.1);
+  color: var(--accent);
+}
+
+.super-admin-permissions {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.super-admin-permissions.hidden { display: none; }
+
+.super-admin-room-name {
+  font-size: 1rem;
+  font-weight: 800;
+  margin-bottom: 14px;
+  color: var(--text-primary);
+}
+
+.super-admin-feature-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.super-admin-feature-row:last-of-type {
+  border-bottom: none;
+}
+
+.super-admin-feature-label {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-right: auto;
+}
+
+.super-admin-feature-icon {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+.super-admin-toggle {
+  padding: 4px 8px;
+  min-height: 32px;
+  min-width: fit-content;
+  gap: 4px;
+  border: none;
+  background: none;
+}
+
+.super-admin-toggle .toggle-text {
+  font-size: 0.72rem;
+}
+
+.super-admin-toggle .toggle-switch {
+  width: 42px;
+  height: 22px;
+  border-radius: 11px;
+  flex-shrink: 0;
+}
+
+.super-admin-toggle .toggle-switch::after {
+  width: 18px;
+  height: 18px;
+}
+
+.super-admin-toggle input:checked + .toggle-switch::after {
+  transform: translateX(20px);
+}
+
+.super-admin-toggle .admin-only-badge {
+  font-size: 0.58rem;
+  padding: 1px 5px;
+}
+
+.super-admin-input {
+  width: 80px;
+  padding: 6px 10px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--transition);
+  flex-shrink: 0;
+}
+.super-admin-input:focus {
+  border-color: var(--accent);
+}
+
+/* ===== Admin Only Badge ===== */
+.admin-only-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 6px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+.admin-only-badge.hidden { display: none; }
+
+/* Disabled toggle label (locked by admin) */
+.toggle-label.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.04);
+}
+.toggle-label.disabled:hover {
+  border-color: var(--danger);
+}
+.toggle-label.disabled .toggle-switch {
+  opacity: 0.4;
+}
+
+/* Disabled form group (locked by admin) */
+.form-group.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.form-group.disabled::after {
+  content: "🔒 admin only";
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--danger);
+  margin-top: 6px;
+}
 
 /* ===== Settings Modal ===== */
 .modal-overlay {

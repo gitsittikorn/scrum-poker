@@ -60,6 +60,22 @@ export const featureSound = $("feature-sound") as HTMLInputElement;
 export const featureWheel = $("feature-wheel") as HTMLInputElement;
 export const cleanupTimeInput = $("cleanup-time") as HTMLInputElement;
 
+// Admin room option & super admin panel
+export const adminRoomOption = $("admin-room-option") as HTMLOptionElement;
+export const adminRoleOption = $("admin-role-option") as HTMLOptionElement;
+export const superAdminPanel = $("super-admin-panel");
+export const superAdminRoomTabs = $("super-admin-room-tabs");
+export const superAdminPermissions = $("super-admin-permissions");
+export const superAdminRoomName = $("super-admin-room-name");
+export const superAdminToggles = $("super-admin-toggles");
+
+// Admin-only badges on feature toggles
+export const toggleLabelPoker = $("toggle-label-poker");
+export const toggleLabelChat = $("toggle-label-chat");
+export const toggleLabelReact = $("toggle-label-react");
+export const toggleLabelSound = $("toggle-label-sound");
+export const toggleLabelWheel = $("toggle-label-wheel");
+
 // User settings
 export const muteOthersSound = $("mute-others-sound") as HTMLInputElement;
 

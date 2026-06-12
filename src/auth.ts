@@ -1,7 +1,7 @@
 import { db, auth, ref, get, signInAnonymously } from "./firebase";
 import { state } from "./state";
-import { roleSelect, roomSelect } from "./dom";
-import { APP_VERSION } from "./constants";
+import { roleSelect, roomSelect, adminRoomOption, adminRoleOption } from "./dom";
+import { APP_VERSION, SUPER_ADMIN_NAME } from "./constants";
 import { joinRoom } from "./room";
 
 export function checkVersion(): void {
@@ -29,6 +29,19 @@ export async function autoRejoinFromUrl(): Promise<void> {
   const savedUsername = localStorage.getItem("scrum-poker-username");
   const savedRole = localStorage.getItem("scrum-poker-role");
   if (!roomFromUrl || !savedUsername || !state.currentUid) return;
+
+  // Show admin options if rejoining as super admin
+  if (savedUsername === SUPER_ADMIN_NAME) {
+    adminRoomOption.style.display = "";
+    adminRoleOption.style.display = "";
+  }
+
+  // Block non-super-admin from rejoining admin room via URL
+  if (roomFromUrl === "admin" && savedUsername !== SUPER_ADMIN_NAME) {
+    console.log("[AutoJoin] Blocked: non-super-admin cannot join admin room");
+    window.history.replaceState(null, "", window.location.pathname);
+    return;
+  }
 
   console.log("[AutoJoin] From URL:", roomFromUrl);
   state.currentUser = { uid: state.currentUid, name: savedUsername };
