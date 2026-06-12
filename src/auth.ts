@@ -37,8 +37,8 @@ export async function autoRejoinFromUrl(): Promise<void> {
   }
 
   // Block non-super-admin from rejoining admin room via URL
-  if (roomFromUrl === "admin" && savedUsername !== SUPER_ADMIN_NAME) {
-    console.log("[AutoJoin] Blocked: non-super-admin cannot join admin room");
+  if (roomFromUrl === "admin" && (savedUsername !== SUPER_ADMIN_NAME || savedRole !== "admin")) {
+    console.log("[AutoJoin] Blocked: need admin889 + admin role to join admin room");
     window.history.replaceState(null, "", window.location.pathname);
     return;
   }

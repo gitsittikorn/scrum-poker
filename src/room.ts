@@ -14,7 +14,7 @@ import { state } from "./state";
 import type { RoomData, User, FeatureFlags, FeaturePermissions } from "./types";
 import { roleSelect, roomSelect, roomCodeDisplay, userBadge } from "./dom";
 import { AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
-import { APP_VERSION } from "./constants";
+import { APP_VERSION, SUPER_ADMIN_NAME } from "./constants";
 import { escapeHtml } from "./utils";
 import { showPage, showToast, saveUsername, applyFeatureFlags, closeSettings, updateSettingsPermissions, updateSettingsFeatureState } from "./ui";
 import { initChat, destroyChat, sendSystemMessage } from "./chat";
@@ -64,6 +64,12 @@ export async function handleJoinRoom(): Promise<void> {
     return;
   }
   if (!state.currentUid) {
+    return;
+  }
+
+  // Block non-super-admin from joining admin room
+  if (roomCode === "admin" && (username !== SUPER_ADMIN_NAME || roleSelect.value !== "admin")) {
+    showToast("🛡️ ต้องใช้ชื่อและ Role admin เท่านั้น");
     return;
   }
 
@@ -167,8 +173,8 @@ export async function joinRoom(
   showPage("room");
   applyFeatureFlags(); // Apply role-based visibility (e.g. delete button for PO)
 
-  // Super admin: show admin panel if in admin room
-  state.isSuperAdmin = roomCode === "admin";
+  // Super admin: only if name + role + room all match
+  state.isSuperAdmin = roomCode === "admin" && state.currentUser?.name === SUPER_ADMIN_NAME && state.currentRole === "admin";
   if (state.isSuperAdmin) {
     initSuperAdminPanel();
     // Hide poker UI — admin room only shows super admin panel

@@ -58,5 +58,8 @@ export const SOUNDS: SoundDef[] = [
   { file: "ร่างกาย.mp3", label: "ร่างกาย", emoji: "💪" },
   { file: "อย่ามั่ว.mp3", label: "อย่ามั่ว", emoji: "🚫" },
   { file: "เสียงอยู่ไส.mp3", label: "เสียงอยู่ไส", emoji: "🔊" },
+  { file: "คิดได้อย่างไร.mp3", label: "คิดได้อย่างไร", emoji: "🤯" },
+  { file: "อยู่ไม่ไหว.mp3", label: "อยู่ไม่ไหว", emoji: "😩" },
+  { file: "เสียงอยู่ไส 2.mp3", label: "เสียงอยู่ไส 2", emoji: "📢" },
 ];
 
