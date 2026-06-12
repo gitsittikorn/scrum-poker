@@ -19,7 +19,7 @@ import { escapeHtml } from "./utils";
 import { showPage, showToast, saveUsername, applyFeatureFlags, closeSettings, updateSettingsPermissions, updateSettingsFeatureState } from "./ui";
 import { initChat, destroyChat, sendSystemMessage } from "./chat";
 import { updateUI, cancelUnlockTimer } from "./voting";
-import { destroyWheel } from "./wheel";
+import { destroyWheel, initWheelManual } from "./wheel";
 import { initSuperAdminPanel, destroySuperAdminPanel } from "./admin";
 
 let roomListenerRef: ReturnType<typeof ref> | null = null;
@@ -195,10 +195,109 @@ export async function joinRoom(
     if (deleteWrapper) deleteWrapper.style.display = "none";
   }
 
+  // Wheel room: standalone wheel with manual entries only
+  state.isWheelRoom = roomCode === "Wheel";
+  if (state.isWheelRoom) {
+    initWheelRoom();
+  }
+
   listenRoom();
   if (!state.isSuperAdmin) listenPermissions(); // Admin room doesn't need PO permission listener
   initChat(); // isReinit = false → sets joinedAt
   sendSystemMessage(`${state.currentUser!.name} เข้าร่วมแล้ว`);
+}
+
+/** Initialize standalone Wheel room — move wheel DOM into main content area */
+function initWheelRoom(): void {
+  // Hide poker UI
+  const votingStatus = document.querySelector(".voting-status");
+  const votingSection = document.querySelector(".voting-section");
+  const adminControls = document.querySelector(".admin-controls");
+  const participantsSection = document.querySelector(".participants-section");
+  const resultSection = document.getElementById("result-section");
+  votingStatus?.classList.add("hidden");
+  votingSection?.classList.add("hidden");
+  adminControls?.classList.add("hidden");
+  participantsSection?.classList.add("hidden");
+  resultSection?.classList.add("hidden");
+
+  // Hide bottom bar center (React, Sound, Chat) + delete room — show only Leave
+  const bottomBarCenter = document.querySelector(".bottom-bar-center");
+  const deleteWrapper = document.getElementById("delete-room-wrapper");
+  bottomBarCenter?.classList.add("hidden");
+  if (deleteWrapper) deleteWrapper.style.display = "none";
+
+  // Move wheel panel contents into main content section
+  const wheelRoomSection = document.getElementById("wheel-room-section");
+  const wheelPanel = document.getElementById("wheel-panel");
+  const wheelHeader = wheelPanel?.querySelector(".wheel-header");
+  const wheelBody = wheelPanel?.querySelector(".wheel-body");
+  if (wheelRoomSection && wheelHeader && wheelBody) {
+    wheelRoomSection.appendChild(wheelHeader);
+    wheelRoomSection.appendChild(wheelBody);
+    wheelRoomSection.classList.remove("hidden");
+
+    // Wrap controls + entries into a right sidebar div
+    const sidebar = document.createElement("div");
+    sidebar.className = "wheel-room-sidebar";
+    const children = Array.from(wheelBody.children);
+    for (const child of children) {
+      if ((child as HTMLElement).id === "wheel-canvas-container") continue;
+      if ((child as HTMLElement).classList?.contains("wheel-pointer")) continue;
+      sidebar.appendChild(child);
+    }
+    wheelBody.appendChild(sidebar);
+  }
+  // Hide the slide-in panel shell
+  wheelPanel?.classList.add("hidden");
+
+  // Hide close button (wheel is main content, no need to close)
+  const btnWheelClose = document.getElementById("btn-wheel-close");
+  btnWheelClose?.classList.add("hidden");
+
+  // Init wheel in manual-only mode (no Firebase member fetch)
+  initWheelManual();
+}
+
+/** Destroy standalone Wheel room — move DOM back and restore UI */
+function destroyWheelRoom(): void {
+  const wheelRoomSection = document.getElementById("wheel-room-section");
+  const wheelPanel = document.getElementById("wheel-panel");
+
+  // Unwrap sidebar: move children back to wheel-body before moving DOM
+  const sidebar = wheelRoomSection?.querySelector(".wheel-room-sidebar");
+  const wheelBody = wheelRoomSection?.querySelector(".wheel-body");
+  if (sidebar && wheelBody) {
+    const children = Array.from(sidebar.children);
+    for (const child of children) {
+      wheelBody.appendChild(child);
+    }
+    sidebar.remove();
+  }
+
+  // Move wheel DOM back to the aside panel
+  const wheelHeader = wheelRoomSection?.querySelector(".wheel-header");
+  if (wheelPanel && wheelHeader && wheelBody) {
+    wheelPanel.insertBefore(wheelBody, wheelPanel.querySelector(".wheel-resize-handle")?.nextSibling || null);
+    wheelPanel.insertBefore(wheelHeader, wheelPanel.firstChild);
+  }
+  wheelRoomSection?.classList.add("hidden");
+  wheelPanel?.classList.remove("hidden");
+
+  // Restore close button
+  const btnWheelClose = document.getElementById("btn-wheel-close");
+  btnWheelClose?.classList.remove("hidden");
+
+  // Restore hidden sections
+  document.querySelector(".voting-status")?.classList.remove("hidden");
+  document.querySelector(".voting-section")?.classList.remove("hidden");
+  document.querySelector(".admin-controls")?.classList.remove("hidden");
+  document.querySelector(".participants-section")?.classList.remove("hidden");
+  document.getElementById("result-section")?.classList.remove("hidden");
+  const bottomBarCenter = document.querySelector(".bottom-bar-center");
+  bottomBarCenter?.classList.remove("hidden");
+  const deleteWrapper = document.getElementById("delete-room-wrapper");
+  if (deleteWrapper) deleteWrapper.style.display = "";
 }
 
 /** Cancel onDisconnect handlers for the given room — prevents stale writes after leaving */
@@ -221,11 +320,13 @@ export function handleLeave(skipMessage = false): void {
   cancelOnDisconnect(roomCode, uid);
   if (!skipMessage) sendSystemMessage(`${leavingName} ออกจากห้อง`);
   destroyChat();
+  if (state.isWheelRoom) destroyWheelRoom();
   destroyWheel();
   // Clean up any lingering not-voted modal
   document.getElementById("not-voted-modal")?.remove();
   if (state.isSuperAdmin) destroySuperAdminPanel();
   state.isSuperAdmin = false;
+  state.isWheelRoom = false;
   // Restore bottom bar center that was hidden in admin room
   const bottomBarCenter = document.querySelector(".bottom-bar-center");
   bottomBarCenter?.classList.remove("hidden");

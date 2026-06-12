@@ -7,6 +7,7 @@ export const state = {
   selectedCard: null as string | null,
   currentRole: null as string | null,
   isSuperAdmin: false,
+  isWheelRoom: false,
 };
 
 export const isPO = (): boolean => state.currentRole === "po" || state.currentRole === "admin";

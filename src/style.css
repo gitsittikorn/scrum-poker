@@ -126,12 +126,20 @@ body {
 .float-card {
   position: absolute;
   display: inline-block;
+  font-size: 54px;
+  font-weight: 900;
+  width: 64px;
+  height: 72px;
+  line-height: 72px;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  color: #fff;
   animation: float 3s ease-in-out infinite;
-  filter: drop-shadow(0 4px 12px var(--shadow));
+  box-shadow: 0 4px 16px var(--shadow);
 }
-.float-card.c1 { left: 30%; animation-delay: 0s; }
-.float-card.c2 { left: 45%; top: -5px; animation-delay: 0.5s; }
-.float-card.c3 { left: 60%; animation-delay: 1s; }
+.float-card.c1 { left: 18%; background: linear-gradient(135deg, var(--accent), #0099cc); animation-delay: 0s; }
+.float-card.c2 { left: 43%; top: -8px; background: linear-gradient(135deg, var(--accent2), #7c3aed); animation-delay: 0.5s; }
+.float-card.c3 { left: 68%; background: linear-gradient(135deg, #ec4899, #f43f5e); animation-delay: 1s; }
 
 @keyframes float {
   0%, 100% { transform: translateY(0) rotate(-3deg); }
@@ -773,47 +781,6 @@ body {
   border: 1px solid var(--border);
   box-shadow: 0 8px 32px var(--shadow);
 }
-.result-section.hidden {
-  display: none;
-}
-
-.result-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 8px;
-  background: var(--bg-card);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  animation: popIn 0.3s ease;
-}
-
-@keyframes popIn {
-  from { opacity: 0; transform: scale(0.8); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-.result-card .vote-value {
-  font-size: 1.8rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.result-card .vote-name {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.result-card.highlight {
-  background: var(--card-selected-bg);
-  border-color: var(--accent);
-  box-shadow: 0 0 16px var(--accent-glow);
-}
-
 .result-summary {
   display: flex;
   flex-direction: column;
@@ -1015,8 +982,6 @@ body {
   margin: 0 auto;
   padding: 24px 20px 0;
 }
-.super-admin-panel.hidden { display: none; }
-
 .super-admin-header {
   display: flex;
   flex-direction: column;
@@ -1069,8 +1034,6 @@ body {
   border-radius: var(--radius);
   padding: 20px;
 }
-.super-admin-permissions.hidden { display: none; }
-
 .super-admin-room-name {
   font-size: 1rem;
   font-weight: 800;
@@ -1170,8 +1133,6 @@ body {
   white-space: nowrap;
   letter-spacing: 0.3px;
 }
-.admin-only-badge.hidden { display: none; }
-
 /* Disabled toggle label (locked by admin) */
 .toggle-label.disabled {
   opacity: 0.6;
@@ -1310,8 +1271,6 @@ body {
 }
 
 /* ===== Admin Settings ===== */
-.admin-settings.hidden { display: none; }
-
 .settings-divider {
   height: 1px;
   background: var(--border);
@@ -1350,10 +1309,6 @@ body {
 .collapsible-toggle.open .collapsible-arrow {
   transform: rotate(180deg);
 }
-.collapsible-content.hidden {
-  display: none;
-}
-
 .toggle-group {
   display: flex;
   flex-direction: column;
@@ -1484,9 +1439,6 @@ body {
   margin: 8px auto 0;
   animation: fadeIn 0.4s ease;
 }
-.room-banner.hidden {
-  display: none;
-}
 .room-banner-img {
   width: 100%;
   max-width: 320px;
@@ -1544,10 +1496,6 @@ body {
 }
 
 /* ===== Chat Panel ===== */
-.btn-chat-toggle {
-  position: relative;
-}
-
 .chat-unread {
   position: absolute;
   top: -4px;
@@ -1565,8 +1513,6 @@ body {
   padding: 0 4px;
   pointer-events: none;
 }
-.chat-unread.hidden { display: none; }
-
 .chat-panel {
   position: fixed;
   top: 0;
@@ -1627,8 +1573,6 @@ body {
   min-height: 20px;
   flex-shrink: 0;
 }
-.chat-typing.hidden { display: none; }
-
 .chat-input-area {
   display: flex;
   gap: 8px;
@@ -1772,7 +1716,6 @@ body {
   box-shadow: 0 -4px 24px var(--shadow);
   z-index: 10;
 }
-.emoji-picker.hidden { display: none; }
 .emoji-item {
   background: none;
   border: none;
@@ -1795,7 +1738,6 @@ body {
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
-.chat-reply-bar.hidden { display: none; }
 .reply-preview {
   flex: 1;
   min-width: 0;
@@ -2144,8 +2086,6 @@ body {
   background: var(--bg-card);
   transform: scale(1.2);
 }
-.react-picker-bar.hidden { display: none; }
-
 /* Sound Picker (Bottom Bar) */
 .sound-picker-bar {
   position: fixed;
@@ -2165,7 +2105,6 @@ body {
   box-shadow: 0 -4px 24px var(--shadow);
   z-index: 160;
 }
-.sound-picker-bar.hidden { display: none; }
 .sound-item {
   display: flex;
   flex-direction: column;
@@ -2235,6 +2174,69 @@ body {
 }
 
 /* ===== Wheel Panel ===== */
+/* ===== Wheel Room Section (standalone wheel room) ===== */
+.wheel-room-section {
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 100px;
+}
+
+.wheel-room-section .wheel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.wheel-room-section .wheel-body {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 24px;
+  padding: 20px 0 0;
+  align-items: flex-start;
+}
+
+/* Left: canvas container fills remaining space */
+.wheel-room-section .wheel-body > #wheel-canvas-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: sticky;
+  top: 20px;
+}
+
+.wheel-room-section .wheel-canvas-container canvas {
+  width: 600px;
+  height: 600px;
+  max-width: 100%;
+}
+
+/* Right: sidebar with controls + entries */
+.wheel-room-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+
+.wheel-room-sidebar .wheel-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wheel-room-sidebar .wheel-member-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
 .wheel-panel {
   position: fixed;
   top: 0;
@@ -2344,8 +2346,6 @@ body {
   padding: 10px;
   animation: popIn 0.3s ease;
 }
-.wheel-winner-display.hidden { display: none; }
-
 /* Controls */
 .wheel-controls {
   display: flex;
@@ -2562,6 +2562,20 @@ body {
 
   .wheel-panel {
     width: 100%;
+  }
+
+  .wheel-room-section .wheel-body {
+    flex-direction: column;
+  }
+
+  .wheel-room-sidebar {
+    width: 100%;
+    max-height: none;
+  }
+
+  .wheel-room-section .wheel-canvas-container canvas {
+    width: 300px;
+    height: 300px;
   }
 
   .cards-container {

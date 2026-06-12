@@ -17,6 +17,21 @@ import { spawnFirework, showToast } from "./ui";
 import { escapeHtml } from "./utils";
 import type { User } from "./types";
 
+// ── Default entries for Wheel room ────────────────────────────────
+const WHEEL_ROOM_DEFAULTS = [
+  "Big", "May", "Cing", "Tein", "Toon", "Pun", "Por", "Meaw",
+  "Max", "Nuji", "Prince", "Yam", "Run", "Toey", "Flouk", "Pou",
+  "Puy", "A", "Pond", "Nub", "Char", "Poom",
+];
+
+const WHEEL_TEAMS: Record<string, string[]> = {
+  "Kitsune": ["Big", "May", "Tein", "Toon", "Pun", "Por"],
+  "Phoenix": ["Run", "Toey", "Flouk", "Pou", "Puy", "A", "Pond", "Nub", "Char"],
+  "Monkey King": ["Cing", "Meaw", "Max", "Prince", "Nuji", "Yam", "Poom"],
+  "All": [...WHEEL_ROOM_DEFAULTS],
+  "Team": ["UX/UI", "Kitsune", "Phoenix", "Monkey King"],
+};
+
 // ── State ──────────────────────────────────────────────────────────
 let originalMembers: string[] = [];
 let wheelEntries: string[] = [];
@@ -26,7 +41,6 @@ let isOpen = false;
 let isSpinning = false;
 let removeWinner = false;
 let includePO = false;
-let spinHistory: string[] = [];
 let currentRotation = 0;
 let animFrameId: number | null = null;
 let hasInitialized = false;
@@ -62,11 +76,16 @@ function drawWheel(rotation: number): void {
   if (!ctx) return;
 
   const dpr = window.devicePixelRatio || 1;
-  const size = 400;
+  const size = state.isWheelRoom ? 600 : 400;
   canvas.width = size * dpr;
   canvas.height = size * dpr;
-  canvas.style.width = `${size}px`;
-  canvas.style.height = `${size}px`;
+  if (!state.isWheelRoom) {
+    canvas.style.width = `${size}px`;
+    canvas.style.height = `${size}px`;
+  } else {
+    canvas.style.width = '';
+    canvas.style.height = '';
+  }
   ctx.scale(dpr, dpr);
 
   const cx = size / 2;
@@ -119,7 +138,8 @@ function drawWheel(rotation: number): void {
     ctx.save();
     ctx.rotate(midAngle);
     const textRadius = radius * 0.58;
-    const fontSize = n <= 3 ? 22 : n <= 5 ? 20 : n <= 8 ? 17 : n <= 12 ? 15 : n <= 18 ? 13 : 11;
+    const base = state.isWheelRoom ? 1.35 : 1;
+    const fontSize = Math.round(base * (n <= 3 ? 22 : n <= 5 ? 20 : n <= 8 ? 17 : n <= 12 ? 15 : n <= 18 ? 13 : 11));
     ctx.font = `700 ${fontSize}px "Segoe UI", system-ui, -apple-system, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -238,7 +258,6 @@ function onSpinComplete(): void {
 
   sendSound("แกไม่รอดแน่.mp3", true);
   spawnFirework(wheelCanvasContainer);
-  spinHistory.push(winner);
   showToast(`🎡 ผู้ถูกสุ่ม: ${winner}`);
 
   if (removeWinner) {
@@ -319,9 +338,9 @@ function editEntry(index: number, newName: string): void {
   renderMemberList();
 }
 
-/** Restart — fetch fresh members from Firebase */
+/** Restart — fetch fresh members from Firebase (or reset to defaults if Wheel room) */
 async function restartEntries(): Promise<void> {
-  originalMembers = await fetchMembers();
+  originalMembers = state.isWheelRoom ? [...WHEEL_ROOM_DEFAULTS] : await fetchMembers();
   duplicateCount = 1;
   wheelDuplicateSelect.value = "1";
   selectedWinner = null;
@@ -432,6 +451,22 @@ function setupEventDelegation(): void {
     renderMemberList();
   }, { signal });
 
+  // Team select — switch entry group (Wheel room only)
+  const teamSelect = document.getElementById("wheel-team-select") as HTMLSelectElement;
+  teamSelect?.addEventListener("change", () => {
+    const team = teamSelect.value;
+    const members = WHEEL_TEAMS[team] || WHEEL_ROOM_DEFAULTS;
+    originalMembers = [...members];
+    duplicateCount = 1;
+    wheelDuplicateSelect.value = "1";
+    selectedWinner = null;
+    wheelWinnerDisplay.classList.add("hidden");
+    currentRotation = 0;
+    rebuildWheelEntries();
+    drawWheel(0);
+    renderMemberList();
+  }, { signal });
+
   // Resize handle
   const resizeHandle = wheelPanel.querySelector(".wheel-resize-handle") as HTMLElement;
   if (resizeHandle) {
@@ -461,6 +496,7 @@ function setupEventDelegation(): void {
 
 // ── Public API ─────────────────────────────────────────────────────
 export function toggleWheel(): void {
+  if (state.isWheelRoom) return; // Wheel is already the main content
   isOpen = !isOpen;
   wheelPanel.classList.toggle("open", isOpen);
   if (isOpen && !hasInitialized) {
@@ -487,11 +523,21 @@ export function destroyWheel(): void {
   forceCloseWheel();
   originalMembers = [];
   wheelEntries = [];
-  spinHistory = [];
   currentRotation = 0;
   isSpinning = false;
   selectedWinner = null;
   hasInitialized = false;
+  // Close AudioContext
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  // Hide team dropdown
+  const teamGroup = document.getElementById("wheel-team-group");
+  if (teamGroup) teamGroup.style.display = "none";
+  // Restore include-PO toggle
+  const includePoToggle = document.getElementById("wheel-include-po");
+  if (includePoToggle) {
+    const label = includePoToggle.closest(".toggle-label");
+    if (label) label.classList.remove("hidden");
+  }
 }
 
 async function initWheel(): Promise<void> {
@@ -509,6 +555,37 @@ async function initWheel(): Promise<void> {
   drawWheel(0);
   renderMemberList();
   setupEventDelegation();
+}
+
+/** Initialize wheel for standalone Wheel room — manual entries only, no Firebase fetch */
+export function initWheelManual(): void {
+  originalMembers = [...WHEEL_ROOM_DEFAULTS];
+  duplicateCount = 1;
+  wheelDuplicateSelect.value = "1";
+  removeWinner = true;
+  wheelRemoveWinnerToggle.checked = true;
+  const removeSw = wheelRemoveWinnerToggle.nextElementSibling;
+  if (removeSw) removeSw.setAttribute("aria-checked", "true");
+  selectedWinner = null;
+  wheelWinnerDisplay.classList.add("hidden");
+  currentRotation = 0;
+  isOpen = true;
+  hasInitialized = true;
+  rebuildWheelEntries();
+  drawWheel(0);
+  renderMemberList();
+  setupEventDelegation();
+  // Hide "Include PO" toggle — no Firebase members in Wheel room
+  const includePoToggle = document.getElementById("wheel-include-po");
+  if (includePoToggle) {
+    const label = includePoToggle.closest(".toggle-label");
+    if (label) label.classList.add("hidden");
+  }
+  // Show team dropdown in Wheel room
+  const teamGroup = document.getElementById("wheel-team-group");
+  if (teamGroup) teamGroup.style.display = "";
+  const teamSelect = document.getElementById("wheel-team-select") as HTMLSelectElement;
+  if (teamSelect) teamSelect.value = "All";
 }
 
 // Export control functions for app.ts to bind

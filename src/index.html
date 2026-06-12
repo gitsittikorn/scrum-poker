@@ -14,9 +14,9 @@
       <div class="landing-container">
         <div class="logo">
           <div class="logo-cards">
-            <span class="float-card c1">🂡</span>
-            <span class="float-card c2">🂱</span>
-            <span class="float-card c3">🃁</span>
+            <span class="float-card c1">T</span>
+            <span class="float-card c2">Q</span>
+            <span class="float-card c3">M</span>
           </div>
           <h1>Scrum Poker</h1>
           <p class="subtitle">Planning Poker for Agile Teams</p>
@@ -43,12 +43,15 @@
             <label for="room-select">เลือกห้อง</label>
             <select id="room-select">
               <option value="">-- เลือกห้อง --</option>
-              <option value="Kitsune">Kitsune</option>
-              <option value="Phoenix">Phoenix</option>
-              <option value="UXUI">UX/UI</option>
-              <option value="Cold">ห้องเย็น</option>
-              <option value="ColdJiab">ห้องเย็นเจี๊ยบ</option>
-              <option id="admin-room-option" value="admin" style="display:none">admin</option>
+              <option value="Kitsune">🦊 Kitsune</option>
+              <option value="Phoenix">🔥 Phoenix</option>
+              <option value="UXUI">🎨 UX/UI</option>
+              <option value="Cold">❄️ ห้องเย็น</option>
+              <option value="ColdJiab">🥶 ห้องเย็นเจี๊ยบ</option>
+              <option value="TQM1">🏢 TQM 1</option>
+              <option value="TQM2">🏢 TQM 2</option>
+              <option value="Wheel">🎡 Wheel</option>
+              <option id="admin-room-option" value="admin" style="display:none">🛡️ admin</option>
             </select>
           </div>
 
@@ -146,6 +149,10 @@
         <section id="result-section" class="result-section hidden">
           <div id="result-summary" class="result-summary"></div>
         </section>
+
+        <!-- Wheel Room Section (visible only in Wheel room) -->
+        <section id="wheel-room-section" class="wheel-room-section hidden">
+        </section>
       </main>
 
       <!-- Wheel Panel (slides from left) -->
@@ -168,6 +175,16 @@
             <button id="btn-wheel-clear" class="btn btn-icon btn-delete-icon" title="Clear">🗑️</button>
           </div>
           <div class="wheel-options">
+            <label class="wheel-option-label" id="wheel-team-group" style="display:none">
+              ทีม:
+              <select id="wheel-team-select" class="wheel-select">
+                <option value="All" selected>👥 All</option>
+                <option value="Kitsune">🦊 Kitsune</option>
+                <option value="Phoenix">🔥 Phoenix</option>
+                <option value="Monkey King">🐵 Monkey King</option>
+                <option value="Team">🏢 Team</option>
+              </select>
+            </label>
             <label class="wheel-option-label">
               Duplicate:
               <select id="wheel-duplicate-select" class="wheel-select">
