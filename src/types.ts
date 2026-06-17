@@ -66,3 +66,17 @@ export interface GroupedUsers {
   qa: [string, User][];
   ux: [string, User][];
 }
+
+/** Options for the reusable confirm / warning modal (see showConfirmModal in ui.ts) */
+export interface ConfirmModalOptions {
+  title: string;
+  message: string;
+  /** Confirm button label (default "ยืนยัน") */
+  confirmText?: string;
+  /** Cancel button label (default "ยกเลิก") */
+  cancelText?: string;
+  /** true = destructive styling (red confirm button + ⚠️ header). Default false. */
+  danger?: boolean;
+  /** Called when the user confirms */
+  onConfirm?: () => void | Promise<void>;
+}

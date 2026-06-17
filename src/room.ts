@@ -349,6 +349,7 @@ export function handleLeave(skipMessage = false): void {
   state.currentRoom = null;
   state.currentUser = null;
   state.selectedCard = null;
+  state.activeCard = null;
   showPage("landing");
   window.history.replaceState(null, "", window.location.pathname);
 
