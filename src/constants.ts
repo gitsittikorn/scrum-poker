@@ -17,7 +17,7 @@ export const CARDS: CardDef[] = [
 
 export const SUPER_ADMIN_NAME = "admin889";
 
-export const APP_VERSION = "2025-06-11-v1";
+export const APP_VERSION = "2026-06-16-v1";
 
 export const EMOJIS = [
   "😀", "😂", "🤣", "😊", "😅", "😎", "🤔", "😏", "🙄", "🥳", "🤩", "😤",
@@ -61,5 +61,6 @@ export const SOUNDS: SoundDef[] = [
   { file: "คิดได้อย่างไร.mp3", label: "คิดได้อย่างไร", emoji: "🤯" },
   { file: "อยู่ไม่ไหว.mp3", label: "อยู่ไม่ไหว", emoji: "😩" },
   { file: "เสียงอยู่ไส 2.mp3", label: "เสียงอยู่ไส 2", emoji: "📢" },
+  { file: "อยากทำงาน.mp3", label: "อยากทำงาน", emoji: "💼" },
 ];
 

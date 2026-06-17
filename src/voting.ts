@@ -380,6 +380,51 @@ export function updateUI(roomData: RoomData): void {
     }
   };
 
+  /** Build the kick button + confirm popup wrapper. Reused by createCard and renderGroup sync. */
+  const buildKickWrapper = (uid: string, user: User): HTMLElement => {
+    const kickBtn = document.createElement("button");
+    kickBtn.className = "btn-kick";
+    kickBtn.title = "เตะออกจากห้อง";
+    kickBtn.textContent = "🥾";
+
+    // Confirm popup
+    const popup = document.createElement("div");
+    popup.className = "kick-confirm hidden";
+    popup.innerHTML = `
+      <span class="kick-confirm-text">เตะ ${escapeHtml(user.name || "Unknown")}?</span>
+      <button class="kick-confirm-btn yes" type="button">เตะ</button>
+      <button class="kick-confirm-btn no" type="button">ยกเลิก</button>
+    `;
+
+    kickBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const wasOpen = !popup.classList.contains("hidden");
+      // Close all kick popups first
+      document.querySelectorAll(".kick-confirm").forEach(el => el.classList.add("hidden"));
+      // Toggle: if it was closed, open it
+      if (!wasOpen) popup.classList.remove("hidden");
+    });
+    popup.querySelector(".yes")!.addEventListener("click", (e) => {
+      e.stopPropagation();
+      popup.classList.add("hidden");
+      // Read the current name from the DOM rather than the closure, so a name
+      // change (rejoin with new name) is reflected even before the wrapper is rebuilt.
+      const card = popup.closest(".participant-card");
+      const nameEl = card?.querySelector<HTMLElement>(".participant-name");
+      handleKick(uid, nameEl?.textContent || user.name);
+    });
+    popup.querySelector(".no")!.addEventListener("click", (e) => {
+      e.stopPropagation();
+      popup.classList.add("hidden");
+    });
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "kick-wrapper";
+    wrapper.appendChild(kickBtn);
+    wrapper.appendChild(popup);
+    return wrapper;
+  };
+
   const createCard = (uid: string, user: User, role: RoleKey): HTMLElement => {
     const isOnline = user.online !== false;
     const card = document.createElement("div");
@@ -416,43 +461,7 @@ export function updateUI(roomData: RoomData): void {
       card.appendChild(speakerLabel);
     }
     if (isPO() && uid !== state.currentUid) {
-      const kickBtn = document.createElement("button");
-      kickBtn.className = "btn-kick";
-      kickBtn.title = "เตะออกจากห้อง";
-      kickBtn.textContent = "🥾";
-
-      // Confirm popup
-      const popup = document.createElement("div");
-      popup.className = "kick-confirm hidden";
-      popup.innerHTML = `
-        <span class="kick-confirm-text">เตะ ${escapeHtml(user.name)}?</span>
-        <button class="kick-confirm-btn yes" type="button">เตะ</button>
-        <button class="kick-confirm-btn no" type="button">ยกเลิก</button>
-      `;
-
-      kickBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const wasOpen = !popup.classList.contains("hidden");
-        // Close all kick popups first
-        document.querySelectorAll(".kick-confirm").forEach(el => el.classList.add("hidden"));
-        // Toggle: if it was closed, open it
-        if (!wasOpen) popup.classList.remove("hidden");
-      });
-      popup.querySelector(".yes")!.addEventListener("click", (e) => {
-        e.stopPropagation();
-        popup.classList.add("hidden");
-        handleKick(uid, user.name);
-      });
-      popup.querySelector(".no")!.addEventListener("click", (e) => {
-        e.stopPropagation();
-        popup.classList.add("hidden");
-      });
-
-      const wrapper = document.createElement("div");
-      wrapper.className = "kick-wrapper";
-      wrapper.appendChild(kickBtn);
-      wrapper.appendChild(popup);
-      card.appendChild(wrapper);
+      card.appendChild(buildKickWrapper(uid, user));
     }
     card.appendChild(statusDot);
     return card;
@@ -478,6 +487,13 @@ export function updateUI(roomData: RoomData): void {
       if (existing) {
         const newClass = "participant-card" + (user.vote ? " voted" : "");
         if (existing.className !== newClass) existing.className = newClass;
+
+        // Sync name (handles rejoin with a new name under the same uid)
+        const nameEl = existing.querySelector<HTMLElement>(".participant-name");
+        const newName = user.name || "Unknown";
+        if (nameEl && nameEl.textContent !== newName) {
+          nameEl.textContent = newName;
+        }
 
         const voteSpan = existing.querySelector<HTMLElement>(
           "span.participant-vote"
@@ -511,6 +527,26 @@ export function updateUI(roomData: RoomData): void {
           }
         } else if (speakerLabel) {
           speakerLabel.remove();
+        }
+
+        // Sync kick button: add/remove based on whether the current viewer is PO,
+        // and refresh the name inside the confirm popup (handles rejoin as PO / with new name).
+        const kickWrapper = existing.querySelector<HTMLElement>(".kick-wrapper");
+        const shouldHaveKick = isPO() && uid !== state.currentUid;
+        if (shouldHaveKick && !kickWrapper) {
+          const wrapper = buildKickWrapper(uid, user);
+          if (statusDotEl) existing.insertBefore(wrapper, statusDotEl);
+          else existing.appendChild(wrapper);
+        } else if (!shouldHaveKick && kickWrapper) {
+          kickWrapper.remove();
+        } else if (kickWrapper) {
+          const confirmText = kickWrapper.querySelector<HTMLElement>(
+            ".kick-confirm-text"
+          );
+          const expected = `เตะ ${newName}?`;
+          if (confirmText && confirmText.textContent !== expected) {
+            confirmText.textContent = expected;
+          }
         }
       } else {
         container.appendChild(createCard(uid, user, role));
@@ -611,8 +647,14 @@ function showResults(userList: [string, User][]): void {
       .map(([, u]) => parseFloat(u.vote!))
       .filter((n) => !isNaN(n));
     if (nums.length === 0) return { match: true, msg: "" };
-    if (list.length === 1) {
-      const name = list[0][1].name || "Unknown";
+    // Only one person actually voted → they wrap it up alone (covers the case where
+    // the group has more members but only one cast a vote, e.g. PO ×3 but only 1 voted)
+    if (nums.length === 1) {
+      const isNumeric = (u: User) =>
+        u.vote != null && !isNaN(parseFloat(u.vote));
+      const voter =
+        list.find(([, u]) => isNumeric(u)) || list.find(([, u]) => u.vote != null);
+      const name = voter ? voter[1].name || "Unknown" : "Unknown";
       return { match: true, msg: `${name} รับจบ สวยๆ` };
     }
     const allSame = nums.every((v) => v === nums[0]);

@@ -221,10 +221,10 @@ function initWheelRoom(): void {
   participantsSection?.classList.add("hidden");
   resultSection?.classList.add("hidden");
 
-  // Hide bottom bar center (React, Sound, Chat) + delete room — show only Leave
-  const bottomBarCenter = document.querySelector(".bottom-bar-center");
+  // Show React, Sound, Chat on bottom bar — hide only Wheel button + delete room
   const deleteWrapper = document.getElementById("delete-room-wrapper");
-  bottomBarCenter?.classList.add("hidden");
+  const btnWheel = document.getElementById("btn-wheel");
+  btnWheel?.classList.add("hidden");
   if (deleteWrapper) deleteWrapper.style.display = "none";
 
   // Move wheel panel contents into main content section
@@ -296,6 +296,8 @@ function destroyWheelRoom(): void {
   document.getElementById("result-section")?.classList.remove("hidden");
   const bottomBarCenter = document.querySelector(".bottom-bar-center");
   bottomBarCenter?.classList.remove("hidden");
+  const btnWheel = document.getElementById("btn-wheel");
+  btnWheel?.classList.remove("hidden");
   const deleteWrapper = document.getElementById("delete-room-wrapper");
   if (deleteWrapper) deleteWrapper.style.display = "";
 }
@@ -374,7 +376,7 @@ export function listenRoom(): void {
   onValue(roomListenerRef, (snap) => {
     if (!snap.exists()) {
       showToast("Room closed");
-      handleLeave();
+      handleLeave(true);
       return;
     }
     const data = snap.val() as RoomData;

@@ -1977,6 +1977,39 @@ body {
 .btn-bar:hover {
   color: var(--text-primary);
   background: var(--bg-card);
+  transform: translateY(-2px) scale(1.08);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+.btn-bar:active {
+  transform: scale(0.92);
+}
+/* Highlight the button while its panel/picker is open (synced via :has — no JS needed) */
+#room-page:has(#chat-panel.open) #btn-bar-chat,
+#room-page:has(#react-picker-bar:not(.hidden)) #btn-bar-react,
+#room-page:has(#sound-picker-bar:not(.hidden)) #btn-bar-sound,
+#room-page:has(#wheel-panel.open) #btn-wheel {
+  color: var(--accent);
+  background: var(--bg-card);
+  box-shadow: 0 0 14px var(--accent-glow);
+}
+#room-page:has(#chat-panel.open) #btn-bar-chat::before,
+#room-page:has(#react-picker-bar:not(.hidden)) #btn-bar-react::before,
+#room-page:has(#sound-picker-bar:not(.hidden)) #btn-bar-sound::before,
+#room-page:has(#wheel-panel.open) #btn-wheel::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  animation: btnBarPulse 1.5s ease-in-out infinite;
+}
+@keyframes btnBarPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
 }
 .btn-bar-icon { font-size: 1.3rem; }
 #btn-wheel .btn-bar-icon { font-size: 1.8rem; }
@@ -2097,11 +2130,9 @@ body {
   border-radius: var(--radius-sm);
   padding: 8px;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 4px;
-  width: 400px;
-  max-height: 260px;
-  overflow-y: auto;
+  width: 480px;
   box-shadow: 0 -4px 24px var(--shadow);
   z-index: 160;
 }
@@ -2217,7 +2248,7 @@ body {
 
 /* Right: sidebar with controls + entries */
 .wheel-room-sidebar {
-  width: 300px;
+  width: 380px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -2241,7 +2272,7 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  width: 560px;
+  width: 640px;
   height: 100vh;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
@@ -2388,11 +2419,9 @@ body {
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
-.wheel-options > .toggle-label:first-of-type {
-  flex: 1 1 100%;
-}
+.wheel-options > .toggle-label:first-of-type,
 .wheel-options > .toggle-label:nth-of-type(2) {
-  margin-left: auto;
+  flex: 1 1 calc(50% - 4px);
 }
 .wheel-option-label {
   font-size: 0.85rem;
@@ -2416,8 +2445,9 @@ body {
   min-height: 40px;
   gap: 10px;
   justify-content: space-between;
-  width: fit-content;
-  min-width: 180px;
+  width: auto;
+  min-width: 0;
+  box-sizing: border-box;
   font-weight: 400;
 }
 

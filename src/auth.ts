@@ -1,4 +1,4 @@
-import { db, auth, ref, get, signInAnonymously } from "./firebase";
+import { db, auth, ref, get, signInAnonymously, setPersistence, browserSessionPersistence } from "./firebase";
 import { state } from "./state";
 import { roleSelect, roomSelect, adminRoomOption, adminRoleOption } from "./dom";
 import { APP_VERSION, SUPER_ADMIN_NAME } from "./constants";
@@ -15,6 +15,16 @@ export function checkVersion(): void {
 
 export async function initAuth(): Promise<void> {
   try {
+    // Dev-only multi-tab mode: ?multi=1 switches Firebase Auth to sessionStorage
+    // (which is isolated per tab), so each tab gets its own anonymous uid.
+    // Gated on import.meta.env.DEV so it never affects production builds.
+    if (import.meta.env.DEV) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("multi") === "1") {
+        await setPersistence(auth, browserSessionPersistence);
+        console.log("[Auth] Dev multi-tab mode ON (sessionStorage) — each tab is a separate user");
+      }
+    }
     const result = await signInAnonymously(auth);
     state.currentUid = result.user.uid;
     console.log("[Auth] Signed in:", state.currentUid);

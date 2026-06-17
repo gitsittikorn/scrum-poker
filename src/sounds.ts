@@ -51,22 +51,23 @@ export function isMuteOthers(): boolean {
   return localStorage.getItem("scrum-poker-mute-others") === "true";
 }
 
-/** Play a local audio file using preloaded cache */
+/** Play a local audio file — reuse preloaded element for instant playback */
 export function playSound(file: string): void {
-  const cached = audioCache.get(file);
-  if (cached) {
-    const audio = cached.cloneNode() as HTMLAudioElement;
+  let audio = audioCache.get(file);
+  if (!audio) {
+    // Fallback: create, cache, and play
+    audio = new Audio(`/sounds/${file}`);
+    audio.preload = "auto";
     audio.volume = SOUND_VOLUME;
-    audio.play().catch(() => {
-      /* browser blocked autoplay — ignore */
-    });
-  } else {
-    const audio = new Audio(`/sounds/${file}`);
-    audio.volume = SOUND_VOLUME;
-    audio.play().catch(() => {
-      /* browser blocked autoplay — ignore */
-    });
+    audioCache.set(file, audio);
   }
+  // Reuse cached element — already decoded in memory, starts instantly
+  audio.pause();
+  audio.currentTime = 0;
+  audio.volume = SOUND_VOLUME;
+  audio.play().catch(() => {
+    /* browser blocked autoplay — ignore */
+  });
 }
 
 /** Send sound event to Firebase so everyone hears it */
