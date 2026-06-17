@@ -39,14 +39,14 @@ import {
   adminRoleOption,
   cleanupTimeInput,
 } from "./dom";
-import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, showToast, spawnFirework, applyFeatureFlags, openDbReport } from "./ui";
+import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, showToast, spawnFirework, applyFeatureFlags, openDbReport, showWarningModal, showConfirmModal } from "./ui";
 import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
 import { handleJoinRoom, handleLeave, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler, listenForceRefresh, writeForceRefreshVersion } from "./room";
 import { db, ref, update } from "./firebase";
 import { renderCards, handleReveal, handleReset } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
-import { toggleSoundPicker, sendSound, renderSoundPicker, handleSoundPickerOutsideClick } from "./sounds";
+import { toggleSoundPicker, sendSound, renderSoundPicker, handleSoundPickerOutsideClick, playSound } from "./sounds";
 import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
 import { state } from "./state";
 import { FEATURES } from "./config";
@@ -78,29 +78,15 @@ function init(): void {
   listenForceRefresh();
 }
 
-function closeAllBottomPopups(): void {
-  document.getElementById("leave-confirm")?.classList.add("hidden");
-  document.getElementById("delete-confirm")?.classList.add("hidden");
-}
-
 function bindEvents(): void {
   btnJoinRoom.addEventListener("click", handleJoinRoom);
   btnLeave.addEventListener("click", () => {
-    closeAllBottomPopups();
-    document.getElementById("leave-confirm")!.classList.remove("hidden");
-  });
-  document.getElementById("btn-leave-yes")!.addEventListener("click", () => {
-    closeAllBottomPopups();
-    handleLeave();
-  });
-  document.getElementById("btn-leave-no")!.addEventListener("click", () => {
-    closeAllBottomPopups();
-  });
-  // Close leave/delete popup when clicking outside
-  document.addEventListener("click", (e) => {
-    if (!(e.target as HTMLElement).closest(".leave-wrapper")) {
-      closeAllBottomPopups();
-    }
+    showConfirmModal({
+      title: "ออกจากห้อง?",
+      message: "คุณจะออกจากห้องนี้ (สามารถเข้าร่วมใหม่ได้)",
+      confirmText: "ออกจากห้อง",
+      onConfirm: handleLeave,
+    });
   });
   btnToggleTheme.addEventListener("click", toggleTheme);
 
@@ -113,8 +99,6 @@ function bindEvents(): void {
   settingsModal.addEventListener("click", (e) => {
     if (e.target === settingsModal) closeSettings();
   });
-  // Close link for non-PO users
-  document.getElementById("settings-close-link")?.addEventListener("click", closeSettings);
 
   // DB Report collapsible toggle
   document.getElementById("btn-db-report-toggle")!.addEventListener("click", () => {
@@ -159,20 +143,21 @@ function bindEvents(): void {
   btnReveal.addEventListener("click", handleReveal);
   btnReset.addEventListener("click", handleReset);
   btnDeleteRoom.addEventListener("click", () => {
-    closeAllBottomPopups();
-    document.getElementById("delete-confirm")!.classList.remove("hidden");
-  });
-  document.getElementById("btn-delete-yes")!.addEventListener("click", () => {
-    closeAllBottomPopups();
-    handleDeleteRoom();
-  });
-  document.getElementById("btn-delete-no")!.addEventListener("click", () => {
-    closeAllBottomPopups();
+    showWarningModal({
+      title: "ลบห้องนี้?",
+      message: "ทุกคนจะถูกเตะออกจากห้อง และข้อมูลภายในห้องจะถูกลบทิ้งทั้งหมด",
+      confirmText: "ลบห้อง",
+      onConfirm: handleDeleteRoom,
+    });
   });
   document.getElementById("btn-clear-all")?.addEventListener("click", () => {
-    if (confirm("⚠️ ต้องการเคลียร์ข้อมูลทุกห้อง?\n\n• ข้อความแชททั้งหมดจะถูกลบ\n• คะแนนโหวตจะถูกรีเซ็ต\n• ทุกคนจะถูกออกจากห้องทันที")) {
-      handleClearAllRooms();
-    }
+    showWarningModal({
+      title: "ล้างข้อมูลทุกห้อง?",
+      message:
+        "ทุกคนในทุกห้องจะถูกเตะออกทันที\n• ข้อความแชททั้งหมดจะถูกลบ\n• คะแนนโหวตจะถูกรีเซ็ต",
+      confirmText: "ล้างทุกห้อง",
+      onConfirm: handleClearAllRooms,
+    });
   });
 
   // Super admin: save cleanup time
@@ -225,7 +210,9 @@ function bindEvents(): void {
     if (target && FEATURES.sound) {
       const file = target.dataset.file!;
       const emoji = target.dataset.emoji!;
-      // Show floating emoji locally immediately (don't wait for Firebase)
+      // Play locally immediately (this click is the gesture that unlocks audio) +
+      // show floating emoji — don't wait for the Firebase round-trip
+      playSound(file);
       if (state.currentUser) animateFloatingEmoji(emoji, state.currentUser.name);
       sendSound(file);
       soundPickerBar.classList.add("hidden");

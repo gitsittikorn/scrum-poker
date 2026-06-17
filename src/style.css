@@ -537,6 +537,13 @@ body {
   font-weight: bold;
 }
 
+/* activeCard = card currently focused (keyboard nav). Purple focus-ring, distinct
+   from :hover (cyan lift) and .selected (cyan voted). Suppressed once voted. */
+.poker-card.active:not(.selected):not(.disabled) {
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 3px var(--accent2-glow), 0 8px 20px var(--shadow);
+}
+
 .poker-card.disabled {
   opacity: 0.3;
   cursor: not-allowed;
@@ -860,70 +867,20 @@ body {
   transition: all 0.15s;
   flex-shrink: 0;
 }
-.participant-card:hover .kick-wrapper .btn-kick {
+.participant-card:hover .btn-kick {
   opacity: 0.6;
   pointer-events: auto;
+}
+.btn-kick:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
 }
 .btn-kick:hover {
   opacity: 1 !important;
   background: rgba(239, 68, 68, 0.15);
   transform: scale(1.3);
-}
-/* Kick confirm popup */
-.kick-wrapper {
-  position: relative;
-  flex-shrink: 0;
-}
-.kick-confirm {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--bg-card);
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  box-shadow: 0 4px 16px var(--shadow);
-  z-index: 160;
-  white-space: nowrap;
-  animation: fadeInUp 0.15s ease-out;
-}
-.kick-confirm-text {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.kick-confirm-btn {
-  border: none;
-  cursor: pointer;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 4px;
-  transition: all 0.15s;
-}
-.kick-confirm-btn.yes {
-  background: var(--danger);
-  color: #fff;
-}
-.kick-confirm-btn.yes:hover {
-  background: #dc2626;
-}
-.kick-confirm-btn.no {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-}
-.kick-confirm-btn.no:hover {
-  background: var(--bg-card);
-}
-/* Keep kick button visible when popup is open */
-.kick-wrapper:hover .btn-kick,
-.kick-confirm:not(.hidden) ~ .btn-kick {
-  opacity: 0.6;
-  pointer-events: auto;
 }
 
 /* Not-voted Modal */
@@ -1205,6 +1162,55 @@ body {
 .modal-header h2 {
   font-size: 1.2rem;
   font-weight: 800;
+}
+
+/* ===== Confirm / Warning Modal (showConfirmModal / showWarningModal) ===== */
+.confirm-modal-content {
+  max-width: 360px;
+}
+.modal-danger .modal-header h2 {
+  color: var(--danger);
+}
+.confirm-modal-text {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin: 0;
+}
+.confirm-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.confirm-modal-actions .btn {
+  flex: 1;
+  padding: 11px 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.btn-confirm-cancel {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  transition: all var(--transition);
+}
+.btn-confirm-cancel:hover {
+  background: var(--bg-secondary);
+  border-color: var(--text-muted);
+}
+.btn-confirm-danger {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 16px var(--danger-glow);
+  transition: all var(--transition);
+}
+.btn-confirm-danger:hover {
+  background: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px var(--danger-glow);
 }
 
 /* ===== Countdown Text ===== */
@@ -1992,25 +1998,8 @@ body {
   background: var(--bg-card);
   box-shadow: 0 0 14px var(--accent-glow);
 }
-#room-page:has(#chat-panel.open) #btn-bar-chat::before,
-#room-page:has(#react-picker-bar:not(.hidden)) #btn-bar-react::before,
-#room-page:has(#sound-picker-bar:not(.hidden)) #btn-bar-sound::before,
-#room-page:has(#wheel-panel.open) #btn-wheel::before {
-  content: "";
-  position: absolute;
-  top: 4px;
-  right: 8px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 6px var(--accent);
-  animation: btnBarPulse 1.5s ease-in-out infinite;
-}
-@keyframes btnBarPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.8); }
-}
+/* (blinking top-right dot removed — the accent highlight + glow above is enough
+   to show which panel is open, and the dot was distracting during poker voting) */
 .btn-bar-icon { font-size: 1.3rem; }
 #btn-wheel .btn-bar-icon { font-size: 1.8rem; }
 .btn-leave-bar {
@@ -2026,59 +2015,6 @@ body {
 .btn-delete-bar:hover {
   background: rgba(239, 68, 68, 0.15) !important;
   opacity: 1;
-}
-/* Leave confirm popup */
-.leave-wrapper {
-  position: relative;
-}
-.leave-confirm {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  right: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--bg-card);
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  box-shadow: 0 4px 16px var(--shadow);
-  z-index: 160;
-  white-space: nowrap;
-  animation: fadeInUp 0.15s ease-out;
-}
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.leave-confirm-text {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.leave-confirm-btn {
-  border: none;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 4px 12px;
-  border-radius: 4px;
-  transition: all 0.15s;
-}
-.leave-confirm-btn.yes {
-  background: var(--danger);
-  color: #fff;
-}
-.leave-confirm-btn.yes:hover {
-  background: #dc2626;
-}
-.leave-confirm-btn.no {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-}
-.leave-confirm-btn.no:hover {
-  background: var(--bg-card);
 }
 .btn-bar-label {
   font-size: 0.62rem;
@@ -2172,7 +2108,8 @@ body {
   width: 360px;
   height: calc(100vh - 140px);
   pointer-events: none;
-  z-index: 50;
+  /* Above chat/wheel panels (200) so emojis float over them; below modal overlays (500) */
+  z-index: 300;
   overflow-x: visible;
   overflow-y: hidden;
 }

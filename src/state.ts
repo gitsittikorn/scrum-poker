@@ -5,6 +5,8 @@ export const state = {
   currentUser: null as CurrentUser | null,
   currentUid: null as string | null,
   selectedCard: null as string | null,
+  /** Card currently focused (keyboard) / under consideration — distinct from selectedCard (voted) */
+  activeCard: null as string | null,
   currentRole: null as string | null,
   isSuperAdmin: false,
   isWheelRoom: false,

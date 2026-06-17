@@ -12,7 +12,7 @@ import {
   wheelRemoveWinnerToggle,
   btnWheelSpin,
 } from "./dom";
-import { sendSound } from "./sounds";
+import { sendSound, playSound } from "./sounds";
 import { spawnFirework, showToast } from "./ui";
 import { escapeHtml } from "./utils";
 import type { User } from "./types";
@@ -256,6 +256,8 @@ function onSpinComplete(): void {
   wheelWinnerDisplay.textContent = `🎉 ${winner}`;
   wheelWinnerDisplay.classList.remove("hidden");
 
+  // Play locally immediately (the spin click unlocks audio); send to others with bypassMute
+  playSound("แกไม่รอดแน่.mp3");
   sendSound("แกไม่รอดแน่.mp3", true);
   spawnFirework(wheelCanvasContainer);
   showToast(`🎡 ผู้ถูกสุ่ม: ${winner}`);

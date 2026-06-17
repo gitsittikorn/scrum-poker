@@ -30,7 +30,7 @@ import {
   toggleLabelWheel,
 } from "./dom";
 import { TOAST_DURATION_MS, AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
-import type { User, FeatureFlags, FeaturePermissions } from "./types";
+import type { User, FeatureFlags, FeaturePermissions, ConfirmModalOptions } from "./types";
 import { forceCloseChat } from "./chat";
 import { forceCloseWheel } from "./wheel";
 import { loadFeaturePermissions } from "./admin";
@@ -144,9 +144,7 @@ export async function openSettings(): Promise<void> {
   // Super admin (admin room) — show DB Report, cleanup time, clear all, README
   if (isSuperAdmin()) {
     const saveBtn = document.getElementById("btn-settings-save")!;
-    const closeLink = document.getElementById("settings-close-link")!;
     saveBtn.classList.add("hidden");
-    closeLink.classList.remove("hidden");
     document.getElementById("settings-auto-unlock-group")?.classList.add("hidden");
     document.getElementById("user-settings")?.classList.add("hidden");
     adminSettings.classList.add("hidden");
@@ -164,13 +162,10 @@ export async function openSettings(): Promise<void> {
 
   // Save button — visible to PO only
   const saveBtn = document.getElementById("btn-settings-save")!;
-  const closeLink = document.getElementById("settings-close-link")!;
   if (isPO()) {
     saveBtn.classList.remove("hidden");
-    closeLink.classList.add("hidden");
   } else {
     saveBtn.classList.add("hidden");
-    closeLink.classList.remove("hidden");
   }
 
   // Auto-unlock timeout — visible to PO only
@@ -415,6 +410,103 @@ export function showNotVotedModal(names: string): void {
   });
 
   document.getElementById("app")!.appendChild(overlay);
+}
+
+/**
+ * Reusable confirm / warning modal — two buttons (confirm + cancel).
+ * Set `danger: true` (or use showWarningModal) for destructive actions: red confirm
+ * button, ⚠️ in the header, and the cancel button is focused first to avoid accidents.
+ * Closes on overlay click or Escape. <button>s handle Enter/Space natively.
+ */
+export function showConfirmModal(opts: ConfirmModalOptions): void {
+  const {
+    title,
+    message,
+    confirmText = "ยืนยัน",
+    cancelText = "ยกเลิก",
+    danger = false,
+    onConfirm,
+  } = opts;
+
+  // Never stack modals — remove any existing confirm modal first
+  const existing = document.getElementById("confirm-modal");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "confirm-modal";
+  overlay.className = "modal-overlay active" + (danger ? " modal-danger" : "");
+
+  const content = document.createElement("div");
+  content.className = "modal-content confirm-modal-content";
+
+  const header = document.createElement("div");
+  header.className = "modal-header";
+  const h2 = document.createElement("h2");
+  h2.textContent = (danger ? "⚠️ " : "") + title;
+  header.appendChild(h2);
+
+  const body = document.createElement("div");
+  body.className = "modal-body";
+  const p = document.createElement("p");
+  p.className = "confirm-modal-text";
+  p.style.whiteSpace = "pre-line"; // honor newlines in message
+  p.textContent = message;
+  body.appendChild(p);
+
+  const actions = document.createElement("div");
+  actions.className = "confirm-modal-actions";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "btn btn-confirm-cancel";
+  cancelBtn.textContent = cancelText;
+
+  const confirmBtn = document.createElement("button");
+  confirmBtn.type = "button";
+  confirmBtn.className = "btn " + (danger ? "btn-confirm-danger" : "btn-primary");
+  confirmBtn.textContent = confirmText;
+
+  actions.appendChild(cancelBtn);
+  actions.appendChild(confirmBtn);
+
+  content.appendChild(header);
+  content.appendChild(body);
+  content.appendChild(actions);
+  overlay.appendChild(content);
+
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+    }
+  };
+  const close = () => {
+    document.removeEventListener("keydown", onKey);
+    overlay.remove();
+  };
+  const finish = () => {
+    document.removeEventListener("keydown", onKey);
+    overlay.remove();
+    void Promise.resolve(onConfirm?.());
+  };
+
+  cancelBtn.addEventListener("click", close);
+  confirmBtn.addEventListener("click", finish);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+  document.addEventListener("keydown", onKey);
+
+  const mount = document.getElementById("app") || document.body;
+  mount.appendChild(overlay);
+
+  // Focus the safer button first: cancel for destructive actions, confirm otherwise
+  (danger ? cancelBtn : confirmBtn).focus();
+}
+
+/** Warning modal — destructive variant of showConfirmModal (red, ⚠️ header). */
+export function showWarningModal(opts: Omit<ConfirmModalOptions, "danger">): void {
+  showConfirmModal({ ...opts, danger: true });
 }
 
 export function spawnFirework(container: HTMLElement): void {

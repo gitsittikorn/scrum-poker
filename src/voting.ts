@@ -18,9 +18,8 @@ import {
 } from "./dom";
 import { CARDS } from "./constants";
 import { AUTO_UNLOCK_SECONDS } from "./config";
-import { showToast, showNotVotedModal } from "./ui";
+import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
-import { escapeHtml } from "./utils";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
@@ -82,11 +81,31 @@ export function renderCards(): void {
     const el = document.createElement("div");
     el.className = "poker-card";
     el.dataset.value = card.value;
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("aria-label", `โหวต ${card.value} — ${card.label}`);
     el.innerHTML = `
       <span class="card-value">${card.value}</span>
       <span class="card-label">${card.label}</span>
     `;
     el.addEventListener("click", () => handleVote(card.value));
+    // activeCard = the card currently focused (keyboard nav). Distinct from
+    // selectedCard (voted). Sets state + .active class for the focus-ring style.
+    el.addEventListener("focus", () => {
+      if (el.classList.contains("disabled")) return;
+      state.activeCard = card.value;
+      el.classList.add("active");
+    });
+    el.addEventListener("blur", () => {
+      if (state.activeCard === card.value) state.activeCard = null;
+      el.classList.remove("active");
+    });
+    el.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleVote(card.value);
+      }
+    });
     cardsContainer.appendChild(el);
   });
 
@@ -380,49 +399,28 @@ export function updateUI(roomData: RoomData): void {
     }
   };
 
-  /** Build the kick button + confirm popup wrapper. Reused by createCard and renderGroup sync. */
-  const buildKickWrapper = (uid: string, user: User): HTMLElement => {
+  /** Build the kick button — opens the reusable confirm modal on click. */
+  const buildKickButton = (uid: string, user: User): HTMLElement => {
     const kickBtn = document.createElement("button");
+    kickBtn.type = "button";
     kickBtn.className = "btn-kick";
     kickBtn.title = "เตะออกจากห้อง";
+    kickBtn.setAttribute("aria-label", "เตะออกจากห้อง");
     kickBtn.textContent = "🥾";
-
-    // Confirm popup
-    const popup = document.createElement("div");
-    popup.className = "kick-confirm hidden";
-    popup.innerHTML = `
-      <span class="kick-confirm-text">เตะ ${escapeHtml(user.name || "Unknown")}?</span>
-      <button class="kick-confirm-btn yes" type="button">เตะ</button>
-      <button class="kick-confirm-btn no" type="button">ยกเลิก</button>
-    `;
-
     kickBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const wasOpen = !popup.classList.contains("hidden");
-      // Close all kick popups first
-      document.querySelectorAll(".kick-confirm").forEach(el => el.classList.add("hidden"));
-      // Toggle: if it was closed, open it
-      if (!wasOpen) popup.classList.remove("hidden");
-    });
-    popup.querySelector(".yes")!.addEventListener("click", (e) => {
-      e.stopPropagation();
-      popup.classList.add("hidden");
-      // Read the current name from the DOM rather than the closure, so a name
-      // change (rejoin with new name) is reflected even before the wrapper is rebuilt.
-      const card = popup.closest(".participant-card");
+      // Read the current name from the DOM so a rejoin under a new name is reflected immediately
+      const card = kickBtn.closest(".participant-card");
       const nameEl = card?.querySelector<HTMLElement>(".participant-name");
-      handleKick(uid, nameEl?.textContent || user.name);
+      const name = nameEl?.textContent || user.name || "Unknown";
+      showConfirmModal({
+        title: "เตะออกจากห้อง?",
+        message: `จะเตะ ${name} ออกจากห้องทันที`,
+        confirmText: "เตะ",
+        onConfirm: () => handleKick(uid, name),
+      });
     });
-    popup.querySelector(".no")!.addEventListener("click", (e) => {
-      e.stopPropagation();
-      popup.classList.add("hidden");
-    });
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "kick-wrapper";
-    wrapper.appendChild(kickBtn);
-    wrapper.appendChild(popup);
-    return wrapper;
+    return kickBtn;
   };
 
   const createCard = (uid: string, user: User, role: RoleKey): HTMLElement => {
@@ -461,7 +459,7 @@ export function updateUI(roomData: RoomData): void {
       card.appendChild(speakerLabel);
     }
     if (isPO() && uid !== state.currentUid) {
-      card.appendChild(buildKickWrapper(uid, user));
+      card.appendChild(buildKickButton(uid, user));
     }
     card.appendChild(statusDot);
     return card;
@@ -529,24 +527,17 @@ export function updateUI(roomData: RoomData): void {
           speakerLabel.remove();
         }
 
-        // Sync kick button: add/remove based on whether the current viewer is PO,
-        // and refresh the name inside the confirm popup (handles rejoin as PO / with new name).
-        const kickWrapper = existing.querySelector<HTMLElement>(".kick-wrapper");
+        // Sync kick button: add/remove based on whether the current viewer is PO.
+        // The confirm modal reads the name from the DOM at click time, so there's
+        // no inline text to keep in sync here.
+        const kickBtn = existing.querySelector<HTMLElement>(".btn-kick");
         const shouldHaveKick = isPO() && uid !== state.currentUid;
-        if (shouldHaveKick && !kickWrapper) {
-          const wrapper = buildKickWrapper(uid, user);
-          if (statusDotEl) existing.insertBefore(wrapper, statusDotEl);
-          else existing.appendChild(wrapper);
-        } else if (!shouldHaveKick && kickWrapper) {
-          kickWrapper.remove();
-        } else if (kickWrapper) {
-          const confirmText = kickWrapper.querySelector<HTMLElement>(
-            ".kick-confirm-text"
-          );
-          const expected = `เตะ ${newName}?`;
-          if (confirmText && confirmText.textContent !== expected) {
-            confirmText.textContent = expected;
-          }
+        if (shouldHaveKick && !kickBtn) {
+          const btn = buildKickButton(uid, user);
+          if (statusDotEl) existing.insertBefore(btn, statusDotEl);
+          else existing.appendChild(btn);
+        } else if (!shouldHaveKick && kickBtn) {
+          kickBtn.remove();
         }
       } else {
         container.appendChild(createCard(uid, user, role));
