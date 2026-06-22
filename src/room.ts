@@ -378,7 +378,10 @@ export function handleLeave(skipMessage = false): void {
   showPage("landing");
   window.history.replaceState(null, "", window.location.pathname);
 
-  // Set offline and clear vote — keep user record for wheel/history
+  // Set offline + left flag, keep user record for wheel/history.
+  // `left: true` distinguishes intentional Leave from a tab close/unload
+  // (which only sets online:false). The poker list hides left users but
+  // still shows offline ones; wheel shows both.
   // Skip when deleting room (room already removed, no need to write)
   if (!skipMessage) {
     set(ref(db, `rooms/${roomCode}/users/${uid}`), {
@@ -386,6 +389,7 @@ export function handleLeave(skipMessage = false): void {
       role: role,
       vote: null,
       online: false,
+      left: true,
       lastSeen: serverTimestamp(),
     })
       .then(() => cleanupIfRoomEmpty(roomCode))

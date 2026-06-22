@@ -3,12 +3,14 @@ import { state } from "./state";
 import { roleSelect, roomSelect, adminRoomOption, adminRoleOption } from "./dom";
 import { APP_VERSION, SUPER_ADMIN_NAME } from "./constants";
 import { joinRoom } from "./room";
+import { clearAllWheelCache } from "./wheel";
 
 export function checkVersion(): void {
   const savedVersion = localStorage.getItem("scrum-poker-version");
   if (savedVersion !== APP_VERSION) {
     console.log("[Init] Version changed, clearing local session");
     localStorage.removeItem("scrum-poker-room");
+    clearAllWheelCache(); // drop cached wheel entries from the previous version
     localStorage.setItem("scrum-poker-version", APP_VERSION);
   }
 }

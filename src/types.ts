@@ -9,6 +9,10 @@ export interface User {
   vote: string | null;
   online: boolean;
   lastSeen: number;
+  /** true when the user clicked the Leave button (intentional exit).
+   *  Record is kept for wheel/history; user is hidden from the poker
+   *  participants list. Cleared on rejoin (set() replaces the whole object). */
+  left?: boolean;
 }
 
 export interface FeatureFlags {

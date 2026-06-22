@@ -73,6 +73,70 @@ async function fetchMembers(): Promise<string[]> {
     .map((u) => u.name);
 }
 
+// ── Local persistence (per room + user) ─────────────────────────────
+// Lets PO leave and come back on the same browser without losing their
+// customized wheel entries. Scoped by room + uid so it never leaks across
+// rooms or people sharing a browser.
+function wheelStorageKey(): string | null {
+  if (!state.currentRoom || !state.currentUser) return null;
+  return `scrum-poker-wheel-${state.currentRoom}-${state.currentUser.uid}`;
+}
+
+function saveWheelState(): void {
+  const key = wheelStorageKey();
+  if (!key) return;
+  try {
+    localStorage.setItem(
+      key,
+      JSON.stringify({ entries: wheelEntries, duplicate: duplicateCount }),
+    );
+  } catch {
+    // Ignore quota / serialization errors — persistence is best-effort.
+  }
+}
+
+interface SavedWheelState {
+  entries: string[];
+  duplicate: number;
+}
+
+function loadWheelState(): SavedWheelState | null {
+  const key = wheelStorageKey();
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.entries)) return null;
+    return {
+      entries: parsed.entries as string[],
+      duplicate: typeof parsed.duplicate === "number" ? parsed.duplicate : 1,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Apply saved state to the module vars. Returns true if a restore happened. */
+function restoreWheelState(): boolean {
+  const saved = loadWheelState();
+  if (!saved || saved.entries.length === 0) return false;
+  wheelEntries = [...saved.entries];
+  duplicateCount = saved.duplicate;
+  originalMembers = [...new Set(saved.entries)];
+  return true;
+}
+
+/** Remove every cached wheel entry (across all rooms/users) — called on version bump. */
+export function clearAllWheelCache(): void {
+  const stale: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("scrum-poker-wheel-")) stale.push(key);
+  }
+  stale.forEach((k) => localStorage.removeItem(k));
+}
+
 // ── Canvas Rendering ───────────────────────────────────────────────
 function drawWheel(rotation: number): void {
   const canvas = wheelCanvas;
@@ -356,6 +420,7 @@ function closeWinnerModal(): void {
     const idx = wheelEntries.indexOf(selectedWinner);
     if (idx !== -1) {
       wheelEntries.splice(idx, 1);
+      saveWheelState();
       drawWheel(currentRotation);
       renderMemberList();
     }
@@ -421,6 +486,7 @@ function clearEntries(): void {
   removeWinnerModalEl();
   wheelEntries = [];
   currentRotation = 0;
+  saveWheelState();
   drawWheel(0);
   renderMemberList();
 }
@@ -429,6 +495,7 @@ function addEntry(name: string): void {
   const trimmed = name.trim();
   if (!trimmed) return;
   wheelEntries.push(trimmed);
+  saveWheelState();
   drawWheel(currentRotation);
   renderMemberList();
 }
@@ -436,6 +503,7 @@ function addEntry(name: string): void {
 function removeEntry(index: number): void {
   if (isSpinning) return;
   wheelEntries.splice(index, 1);
+  saveWheelState();
   drawWheel(currentRotation);
   renderMemberList();
 }
@@ -445,6 +513,7 @@ function editEntry(index: number, newName: string): void {
   const trimmed = newName.trim();
   if (!trimmed) return;
   wheelEntries[index] = trimmed;
+  saveWheelState();
   drawWheel(currentRotation);
   renderMemberList();
 }
@@ -459,6 +528,7 @@ async function restartEntries(): Promise<void> {
   removeWinnerModalEl();
   currentRotation = 0;
   rebuildWheelEntries();
+  saveWheelState(); // persist the freshly fetched entries (overwrites any customization)
   drawWheel(0);
   renderMemberList();
 }
@@ -535,6 +605,7 @@ function setupEventDelegation(): void {
       wheelEntries.push(...uniqueNames);
     }
     currentRotation = 0;
+    saveWheelState();
     drawWheel(0);
     renderMemberList();
   }, { signal });
@@ -559,6 +630,7 @@ function setupEventDelegation(): void {
     if (seq !== includePoSeq) return; // Stale result, discard
     originalMembers = members;
     rebuildWheelEntries();
+    saveWheelState();
     drawWheel(currentRotation);
     renderMemberList();
   }, { signal });
@@ -575,6 +647,7 @@ function setupEventDelegation(): void {
     wheelWinnerDisplay.classList.add("hidden");
     currentRotation = 0;
     rebuildWheelEntries();
+    saveWheelState();
     drawWheel(0);
     renderMemberList();
   }, { signal });
@@ -654,9 +727,13 @@ export function destroyWheel(): void {
 }
 
 async function initWheel(): Promise<void> {
-  originalMembers = await fetchMembers();
-  duplicateCount = 1;
-  wheelDuplicateSelect.value = "1";
+  // Restore previously customized entries (same browser) before fetching defaults
+  if (!restoreWheelState()) {
+    originalMembers = await fetchMembers();
+    duplicateCount = 1;
+    rebuildWheelEntries();
+  }
+  wheelDuplicateSelect.value = String(duplicateCount);
   removeWinner = true;
   wheelRemoveWinnerToggle.checked = true;
   const removeSw = wheelRemoveWinnerToggle.nextElementSibling;
@@ -664,7 +741,6 @@ async function initWheel(): Promise<void> {
   selectedWinner = null;
   wheelWinnerDisplay.classList.add("hidden");
   currentRotation = 0;
-  rebuildWheelEntries();
   drawWheel(0);
   renderMemberList();
   setupEventDelegation();
@@ -672,9 +748,12 @@ async function initWheel(): Promise<void> {
 
 /** Initialize wheel for standalone Wheel room — manual entries only, no Firebase fetch */
 export function initWheelManual(): void {
-  originalMembers = [...WHEEL_ROOM_DEFAULTS];
-  duplicateCount = 1;
-  wheelDuplicateSelect.value = "1";
+  if (!restoreWheelState()) {
+    originalMembers = [...WHEEL_ROOM_DEFAULTS];
+    duplicateCount = 1;
+    rebuildWheelEntries();
+  }
+  wheelDuplicateSelect.value = String(duplicateCount);
   removeWinner = true;
   wheelRemoveWinnerToggle.checked = true;
   const removeSw = wheelRemoveWinnerToggle.nextElementSibling;
@@ -684,7 +763,6 @@ export function initWheelManual(): void {
   currentRotation = 0;
   isOpen = true;
   hasInitialized = true;
-  rebuildWheelEntries();
   drawWheel(0);
   renderMemberList();
   setupEventDelegation();

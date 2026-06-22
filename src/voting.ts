@@ -236,9 +236,14 @@ export async function handleCustomVote(): Promise<void> {
 // ===== Kick User (PO only) =====
 export async function handleKick(targetUid: string, targetName: string): Promise<void> {
   if (!state.currentRoom || !isPO()) return;
+  // Mark offline + left (instead of removing the record) so the user stays
+  // in the Wheel for history. `kicked` flag still lets the client detect it
+  // and leave the room. On rejoin, joinRoom() clears both flags.
   await update(ref(db, `rooms/${state.currentRoom}`), {
     [`kicked/${targetUid}`]: true,
-    [`users/${targetUid}`]: null,
+    [`users/${targetUid}/online`]: false,
+    [`users/${targetUid}/left`]: true,
+    [`users/${targetUid}/vote`]: null,
   });
   sendSystemMessage(`🥾 ${targetName} ถูกเตะออกจากห้อง`);
   showToast(`เตะ ${targetName} ออกจากห้องแล้ว`);
@@ -252,9 +257,12 @@ export async function handleReveal(): Promise<void> {
   const users = usersSnap.val() as Record<string, User>;
   const userList = Object.entries(users);
 
-  // Check if all non-PO users (online + offline) have voted
+  // Check if all non-PO users who haven't intentionally left have voted.
+  // Offline users (tab close/unload) still count — they remain in the room
+  // and PO can kick them if they don't come back.
   const notVoted = userList.filter(
-    ([, user]) => user.role !== "po" && user.vote == null
+    ([, user]) =>
+      user.role !== "po" && user.left !== true && user.vote == null,
   );
   if (notVoted.length > 0) {
     const names = notVoted.map(([, u]) => u.name).join(", ");
@@ -329,6 +337,10 @@ function groupUsers(userList: [string, User][]): GroupedUsers {
     ux: [],
   };
   userList.forEach((entry) => {
+    // Skip users who intentionally left via the Leave button (record kept
+    // for wheel/history). Offline users (tab close/unload) stay visible
+    // in the list with an offline dot — they're still part of the session.
+    if (entry[1].left === true) return;
     grouped[getGroup(entry[1])].push(entry);
   });
   grouped.team.sort(sortByPoint);

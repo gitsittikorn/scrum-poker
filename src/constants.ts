@@ -17,7 +17,7 @@ export const CARDS: CardDef[] = [
 
 export const SUPER_ADMIN_NAME = "admin889";
 
-export const APP_VERSION = "2026-06-22-v2";
+export const APP_VERSION = "2026-06-22-v3";
 
 export const EMOJIS = [
   "😀", "😂", "🤣", "😊", "😅", "😎", "🤔", "😏", "🙄", "🥳", "🤩", "😤",
