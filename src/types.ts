@@ -24,7 +24,8 @@ export interface RoomData {
   revealed: boolean;
   locked: boolean;
   autoUnlockSeconds: number;
-  revealTime: number;
+  /** Server timestamp ตอน PO reveal — ใช้คำนวณเวลา auto-unlock ที่เหลือ (resilient ต่อ reload/leave) */
+  revealTime?: number;
   users: Record<string, User>;
   /** Firebase field kept as "drinkers" for backward compat; conceptually = speakers who must explain */
   drinkers?: Record<string, boolean>;

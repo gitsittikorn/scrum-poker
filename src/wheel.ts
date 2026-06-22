@@ -25,8 +25,8 @@ const WHEEL_ROOM_DEFAULTS = [
 ];
 
 const WHEEL_TEAMS: Record<string, string[]> = {
-  "Kitsune": ["Big", "May", "Tein", "Toon", "Pun", "Por"],
-  "Phoenix": ["Run", "Toey", "Flouk", "Pou", "Puy", "A", "Pond", "Nub", "Char"],
+  "Kitsune": ["Big", "May", "Tein", "Toon", "Pun", "Por", "Toey"],
+  "Phoenix": ["Run", "Flouk", "Pou", "Puy", "A", "Pond", "Nub", "Char"],
   "Monkey King": ["Cing", "Meaw", "Max", "Prince", "Nuji", "Yam", "Poom"],
   "All": [...WHEEL_ROOM_DEFAULTS],
   "Team": ["UX/UI", "Kitsune", "Phoenix", "Monkey King"],
@@ -47,6 +47,10 @@ let hasInitialized = false;
 
 // AbortController for cleanup of event listeners
 let eventAbort: AbortController | null = null;
+
+// Winner modal refs — guard against stacking + clean listener removal
+let winnerModalEl: HTMLElement | null = null;
+let winnerModalKeyHandler: ((e: KeyboardEvent) => void) | null = null;
 
 // ── Constants ──────────────────────────────────────────────────────
 const WHEEL_COLORS = [
@@ -139,12 +143,13 @@ function drawWheel(rotation: number): void {
     ctx.rotate(midAngle);
     const textRadius = radius * 0.58;
     const base = state.isWheelRoom ? 1.35 : 1;
-    const fontSize = Math.round(base * (n <= 3 ? 22 : n <= 5 ? 20 : n <= 8 ? 17 : n <= 12 ? 15 : n <= 18 ? 13 : 11));
+    // fontSize/maxChars สูตรลื่นตามจำนวนช่อง — รองรับตั้งแต่ 1 ยง่ 50+ คน
+    const fontSize = Math.round(base * Math.max(8, Math.min(26, 60 / Math.max(n, 2) + 6)));
     ctx.font = `700 ${fontSize}px "Segoe UI", system-ui, -apple-system, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     let name = wheelEntries[i];
-    const maxChars = n <= 3 ? 16 : n <= 6 ? 12 : n <= 10 ? 9 : 7;
+    const maxChars = Math.max(3, Math.min(14, Math.floor(60 / n + 4)));
     if (name.length > maxChars) name = name.slice(0, maxChars - 1) + "…";
     // Modern text: dark text + white glow shadow for depth
     ctx.shadowColor = "rgba(255,255,255,0.7)";
@@ -181,9 +186,10 @@ function calculateWinnerIndex(rotation: number): number {
   if (wheelEntries.length === 0) return -1;
   const n = wheelEntries.length;
   const arcSize = (Math.PI * 2) / n;
-  let normalizedRotation = rotation % (Math.PI * 2);
-  if (normalizedRotation < 0) normalizedRotation += Math.PI * 2;
-  let pointerAngle = (Math.PI * 2.5 - normalizedRotation) % (Math.PI * 2);
+  const TWO_PI = Math.PI * 2;
+  const normalizedRotation = ((rotation % TWO_PI) + TWO_PI) % TWO_PI;
+  // pointer อยู่ด้านบน = 1.5π (270°); มุมใน wheel space = 1.5π − rotation
+  const pointerAngle = ((Math.PI * 1.5 - normalizedRotation) % TWO_PI + TWO_PI) % TWO_PI;
   const index = Math.floor(pointerAngle / arcSize);
   return ((index % n) + n) % n;
 }
@@ -193,11 +199,14 @@ let spinWinnerIndex = -1;
 let lastTickSegment = -1;
 
 function spin(): void {
-  if (isSpinning || wheelEntries.length === 0) return;
+  if (isSpinning) return;
+
+  // ปิด modal ค้างจากการสุ่มครั้งก่อน — ถ้าเปิด removeWinner จะลบผู้ชนะออกจากกงล้อด้วย
+  closeWinnerModal();
+
+  if (wheelEntries.length === 0) return;
 
   isSpinning = true;
-  selectedWinner = null;
-  wheelWinnerDisplay.classList.add("hidden");
   btnWheelSpin.disabled = true;
 
   shuffleEntries(); // Always shuffle
@@ -205,11 +214,18 @@ function spin(): void {
   spinWinnerIndex = Math.floor(Math.random() * wheelEntries.length);
   const n = wheelEntries.length;
   const arcSize = (Math.PI * 2) / n;
+  const TWO_PI = Math.PI * 2;
 
   const winnerMid = spinWinnerIndex * arcSize + arcSize / 2;
-  const targetOffset = (Math.PI * 2.5 - winnerMid) % (Math.PI * 2);
-  const extraRotations = SPIN_TOTAL_ROTATIONS * Math.PI * 2;
-  const targetRotation = currentRotation + extraRotations + targetOffset + (Math.random() * arcSize * 0.6 - arcSize * 0.3);
+  // มุมสุดท้าย (mod 2π) ที่ต้องการให้ pointer ชี้กลาง segment ผู้ชนะ
+  const desiredFinalMod = ((Math.PI * 1.5 - winnerMid) % TWO_PI + TWO_PI) % TWO_PI;
+  // คำนึง currentRotation ค้างจากการหมุนก่อนหน้า ไม่เช่นนั้น pointer จะค่อยๆ เลื่อนออกจากผู้ชนะ
+  const currentMod = ((currentRotation % TWO_PI) + TWO_PI) % TWO_PI;
+  const delta = ((desiredFinalMod - currentMod) % TWO_PI + TWO_PI) % TWO_PI;
+  const extraRotations = SPIN_TOTAL_ROTATIONS * TWO_PI;
+  // jitter ±0.3*arcSize — pointer ยังอยู่ในช่อง (ขอบ ±0.5*arcSize) แต่ไม่ตรงกลางเสมอ
+  const jitter = Math.random() * arcSize * 0.6 - arcSize * 0.3;
+  const targetRotation = currentRotation + extraRotations + delta + jitter;
 
   const startTime = performance.now();
   const startRotation = currentRotation;
@@ -262,13 +278,103 @@ function onSpinComplete(): void {
   spawnFirework(wheelCanvasContainer);
   showToast(`🎡 ผู้ถูกสุ่ม: ${winner}`);
 
-  if (removeWinner) {
-    const idx = wheelEntries.indexOf(winner);
+  // เปิด modal แสดงผู้ถูกสุ่ม — ปิด modal แล้วลบ/ไม่ลบตาม toggle removeWinner
+  showWinnerModal(winner);
+}
+
+// ── Winner Modal ───────────────────────────────────────────────────
+/** แสดง modal รายชื่อผู้ถูกสุ่ม — ปิด modal แล้วลบ/ไม่ลบผู้ถูกสุ่มตาม toggle removeWinner */
+function showWinnerModal(winner: string): void {
+  closeWinnerModal(); // never stack
+
+  const overlay = document.createElement("div");
+  overlay.id = "wheel-winner-modal";
+  overlay.className = "modal-overlay active";
+
+  const content = document.createElement("div");
+  content.className = "modal-content wheel-winner-modal-content";
+
+  const header = document.createElement("div");
+  header.className = "modal-header";
+  const h2 = document.createElement("h2");
+  h2.textContent = "🎉 ผู้ถูกสุ่ม";
+  header.appendChild(h2);
+
+  const body = document.createElement("div");
+  body.className = "modal-body wheel-winner-body";
+
+  const hero = document.createElement("div");
+  hero.className = "wheel-winner-hero";
+  hero.textContent = winner;
+  body.appendChild(hero);
+
+  const note = document.createElement("div");
+  note.className = "wheel-winner-note";
+  note.textContent = removeWinner
+    ? "🔒 โหมดลบผู้ถูกสุ่มเปิดอยู่ — กดปิดแล้วจะนำชื่อนี้ออกจากกงล้อ"
+    : "🔓 โหมดลบผู้ถูกสุ่มปิดอยู่ — กดปิดแล้วยังคงชื่อนี้ไว้ในกงล้อ";
+  body.appendChild(note);
+
+  const actions = document.createElement("div");
+  actions.className = "confirm-modal-actions";
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "btn btn-primary";
+  closeBtn.textContent = "ปิด";
+  actions.appendChild(closeBtn);
+
+  content.appendChild(header);
+  content.appendChild(body);
+  content.appendChild(actions);
+  overlay.appendChild(content);
+
+  winnerModalKeyHandler = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeWinnerModal();
+    }
+  };
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeWinnerModal();
+  });
+  closeBtn.addEventListener("click", closeWinnerModal);
+  document.addEventListener("keydown", winnerModalKeyHandler);
+
+  const mount = document.getElementById("app") || document.body;
+  mount.appendChild(overlay);
+  winnerModalEl = overlay;
+
+  closeBtn.focus();
+}
+
+/** ปิด modal ผู้ถูกสุ่ม — ถ้า removeWinner จะลบผู้ชนะออกจากกงล้อ */
+function closeWinnerModal(): void {
+  if (!winnerModalEl) return;
+
+  // toggle on → remove winner from wheel (ทำตอนปิด modal ตามที่ผู้ใช้ต้องการ)
+  if (removeWinner && selectedWinner) {
+    const idx = wheelEntries.indexOf(selectedWinner);
     if (idx !== -1) {
       wheelEntries.splice(idx, 1);
       drawWheel(currentRotation);
       renderMemberList();
     }
+  }
+  selectedWinner = null;
+  wheelWinnerDisplay.classList.add("hidden");
+
+  removeWinnerModalEl();
+}
+
+/** ลบ modal DOM + keydown listener โดยไม่ลบผู้ชนะ (ใช้ตอน reset/clear/destroy) */
+function removeWinnerModalEl(): void {
+  if (winnerModalKeyHandler) {
+    document.removeEventListener("keydown", winnerModalKeyHandler);
+    winnerModalKeyHandler = null;
+  }
+  if (winnerModalEl) {
+    winnerModalEl.remove();
+    winnerModalEl = null;
   }
 }
 
@@ -310,6 +416,9 @@ function shuffleEntries(): void {
 }
 
 function clearEntries(): void {
+  selectedWinner = null;
+  wheelWinnerDisplay.classList.add("hidden");
+  removeWinnerModalEl();
   wheelEntries = [];
   currentRotation = 0;
   drawWheel(0);
@@ -347,6 +456,7 @@ async function restartEntries(): Promise<void> {
   wheelDuplicateSelect.value = "1";
   selectedWinner = null;
   wheelWinnerDisplay.classList.add("hidden");
+  removeWinnerModalEl();
   currentRotation = 0;
   rebuildWheelEntries();
   drawWheel(0);
@@ -522,6 +632,7 @@ export function destroyWheel(): void {
     eventAbort.abort();
     eventAbort = null;
   }
+  removeWinnerModalEl();
   forceCloseWheel();
   originalMembers = [];
   wheelEntries = [];
