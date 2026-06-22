@@ -434,7 +434,11 @@ export function updateUI(roomData: RoomData): void {
   const speakers = new Set<string>(
     roomData.drinkers ? Object.keys(roomData.drinkers) : []
   );
-  participantCount.textContent = String(userList.length);
+  // Count everyone still in the room — online AND offline users count,
+  // but kicked/intentionally-left users (left === true) are excluded to
+  // match the rendered list (groupUsers filters them out above).
+  const inRoom = userList.filter(([, u]) => u.left !== true).length;
+  participantCount.textContent = String(inRoom);
 
   type RoleKey = "po" | "dev" | "qa" | "ux" | "admin";
   const roleIcons: Record<RoleKey, string> = {
