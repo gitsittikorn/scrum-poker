@@ -5,3 +5,9 @@ dist/
 .env
 .env.local
 *.js.map
+
+# Secrets — NEVER commit service account keys
+backend/serviceAccountKey.json
+
+# Firebase deploy cache
+.firebase/

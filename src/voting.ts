@@ -1,4 +1,4 @@
-import { db, ref, set, get, update, remove } from "./firebase";
+import { db, ref, set, get, update, remove, serverTimestamp, onValue } from "./firebase";
 import { state, isPO } from "./state";
 import type { User, RoomData, Role, GroupedUsers } from "./types";
 import {
@@ -12,8 +12,6 @@ import {
   colDev,
   colQa,
   colUx,
-  resultSection,
-  resultSummary,
   participantCount,
 } from "./dom";
 import { CARDS } from "./constants";
@@ -23,7 +21,37 @@ import { sendSystemMessage } from "./chat";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
+/** revealTime ของรอบที่ countdown ปัจจุบันกำลังนับให้อยู่ — null = ยังไม่ได้ตั้ง timer */
+let countdownRevealTime: number | null = null;
 let customPointInput: HTMLInputElement | null = null;
+
+/** ผลต่าง (ms) ระหว่างเวลา server กับ client — serverTime = Date.now() + offset
+ *  ใช้ sync เวลาคำนวณ countdown แก้ clock skew (เช่นเครื่อง client ช้า/เร็วกว่าจริง) */
+let serverTimeOffset = 0;
+onValue(ref(db, ".info/serverTimeOffset"), (snap) => {
+  serverTimeOffset = (snap.val() as number) || 0;
+});
+
+/** เวลา server โดยประมาณ (ms) = เวลา client + offset */
+function nowServerMs(): number {
+  return Date.now() + serverTimeOffset;
+}
+
+/** คำนวณวินาทีที่เหลือก่อน auto-unlock จาก server timestamp */
+function remainingSeconds(
+  revealTime: number | null,
+  autoUnlockSeconds: number
+): number {
+  if (revealTime == null) return -1; // ห้องเก่าไม่มี field → สั่ง unlock เลย
+  return Math.ceil(autoUnlockSeconds - (nowServerMs() - revealTime) / 1000);
+}
+
+/** สั่ง unlock ห้อง (เขียน locked:false) — ทุก client ทำได้, ค่าเดียวกันซ้ำไม่เป็นไร */
+function unlockRoom(): void {
+  if (state.currentRoom) {
+    update(ref(db, `rooms/${state.currentRoom}`), { locked: false });
+  }
+}
 
 // ===== Auto-unlock Timer =====
 export function cancelUnlockTimer(): void {
@@ -32,24 +60,39 @@ export function cancelUnlockTimer(): void {
     unlockCountdownId = null;
   }
   countdownRemaining = 0;
-  const el = document.getElementById("countdown-text");
-  if (el) el.remove();
+  countdownRevealTime = null;
 }
 
-function startUnlockTimer(seconds: number): void {
+/**
+ * เริ่ม countdown นับถอยหลังจากเวลาที่เหลือ (คำนวณจาก revealTime)
+ * — ทุก client เรียกเองได้ ไม่ผูกกับเครื่อง PO ดังนั้น PO reload/leave แล้ว
+ * ใครก็ยังนับต่อ/สั่ง unlock ได้ ห้องจะไม่ค้าง locked
+ */
+function startUnlockTimer(
+  revealTime: number | null,
+  autoUnlockSeconds: number
+): void {
   cancelUnlockTimer();
-  countdownRemaining = seconds;
-  updateCountdownDisplay();
+  countdownRevealTime = revealTime;
+  countdownRemaining = remainingSeconds(revealTime, autoUnlockSeconds);
 
+  // หมดเวลาแล้ว (หรือห้องเก่าไม่มี revealTime) → unlock เลย ไม่ตั้ง timer
+  if (countdownRemaining <= 0) {
+    countdownRemaining = 0;
+    updateCountdownDisplay();
+    unlockRoom();
+    return;
+  }
+
+  updateCountdownDisplay();
   unlockCountdownId = setInterval(() => {
-    countdownRemaining--;
+    // คำนวณใหม่ทุก tick จาก server time (ใช้ offset ล่าสุด + ไม่ drift ถ้า tab ถูก throttle)
+    countdownRemaining = remainingSeconds(revealTime, autoUnlockSeconds);
     if (countdownRemaining <= 0) {
-      cancelUnlockTimer();
       countdownRemaining = 0;
+      cancelUnlockTimer();
       updateCountdownDisplay();
-      if (state.currentRoom) {
-        update(ref(db, `rooms/${state.currentRoom}`), { locked: false });
-      }
+      unlockRoom();
       return;
     }
     updateCountdownDisplay();
@@ -57,16 +100,15 @@ function startUnlockTimer(seconds: number): void {
 }
 
 function updateCountdownDisplay(): void {
-  const revoteBtn = document.getElementById("btn-revote");
-  if (!revoteBtn) return;
-  let el = document.getElementById("countdown-text");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "countdown-text";
-    el.className = "countdown-text";
-    revoteBtn.parentNode!.insertBefore(el, revoteBtn.nextSibling);
+  // แสดง countdown ในปุ่ม Unlock/Revote (ทุกคนเห็น) — focus ง่ายกว่าแถบสถานะ
+  if (countdownRemaining > 0) {
+    const revoteBtn = document.getElementById("btn-revote");
+    if (revoteBtn) {
+      revoteBtn.textContent = isPO()
+        ? `🔓 Unlock · auto ${countdownRemaining}s`
+        : `🔓 Auto-unlock in ${countdownRemaining}s`;
+    }
   }
-  el.textContent = `Auto-unlock in ${countdownRemaining}s`;
 }
 
 // ===== Cards =====
@@ -112,7 +154,7 @@ export function renderCards(): void {
   const customCard = document.createElement("div");
   customCard.className = "poker-card custom-card";
   customCard.innerHTML = `
-    <input type="number" id="custom-point-input" placeholder="..." min="0" step="0.5" maxlength="5">
+    <input type="number" id="custom-point-input" placeholder="..." min="0" step="0.01">
     <span class="card-label">Custom<br>( Enter )</span>
   `;
   cardsContainer.appendChild(customCard);
@@ -123,6 +165,12 @@ export function renderCards(): void {
 
   customPointInput.addEventListener("keydown", (e: KeyboardEvent) => {
     if (e.key === "Enter") handleCustomVote();
+  });
+  // จำกัดทศนิยมไม่เกิน 2 ตำแหน่งจริงๆ — กัน paste/IME (number input ไม่สน maxlength)
+  customPointInput.addEventListener("input", () => {
+    const v = customPointInput!.value;
+    const m = v.match(/^\d*\.?\d{0,2}/);
+    if (m && m[0] !== v) customPointInput!.value = m[0];
   });
   customPointInput.addEventListener("click", (e: Event) => {
     e.stopPropagation();
@@ -159,6 +207,12 @@ export async function handleCustomVote(): Promise<void> {
   if (!customPointInput) return;
   const value = customPointInput.value.trim();
   if (!value || !state.currentRoom || !state.currentUser) return;
+
+  // ทศนิยมไม่เกิน 2 ตำแหน่ง + ตัวเลขบวกเท่านั้น — รับทั้ง "0.5" และ ".5"
+  if (!/^(\d+\.?\d{0,2}|\.\d{1,2})$/.test(value)) {
+    showToast("ระบุตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง");
+    return;
+  }
 
   const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
   if (roomSnap.exists() && (roomSnap.val() as RoomData).locked) {
@@ -219,6 +273,7 @@ export async function handleReveal(): Promise<void> {
   await update(ref(db, `rooms/${state.currentRoom}`), {
     revealed: true,
     locked: true,
+    revealTime: serverTimestamp(), // เก็บเวลาตอน reveal เพื่อคำนวณ auto-unlock ที่เหลือ
     drinkers: speakers, // Firebase field kept as "drinkers" for backward compat
   });
 }
@@ -236,6 +291,7 @@ export async function handleReset(): Promise<void> {
     });
     updates["revealed"] = false;
     updates["locked"] = false;
+    updates["revealTime"] = null;
     updates["drinkers"] = null; // Firebase field kept as "drinkers"
     await update(ref(db, `rooms/${state.currentRoom}`), updates);
   }
@@ -326,11 +382,19 @@ export function updateUI(roomData: RoomData): void {
     statusDot.className = "status-dot locked";
     statusText.textContent = "Voting locked — Results revealed";
     if (isPO()) btnReveal.style.display = "none";
-    if (isPO()) addRevoteButton();
-    if (isPO() && !unlockCountdownId)
+    // ทุกคนเห็นปุ่ม Unlock (แสดง countdown) — แต่กดได้เฉพาะ PO
+    addRevoteButton();
+    const revealTime = roomData.revealTime ?? null;
+    // ทุกคนรัน countdown (ไม่ใช่แค่ PO) — restart เมื่อ revealTime เปลี่ยน
+    if (countdownRevealTime !== revealTime) {
       startUnlockTimer(
+        revealTime,
         roomData.autoUnlockSeconds || AUTO_UNLOCK_SECONDS
       );
+    } else if (countdownRemaining > 0) {
+      // timer เดิมยังนับอยู่ — refresh statusText ให้แสดง countdown
+      updateCountdownDisplay();
+    }
   } else if (locked) {
     statusDot.className = "status-dot locked";
     statusText.textContent = "Voting locked";
@@ -576,114 +640,32 @@ export function updateUI(roomData: RoomData): void {
     ? ""
     : "none";
 
-  if (revealed) {
-    showResults(userList);
-  } else {
-    resultSection.classList.add("hidden");
-  }
+  // (section ค่าเฉลี่ยถูกลบออกแล้ว — เหลือแค่การ์ดผู้เข้าร่วม + speaker picker)
 }
 
 function addRevoteButton(): void {
   const existing = document.getElementById("btn-revote");
   if (existing) return;
 
+  const canUnlock = isPO();
   const revoteBtn = document.createElement("button");
   revoteBtn.id = "btn-revote";
   revoteBtn.className = "btn btn-revote";
-  revoteBtn.textContent = "🔓 Unlock for Revote";
+  revoteBtn.textContent = canUnlock
+    ? "🔓 Unlock · auto…"
+    : "🔓 Auto-unlock…";
+  // non-PO เห็น countdown ในปุ่มเหมือนกัน แต่กดไม่ได้ (disabled)
+  if (!canUnlock) revoteBtn.disabled = true;
   revoteBtn.addEventListener("click", async () => {
     if (!state.currentRoom || !isPO()) return;
     cancelUnlockTimer();
     await update(ref(db, `rooms/${state.currentRoom}`), {
       revealed: false,
       locked: false,
+      revealTime: null,
     });
     revoteBtn.remove();
     btnReveal.style.display = "";
   });
   btnReveal.parentNode!.appendChild(revoteBtn);
-}
-
-function showResults(userList: [string, User][]): void {
-  resultSection.classList.remove("hidden");
-
-  const grouped = groupUsers(userList);
-
-  const calcAvg = (
-    list: [string, User][]
-  ): { avg: number; count: number } => {
-    const nums = list
-      .filter(([, u]) => u.vote != null)
-      .map(([, u]) => parseFloat(u.vote!))
-      .filter((n) => !isNaN(n));
-    if (nums.length === 0) return { avg: 0, count: 0 };
-    return {
-      avg:
-        Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10,
-      count: nums.length,
-    };
-  };
-
-  const po = calcAvg(grouped.team);
-  const dev = calcAvg(grouped.dev);
-  const qa = calcAvg(grouped.qa);
-  const ux = calcAvg(grouped.ux);
-
-  const calcConsensus = (
-    list: [string, User][],
-    role: string
-  ): { match: boolean; msg: string } => {
-    const nums = list
-      .filter(([, u]) => u.vote != null)
-      .map(([, u]) => parseFloat(u.vote!))
-      .filter((n) => !isNaN(n));
-    if (nums.length === 0) return { match: true, msg: "" };
-    // Only one person actually voted → they wrap it up alone (covers the case where
-    // the group has more members but only one cast a vote, e.g. PO ×3 but only 1 voted)
-    if (nums.length === 1) {
-      const isNumeric = (u: User) =>
-        u.vote != null && !isNaN(parseFloat(u.vote));
-      const voter =
-        list.find(([, u]) => isNumeric(u)) || list.find(([, u]) => u.vote != null);
-      const name = voter ? voter[1].name || "Unknown" : "Unknown";
-      return { match: true, msg: `${name} รับจบ สวยๆ` };
-    }
-    const allSame = nums.every((v) => v === nums[0]);
-    if (allSame) return { match: true, msg: `${role} จิตใจตรงกัน` };
-    return { match: false, msg: `${role} คุยกันหน่อย` };
-  };
-
-  const poResult = calcConsensus(grouped.team, "PO");
-  const devResult = calcConsensus(grouped.dev, "Dev");
-  const qaResult = calcConsensus(grouped.qa, "QA");
-  const uxResult = calcConsensus(grouped.ux, "UX/UI");
-
-  const consensusClass = (r: { match: boolean; msg: string }) =>
-    r.msg ? (r.match ? "yes" : "no") : "";
-
-  const newHtml = `
-    <div class="avg-columns col-${(po.count > 0 ? 1 : 0) + (dev.count > 0 ? 1 : 0) + (qa.count > 0 ? 1 : 0) + (ux.count > 0 ? 1 : 0)}">
-      ${po.count > 0 ? `<div class="avg-col">
-        <div class="avg-value po">${po.avg}</div>
-        <div class="avg-label po">PO</div>
-        <div class="consensus-role ${consensusClass(poResult)}">${poResult.msg || "—"}</div>
-      </div>` : ""}
-      ${dev.count > 0 ? `<div class="avg-col">
-        <div class="avg-value dev">${dev.avg}</div>
-        <div class="avg-label dev">Dev</div>
-        <div class="consensus-role ${consensusClass(devResult)}">${devResult.msg || "—"}</div>
-      </div>` : ""}
-      ${qa.count > 0 ? `<div class="avg-col">
-        <div class="avg-value qa">${qa.avg}</div>
-        <div class="avg-label qa">QA</div>
-        <div class="consensus-role ${consensusClass(qaResult)}">${qaResult.msg || "—"}</div>
-      </div>` : ""}
-      ${ux.count > 0 ? `<div class="avg-col">
-        <div class="avg-value ux">${ux.avg}</div>
-        <div class="avg-label ux">UX/UI</div>
-        <div class="consensus-role ${consensusClass(uxResult)}">${uxResult.msg || "—"}</div>
-      </div>` : ""}
-    </div>
-  `;
-  if (resultSummary.innerHTML !== newHtml) resultSummary.innerHTML = newHtml;
 }

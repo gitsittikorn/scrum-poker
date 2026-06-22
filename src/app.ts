@@ -264,6 +264,10 @@ function bindEvents(): void {
 
   // Show/hide admin room option based on username
   usernameInput.addEventListener("input", () => {
+    // จำกัดชื่อไม่เกิน 20 ตัวอักษรจริงๆ — กัน paste/IME/autocomplete ที่ข้าม maxlength
+    if (usernameInput.value.length > 20) {
+      usernameInput.value = usernameInput.value.slice(0, 20);
+    }
     const isAdmin = usernameInput.value.trim() === SUPER_ADMIN_NAME;
     adminRoomOption.style.display = isAdmin ? "" : "none";
     adminRoleOption.style.display = isAdmin ? "" : "none";

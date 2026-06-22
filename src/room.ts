@@ -1,26 +1,34 @@
-import {
-  db,
-  ref,
-  set,
-  get,
-  remove,
-  update,
-  onValue,
-  off,
-  serverTimestamp,
-  onDisconnect,
-} from "./firebase";
-import { state } from "./state";
-import type { RoomData, User, FeatureFlags, FeaturePermissions } from "./types";
-import { roleSelect, roomSelect, roomCodeDisplay, userBadge } from "./dom";
+import { destroySuperAdminPanel, initSuperAdminPanel } from "./admin";
+import { destroyChat, initChat, sendSystemMessage } from "./chat";
 import { AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
 import { APP_VERSION, SUPER_ADMIN_NAME } from "./constants";
+import { roleSelect, roomCodeDisplay, roomSelect, userBadge } from "./dom";
+import {
+  db,
+  get,
+  off,
+  onDisconnect,
+  onValue,
+  ref,
+  remove,
+  serverTimestamp,
+  set,
+  update,
+} from "./firebase";
+import { state } from "./state";
+import type { FeatureFlags, FeaturePermissions, RoomData, User } from "./types";
+import {
+  applyFeatureFlags,
+  closeSettings,
+  saveUsername,
+  showPage,
+  showToast,
+  updateSettingsFeatureState,
+  updateSettingsPermissions,
+} from "./ui";
 import { escapeHtml } from "./utils";
-import { showPage, showToast, saveUsername, applyFeatureFlags, closeSettings, updateSettingsPermissions, updateSettingsFeatureState } from "./ui";
-import { initChat, destroyChat, sendSystemMessage } from "./chat";
-import { updateUI, cancelUnlockTimer } from "./voting";
+import { cancelUnlockTimer, updateUI } from "./voting";
 import { destroyWheel, initWheelManual } from "./wheel";
-import { initSuperAdminPanel, destroySuperAdminPanel } from "./admin";
 
 let roomListenerRef: ReturnType<typeof ref> | null = null;
 let forceRefreshRef: ReturnType<typeof ref> | null = null;
@@ -50,11 +58,18 @@ export function checkUrlRoom(): void {
 }
 
 export async function handleJoinRoom(): Promise<void> {
-  const usernameInput = document.getElementById("username-input") as HTMLInputElement;
+  const usernameInput = document.getElementById(
+    "username-input",
+  ) as HTMLInputElement;
   const username = usernameInput.value.trim();
   const roomCode = roomSelect.value;
   if (!username) {
     showToast("Please enter your name");
+    usernameInput.focus();
+    return;
+  }
+  if (username.length > 20) {
+    showToast("ชื่อต้องไม่เกิน 20 ตัวอักษร");
     usernameInput.focus();
     return;
   }
@@ -68,7 +83,10 @@ export async function handleJoinRoom(): Promise<void> {
   }
 
   // Block non-super-admin from joining admin room
-  if (roomCode === "admin" && (username !== SUPER_ADMIN_NAME || roleSelect.value !== "admin")) {
+  if (
+    roomCode === "admin" &&
+    (username !== SUPER_ADMIN_NAME || roleSelect.value !== "admin")
+  ) {
     showToast("🛡️ ต้องใช้ชื่อและ Role admin เท่านั้น");
     return;
   }
@@ -99,19 +117,17 @@ export async function handleJoinRoom(): Promise<void> {
 
 export async function joinRoom(
   roomCode: string,
-  clearVote: boolean = true
+  clearVote: boolean = true,
 ): Promise<void> {
   state.currentRoom = roomCode;
   state.currentRole = roleSelect.value;
   const selectedOption = roomSelect.options[roomSelect.selectedIndex];
-  roomCodeDisplay.textContent = selectedOption
-    ? selectedOption.text
-    : roomCode;
+  roomCodeDisplay.textContent = selectedOption ? selectedOption.text : roomCode;
 
   let existingVote: string | null = null;
   if (!clearVote) {
     const existingSnap = await get(
-      ref(db, `rooms/${roomCode}/users/${state.currentUser!.uid}`)
+      ref(db, `rooms/${roomCode}/users/${state.currentUser!.uid}`),
     );
     if (existingSnap.exists()) {
       existingVote = existingSnap.val().vote ?? null;
@@ -133,13 +149,13 @@ export async function joinRoom(
 
   const presenceRef = ref(
     db,
-    `rooms/${roomCode}/users/${state.currentUser!.uid}/online`
+    `rooms/${roomCode}/users/${state.currentUser!.uid}/online`,
   );
   await onDisconnect(presenceRef).set(false);
 
   const typingPresenceRef = ref(
     db,
-    `rooms/${roomCode}/typing/${state.currentUser!.uid}`
+    `rooms/${roomCode}/typing/${state.currentUser!.uid}`,
   );
   onDisconnect(typingPresenceRef).remove();
 
@@ -168,13 +184,22 @@ export async function joinRoom(
   userBadge.innerHTML = `${roleIcon} ${escapeHtml(state.currentUser!.name)} <span class="user-role">(${roleName})</span>`;
 
   // Reset prevFeatures before listening
-  prevFeatures = { poker: true, chat: true, react: true, sound: true, wheel: true };
+  prevFeatures = {
+    poker: true,
+    chat: true,
+    react: true,
+    sound: true,
+    wheel: true,
+  };
 
   showPage("room");
   applyFeatureFlags(); // Apply role-based visibility (e.g. delete button for PO)
 
   // Super admin: only if name + role + room all match
-  state.isSuperAdmin = roomCode === "admin" && state.currentUser?.name === SUPER_ADMIN_NAME && state.currentRole === "admin";
+  state.isSuperAdmin =
+    roomCode === "admin" &&
+    state.currentUser?.name === SUPER_ADMIN_NAME &&
+    state.currentRole === "admin";
   if (state.isSuperAdmin) {
     initSuperAdminPanel();
     // Hide poker UI — admin room only shows super admin panel
@@ -214,12 +239,10 @@ function initWheelRoom(): void {
   const votingSection = document.querySelector(".voting-section");
   const adminControls = document.querySelector(".admin-controls");
   const participantsSection = document.querySelector(".participants-section");
-  const resultSection = document.getElementById("result-section");
   votingStatus?.classList.add("hidden");
   votingSection?.classList.add("hidden");
   adminControls?.classList.add("hidden");
   participantsSection?.classList.add("hidden");
-  resultSection?.classList.add("hidden");
 
   // Show React, Sound, Chat on bottom bar — hide only Wheel button + delete room
   const deleteWrapper = document.getElementById("delete-room-wrapper");
@@ -278,7 +301,10 @@ function destroyWheelRoom(): void {
   // Move wheel DOM back to the aside panel
   const wheelHeader = wheelRoomSection?.querySelector(".wheel-header");
   if (wheelPanel && wheelHeader && wheelBody) {
-    wheelPanel.insertBefore(wheelBody, wheelPanel.querySelector(".wheel-resize-handle")?.nextSibling || null);
+    wheelPanel.insertBefore(
+      wheelBody,
+      wheelPanel.querySelector(".wheel-resize-handle")?.nextSibling || null,
+    );
     wheelPanel.insertBefore(wheelHeader, wheelPanel.firstChild);
   }
   wheelRoomSection?.classList.add("hidden");
@@ -293,7 +319,6 @@ function destroyWheelRoom(): void {
   document.querySelector(".voting-section")?.classList.remove("hidden");
   document.querySelector(".admin-controls")?.classList.remove("hidden");
   document.querySelector(".participants-section")?.classList.remove("hidden");
-  document.getElementById("result-section")?.classList.remove("hidden");
   const bottomBarCenter = document.querySelector(".bottom-bar-center");
   bottomBarCenter?.classList.remove("hidden");
   const btnWheel = document.getElementById("btn-wheel");
@@ -441,7 +466,10 @@ function listenPermissions(): void {
     permissionsListenerRef = null;
   }
   if (!state.currentRoom) return;
-  permissionsListenerRef = ref(db, `admin/featurePermissions/${state.currentRoom}`);
+  permissionsListenerRef = ref(
+    db,
+    `admin/featurePermissions/${state.currentRoom}`,
+  );
   onValue(permissionsListenerRef, (snap) => {
     const permissions: FeaturePermissions = snap.exists()
       ? {
@@ -452,7 +480,9 @@ function listenPermissions(): void {
           wheel: snap.val().wheel ?? true,
         }
       : { poker: true, chat: true, react: true, sound: true, wheel: true };
-    const autoUnlockEditable = snap.exists() ? (snap.val().autoUnlockEditable ?? true) : true;
+    const autoUnlockEditable = snap.exists()
+      ? (snap.val().autoUnlockEditable ?? true)
+      : true;
     updateSettingsPermissions(permissions, autoUnlockEditable);
   });
 }
@@ -465,16 +495,21 @@ async function cleanupIfRoomEmpty(roomCode: string): Promise<void> {
     if (!usersSnap.exists()) return; // Room already deleted
     const users = usersSnap.val() as Record<string, User>;
     const onlineCount = Object.values(users).filter(
-      (u) => u.online !== false
+      (u) => u.online !== false,
     ).length;
     if (onlineCount === 0) {
       const updates: Record<string, unknown> = {};
       // Delete ephemeral data
-      ["messages", "typing", "liveReactions", "sounds", "drinkers", "kicked"].forEach(
-        (key) => {
-          updates[key] = null;
-        }
-      );
+      [
+        "messages",
+        "typing",
+        "liveReactions",
+        "sounds",
+        "drinkers",
+        "kicked",
+      ].forEach((key) => {
+        updates[key] = null;
+      });
       // Reset votes
       Object.keys(users).forEach((uid) => {
         updates[`users/${uid}/vote`] = null;
@@ -502,12 +537,12 @@ export function setupBeforeUnload(): void {
     set(
       ref(
         db,
-        `rooms/${state.currentRoom}/users/${state.currentUser.uid}/online`
+        `rooms/${state.currentRoom}/users/${state.currentUser.uid}/online`,
       ),
-      false
+      false,
     );
     remove(
-      ref(db, `rooms/${state.currentRoom}/typing/${state.currentUser.uid}`)
+      ref(db, `rooms/${state.currentRoom}/typing/${state.currentUser.uid}`),
     );
   });
 }
@@ -533,7 +568,9 @@ export function listenForceRefresh(): void {
   onValue(forceRefreshRef, (snap) => {
     const remoteVersion = snap.val() as string | null;
     if (remoteVersion && remoteVersion !== APP_VERSION) {
-      console.log(`[ForceRefresh] Remote=${remoteVersion}, Local=${APP_VERSION} — reloading`);
+      console.log(
+        `[ForceRefresh] Remote=${remoteVersion}, Local=${APP_VERSION} — reloading`,
+      );
       location.reload();
     }
   });
@@ -612,11 +649,16 @@ async function performCleanup(todayStr: string): Promise<void> {
     const updates: Record<string, unknown> = {};
 
     for (const roomCode of Object.keys(rooms)) {
-      ["messages", "typing", "liveReactions", "sounds", "drinkers", "kicked"].forEach(
-        (key) => {
-          updates[`rooms/${roomCode}/${key}`] = null;
-        }
-      );
+      [
+        "messages",
+        "typing",
+        "liveReactions",
+        "sounds",
+        "drinkers",
+        "kicked",
+      ].forEach((key) => {
+        updates[`rooms/${roomCode}/${key}`] = null;
+      });
       updates[`rooms/${roomCode}/revealed`] = false;
       updates[`rooms/${roomCode}/locked`] = false;
 

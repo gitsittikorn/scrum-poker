@@ -317,6 +317,12 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 8px 28px var(--success-glow);
 }
+.btn-revote:disabled {
+  /* non-PO เห็น countdown ในปุ่มได้ แต่กดไม่ได้ */
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
 
 .btn-delete {
   background: var(--bg-card);
@@ -779,71 +785,6 @@ body {
   box-shadow: 0 0 6px var(--danger-glow);
 }
 
-/* ===== Result Section ===== */
-.result-section {
-  background: var(--bg-secondary);
-  border-radius: var(--radius);
-  padding: 24px;
-  margin-bottom: 32px;
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 32px var(--shadow);
-}
-.result-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.avg-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 14px;
-}
-
-.avg-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 16px 8px;
-  background: var(--bg-card);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
-
-.avg-value {
-  font-size: 2rem;
-  font-weight: 800;
-}
-.avg-value.po { color: var(--po-color); }
-.avg-value.dev { color: var(--dev-color); }
-.avg-value.qa { color: var(--qa-color); }
-.avg-value.ux { color: var(--ux-color); }
-
-.avg-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-.avg-label.po { color: var(--po-color); }
-.avg-label.dev { color: var(--dev-color); }
-.avg-label.qa { color: var(--qa-color); }
-.avg-label.ux { color: var(--ux-color); }
-
-.consensus-role {
-  margin-top: 6px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  min-height: 1.2rem;
-}
-.consensus-role.yes {
-  color: var(--success);
-}
-.consensus-role.no {
-  color: var(--warning);
-}
-
 .speaker-label {
   font-size: 0.9rem;
   font-weight: 700;
@@ -1211,14 +1152,6 @@ body {
   background: #dc2626;
   transform: translateY(-2px);
   box-shadow: 0 6px 24px var(--danger-glow);
-}
-
-/* ===== Countdown Text ===== */
-.countdown-text {
-  text-align: center;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-top: 6px;
 }
 
 /* ===== DB Report ===== */
@@ -2313,6 +2246,27 @@ body {
   border-radius: var(--radius-sm);
   padding: 10px;
   animation: popIn 0.3s ease;
+}
+
+/* ===== Wheel Winner Modal ===== */
+.wheel-winner-modal-content {
+  max-width: 340px;
+  text-align: center;
+}
+.wheel-winner-hero {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--warning);
+  padding: 18px 8px;
+  text-shadow: 0 0 20px var(--accent-glow);
+  animation: popIn 0.3s ease;
+  word-break: break-word;
+}
+.wheel-winner-note {
+  margin-top: 14px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 /* Controls */
 .wheel-controls {
