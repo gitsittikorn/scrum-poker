@@ -76,6 +76,9 @@ export const toggleLabelWheel = $("toggle-label-wheel");
 
 // User settings
 export const muteOthersSound = $("mute-others-sound") as HTMLInputElement;
+export const btnShortcutToggle = $("btn-shortcut-toggle") as HTMLButtonElement;
+export const shortcutContent = $("shortcut-content");
+export const shortcutEnabledToggle = $("shortcut-enabled") as HTMLInputElement;
 
 // Wheel
 export const btnWheel = $("btn-wheel") as HTMLButtonElement;
