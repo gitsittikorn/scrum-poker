@@ -311,6 +311,47 @@
               </label>
               <small class="form-hint">ปิดเสียงที่คนอื่นกด แต่ยังกดเสียงได้ตามปกติ</small>
             </div>
+
+            <div class="settings-divider"></div>
+            <button id="btn-shortcut-toggle" class="collapsible-toggle" type="button">
+              <span>⌨️ ปุ่มลัดเสียง</span>
+              <span class="collapsible-arrow"></span>
+            </button>
+            <div id="shortcut-content" class="collapsible-content hidden">
+              <div class="toggle-group">
+                <label class="toggle-label">
+                  <input type="checkbox" id="shortcut-enabled" checked aria-label="เปิด/ปิด ปุ่มลัดเสียงทั้งหมด">
+                  <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                  <span class="toggle-text">⌨️ เปิดใช้งานปุ่มลัดเสียง</span>
+                </label>
+                <small class="form-hint">ปิดเพื่อหยุดใช้คีย์ลัดทั้งหมดชั่วคราว (ค่าที่ตั้งไว้ยังคงอยู่)</small>
+              </div>
+              <small class="form-hint">ตั้งคีย์ลัดสำหรับ 4 เสียง — กดแล้วทุกคนในห้องได้ยิน (เก็บในเครื่องของคุณ)</small>
+              <div class="sound-shortcut-row" data-slot="0">
+                <span class="shortcut-slot">1</span>
+                <button class="btn btn-icon btn-shortcut-key" data-slot="0" type="button">กดคีย์...</button>
+                <select class="select-shortcut-sound" data-slot="0" aria-label="เสียงช่อง 1"></select>
+                <button class="btn-shortcut-clear" data-slot="0" type="button" title="ล้างช่องนี้">✕</button>
+              </div>
+              <div class="sound-shortcut-row" data-slot="1">
+                <span class="shortcut-slot">2</span>
+                <button class="btn btn-icon btn-shortcut-key" data-slot="1" type="button">กดคีย์...</button>
+                <select class="select-shortcut-sound" data-slot="1" aria-label="เสียงช่อง 2"></select>
+                <button class="btn-shortcut-clear" data-slot="1" type="button" title="ล้างช่องนี้">✕</button>
+              </div>
+              <div class="sound-shortcut-row" data-slot="2">
+                <span class="shortcut-slot">3</span>
+                <button class="btn btn-icon btn-shortcut-key" data-slot="2" type="button">กดคีย์...</button>
+                <select class="select-shortcut-sound" data-slot="2" aria-label="เสียงช่อง 3"></select>
+                <button class="btn-shortcut-clear" data-slot="2" type="button" title="ล้างช่องนี้">✕</button>
+              </div>
+              <div class="sound-shortcut-row" data-slot="3">
+                <span class="shortcut-slot">4</span>
+                <button class="btn btn-icon btn-shortcut-key" data-slot="3" type="button">กดคีย์...</button>
+                <select class="select-shortcut-sound" data-slot="3" aria-label="เสียงช่อง 4"></select>
+                <button class="btn-shortcut-clear" data-slot="3" type="button" title="ล้างช่องนี้">✕</button>
+              </div>
+            </div>
           </div>
 
           <!-- PO Section (visible only to PO) -->
@@ -363,7 +404,7 @@
             <div class="settings-divider"></div>
             <button id="btn-db-report-toggle" class="collapsible-toggle" type="button">
               <span>📊 การใช้งาน Database</span>
-              <span class="collapsible-arrow">▼</span>
+              <span class="collapsible-arrow"></span>
             </button>
             <div id="db-report-collapsible" class="collapsible-content hidden">
               <div id="db-report-inline" class="db-report">

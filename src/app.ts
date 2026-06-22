@@ -27,6 +27,9 @@ import {
   btnBarSound,
   soundPickerBar,
   muteOthersSound,
+  btnShortcutToggle,
+  shortcutContent,
+  shortcutEnabledToggle,
   btnWheel,
   btnWheelClose,
   btnWheelSpin,
@@ -46,7 +49,7 @@ import { db, ref, update } from "./firebase";
 import { renderCards, handleReveal, handleReset } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
-import { toggleSoundPicker, sendSound, renderSoundPicker, handleSoundPickerOutsideClick, playSound } from "./sounds";
+import { toggleSoundPicker, renderSoundPicker, handleSoundPickerOutsideClick, triggerSound, registerSoundShortcuts, renderSoundShortcutSlots, startKeyCapture, cancelKeyCapture, setShortcutSound, setShortcutsEnabled, clearShortcut } from "./sounds";
 import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
 import { state } from "./state";
 import { FEATURES } from "./config";
@@ -65,6 +68,7 @@ function init(): void {
   if (FEATURES.sound) renderSoundPicker();
   bindEvents();
   applyFeatureFlags();
+  registerSoundShortcuts();
   checkUrlRoom();
   btnJoinRoom.disabled = true;
   btnJoinRoom.textContent = "กำลังเชื่อมต่อ...";
@@ -91,13 +95,48 @@ function bindEvents(): void {
   btnToggleTheme.addEventListener("click", toggleTheme);
 
   btnSettings.addEventListener("click", openSettings);
-  btnSettingsClose.addEventListener("click", closeSettings);
+  btnSettingsClose.addEventListener("click", () => { cancelKeyCapture(); closeSettings(); });
   btnSettingsSave.addEventListener("click", saveSettings);
   settingsInput.addEventListener("keydown", (e: KeyboardEvent) => {
     if (e.key === "Enter") btnSettingsSave.click();
   });
   settingsModal.addEventListener("click", (e) => {
-    if (e.target === settingsModal) closeSettings();
+    if (e.target === settingsModal) { cancelKeyCapture(); closeSettings(); }
+  });
+
+  // Sound shortcut section: collapsible (collapsed by default) + key capture + sound select
+  btnShortcutToggle.addEventListener("click", () => {
+    const isOpen = !shortcutContent.classList.contains("hidden");
+    if (isOpen) {
+      shortcutContent.classList.add("hidden");
+      btnShortcutToggle.classList.remove("open");
+      cancelKeyCapture();
+    } else {
+      shortcutContent.classList.remove("hidden");
+      btnShortcutToggle.classList.add("open");
+      renderSoundShortcutSlots();
+    }
+  });
+  shortcutContent.addEventListener("click", (e) => {
+    const t = e.target as HTMLElement;
+    const keyBtn = t.closest(".btn-shortcut-key") as HTMLElement | null;
+    if (keyBtn) {
+      const slot = Number(keyBtn.dataset.slot);
+      if (!Number.isNaN(slot)) startKeyCapture(slot, () => showToast("⌨️ ปุ่มนี้ถูกใช้กับช่องอื่นแล้ว"));
+      return;
+    }
+    const clearBtn = t.closest(".btn-shortcut-clear") as HTMLElement | null;
+    if (clearBtn) {
+      const slot = Number(clearBtn.dataset.slot);
+      if (!Number.isNaN(slot)) clearShortcut(slot);
+    }
+  });
+  shortcutContent.addEventListener("change", (e) => {
+    const sel = e.target as HTMLElement;
+    if (sel.classList.contains("select-shortcut-sound")) {
+      const slot = Number((sel as HTMLSelectElement).dataset.slot);
+      if (!Number.isNaN(slot)) setShortcutSound(slot, (sel as HTMLSelectElement).value);
+    }
   });
 
   // DB Report collapsible toggle
@@ -138,6 +177,11 @@ function bindEvents(): void {
   // Mute others' sounds toggle (saves immediately to localStorage)
   muteOthersSound.addEventListener("change", () => {
     localStorage.setItem("scrum-poker-mute-others", String(muteOthersSound.checked));
+  });
+
+  // Master on/off for ALL sound shortcuts (saves immediately to localStorage)
+  shortcutEnabledToggle.addEventListener("change", () => {
+    setShortcutsEnabled(shortcutEnabledToggle.checked);
   });
 
   btnReveal.addEventListener("click", handleReveal);
@@ -208,13 +252,9 @@ function bindEvents(): void {
   soundPickerBar.addEventListener("click", (e) => {
     const target = (e.target as HTMLElement).closest(".sound-item") as HTMLElement;
     if (target && FEATURES.sound) {
-      const file = target.dataset.file!;
-      const emoji = target.dataset.emoji!;
       // Play locally immediately (this click is the gesture that unlocks audio) +
-      // show floating emoji — don't wait for the Firebase round-trip
-      playSound(file);
-      if (state.currentUser) animateFloatingEmoji(emoji, state.currentUser.name);
-      sendSound(file);
+      // broadcast to the room + floating emoji (triggerSound does all three)
+      triggerSound(target.dataset.file!);
       soundPickerBar.classList.add("hidden");
     }
   });

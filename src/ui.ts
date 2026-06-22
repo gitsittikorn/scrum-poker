@@ -34,6 +34,7 @@ import type { User, FeatureFlags, FeaturePermissions, ConfirmModalOptions } from
 import { forceCloseChat } from "./chat";
 import { forceCloseWheel } from "./wheel";
 import { loadFeaturePermissions } from "./admin";
+import { renderSoundShortcutSlots } from "./sounds";
 
 export function showPage(page: "landing" | "room"): void {
   landingPage.classList.remove("active");
@@ -187,6 +188,7 @@ export async function openSettings(): Promise<void> {
     muteOthersSound.checked = localStorage.getItem("scrum-poker-mute-others") === "true";
     const sw = muteOthersSound.nextElementSibling;
     if (sw) sw.setAttribute("aria-checked", String(muteOthersSound.checked));
+    renderSoundShortcutSlots();
   } else {
     userSettings.classList.add("hidden");
   }

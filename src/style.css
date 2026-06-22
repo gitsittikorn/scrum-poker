@@ -1228,26 +1228,34 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   width: 100%;
-  background: none;
-  border: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-primary);
-  padding: 8px 0;
-  transition: color 0.15s;
+  padding: 10px 12px;
+  transition: all var(--transition);
 }
 .collapsible-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.collapsible-toggle:hover .collapsible-arrow {
   color: var(--accent);
 }
 .collapsible-arrow {
-  font-size: 0.7rem;
-  transition: transform 0.2s;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1;
+  transition: color 0.15s;
 }
-.collapsible-toggle.open .collapsible-arrow {
-  transform: rotate(180deg);
-}
+/* Disclosure triangle: ▶ collapsed → ▼ expanded */
+.collapsible-arrow::before { content: "▶"; }
+.collapsible-toggle.open .collapsible-arrow::before { content: "▼"; }
 .toggle-group {
   display: flex;
   flex-direction: column;
@@ -2031,6 +2039,83 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+}
+
+/* ===== Sound Shortcut Settings (in Settings modal) ===== */
+.sound-shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.shortcut-slot {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.btn-shortcut-key {
+  flex: 0 0 auto;
+  min-width: 120px;
+  font-weight: 700;
+  border: 1px solid var(--border);
+}
+.btn-shortcut-key.is-set {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-shortcut-key.capturing {
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: shortcut-pulse 1s ease-in-out infinite;
+}
+.select-shortcut-sound {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+  transition: all var(--transition);
+}
+.select-shortcut-sound:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.btn-shortcut-clear {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all var(--transition);
+}
+.btn-shortcut-clear:hover {
+  background: var(--danger);
+  color: #fff;
+}
+@keyframes shortcut-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50% { box-shadow: 0 0 0 4px var(--accent-glow); }
 }
 
 /* ===== Floating Reactions ===== */
