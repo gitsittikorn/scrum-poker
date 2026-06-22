@@ -313,11 +313,11 @@
             </div>
 
             <div class="settings-divider"></div>
-            <button id="btn-shortcut-toggle" class="collapsible-toggle" type="button">
+            <button id="btn-shortcut-toggle" class="collapsible-toggle open" type="button">
               <span>⌨️ ปุ่มลัดเสียง</span>
               <span class="collapsible-arrow"></span>
             </button>
-            <div id="shortcut-content" class="collapsible-content hidden">
+            <div id="shortcut-content" class="collapsible-content">
               <div class="toggle-group">
                 <label class="toggle-label">
                   <input type="checkbox" id="shortcut-enabled" checked aria-label="เปิด/ปิด ปุ่มลัดเสียงทั้งหมด">
@@ -327,6 +327,7 @@
                 <small class="form-hint">ปิดเพื่อหยุดใช้คีย์ลัดทั้งหมดชั่วคราว (ค่าที่ตั้งไว้ยังคงอยู่)</small>
               </div>
               <small class="form-hint">ตั้งคีย์ลัดสำหรับ 4 เสียง — กดแล้วทุกคนในห้องได้ยิน (เก็บในเครื่องของคุณ)</small>
+              <small class="form-hint">💡 กดปุ่ม "กดคีย์…" เพื่อเปลี่ยนคีย์ · เลือกเสียงใหม่ได้จากรายการด้านขวา</small>
               <div class="sound-shortcut-row" data-slot="0">
                 <span class="shortcut-slot">1</span>
                 <button class="btn btn-icon btn-shortcut-key" data-slot="0" type="button">กดคีย์...</button>
@@ -412,6 +413,29 @@
               </div>
             </div>
 
+            <div class="settings-divider"></div>
+            <div class="settings-section-title">🃏 การ์ด Poker (ทุกห้อง)</div>
+            <small class="form-hint">ปล่อย point ว่าง = ซ่อนการ์ดนั้น · บันทึกแล้วทุกห้องเห็นทันที · ล้างทั้งหมดเพื่อใช้ค่าเริ่มต้น</small>
+            <div id="poker-cards-config" class="pc-config">
+              <div class="pc-row">
+                <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
+                <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
+                <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
+                <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
+                <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
+              </div>
+              <div class="pc-row">
+                <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
+                <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
+                <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
+                <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
+                <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
+              </div>
+            </div>
+            <button id="btn-super-admin-save-cards" class="btn btn-primary" style="width:100%">💾 บันทึกการ์ด Poker</button>
+
+            <div class="settings-divider"></div>
+            <div class="settings-section-title">🧹 การล้างข้อมูล</div>
             <div class="form-group">
               <label for="cleanup-time">🕐 ตั้งเวลาเคลียร์ข้อมูลทุกห้อง</label>
               <input type="time" id="cleanup-time" value="19:00">

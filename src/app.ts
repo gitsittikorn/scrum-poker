@@ -46,7 +46,8 @@ import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, save
 import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
 import { handleJoinRoom, handleLeave, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler, listenForceRefresh, writeForceRefreshVersion } from "./room";
 import { db, ref, update } from "./firebase";
-import { renderCards, handleReveal, handleReset } from "./voting";
+import type { CardDef } from "./types";
+import { renderCards, initPokerCardsListener, handleReveal, handleReset } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
 import { toggleSoundPicker, renderSoundPicker, handleSoundPickerOutsideClick, triggerSound, registerSoundShortcuts, renderSoundShortcutSlots, startKeyCapture, cancelKeyCapture, setShortcutSound, setShortcutsEnabled, clearShortcut } from "./sounds";
@@ -64,7 +65,10 @@ function init(): void {
     adminRoomOption.style.display = "";
     adminRoleOption.style.display = "";
   }
-  if (FEATURES.poker) renderCards();
+  if (FEATURES.poker) {
+    renderCards();
+    initPokerCardsListener();
+  }
   if (FEATURES.sound) renderSoundPicker();
   bindEvents();
   applyFeatureFlags();
@@ -212,6 +216,47 @@ function bindEvents(): void {
       closeSettings();
       showToast("💾 บันทึกเวลาเคลียร์ข้อมูลแล้ว");
     }
+  });
+
+  // Super admin: poker card point inputs — limit to 1 decimal + normalize ".5" → "0.5"
+  document.querySelectorAll<HTMLInputElement>("#poker-cards-config .pc-point").forEach((input) => {
+    input.addEventListener("input", () => {
+      let v = input.value;
+      const m = v.match(/^\d*\.?\d{0,1}/);
+      if (m && m[0] !== v) v = m[0];
+      v = v.replace(/^\./, "0.");
+      if (input.value !== v) input.value = v;
+    });
+  });
+
+  // Super admin: save poker cards config (global — applies to all rooms)
+  document.getElementById("btn-super-admin-save-cards")?.addEventListener("click", async () => {
+    const container = document.getElementById("poker-cards-config");
+    if (!container) return;
+    const slots = Array.from(container.querySelectorAll<HTMLElement>(".pc-slot"));
+    const cards: CardDef[] = [];
+    let filled = 0;
+    for (const slot of slots) {
+      const pointInput = slot.querySelector<HTMLInputElement>(".pc-point");
+      const descInput = slot.querySelector<HTMLInputElement>(".pc-desc");
+      const value = (pointInput?.value ?? "").trim();
+      if (value) {
+        // positive number, ≤ 1 decimal — accept both "0.5" and ".5"
+        if (!/^(\d+\.?\d{0,1}|\.\d{1})$/.test(value)) {
+          showToast(`❌ "${value}" ไม่ใช่ตัวเลข (ทศนิยมไม่เกิน 1 ตำแหน่ง)`);
+          return;
+        }
+        filled++;
+      }
+      // Keep empty slots in the array so the 2×5 grid positions (rows) are
+      // preserved on render — an empty point hides that card but keeps its slot.
+      // Canonicalize numeric form: "5." → "5", "007" → "7", ".5" → "0.5".
+      const canonical = value ? String(parseFloat(value)) : "";
+      cards.push({ value: canonical, label: (descInput?.value ?? "").trim() });
+    }
+    await update(ref(db, "settings"), { pokerCards: cards });
+    closeSettings();
+    showToast(`💾 บันทึกการ์ด Poker แล้ว (${filled} ใบ)`);
   });
 
   // Chat events

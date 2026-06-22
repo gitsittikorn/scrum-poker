@@ -30,7 +30,9 @@ import {
   toggleLabelWheel,
 } from "./dom";
 import { TOAST_DURATION_MS, AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
-import type { User, FeatureFlags, FeaturePermissions, ConfirmModalOptions } from "./types";
+import { DEFAULT_POKER_CARDS } from "./constants";
+import { hasConfiguredCards } from "./utils";
+import type { User, FeatureFlags, FeaturePermissions, ConfirmModalOptions, CardDef } from "./types";
 import { forceCloseChat } from "./chat";
 import { forceCloseWheel } from "./wheel";
 import { loadFeaturePermissions } from "./admin";
@@ -139,6 +141,27 @@ export function updateSettingsFeatureState(features: FeatureFlags, autoUnlockSec
   }
 }
 
+/** Fill the super-admin poker-cards config form (10 slots = 2 rows × 5).
+ *  `cards` null/empty → seed with DEFAULT_POKER_CARDS. Excess entries beyond 10
+ *  slots are dropped; missing slots left blank (empty point → card hidden). */
+export function fillPokerCardsForm(cards: CardDef[] | null): void {
+  const container = document.getElementById("poker-cards-config");
+  if (!container) return;
+  const slots = Array.from(container.querySelectorAll<HTMLElement>(".pc-slot"));
+  // If every stored slot is empty (admin cleared all), show the default seed so
+  // the form matches what poker renders.
+  const source = hasConfiguredCards(cards)
+    ? (cards as CardDef[]).slice(0, slots.length)
+    : DEFAULT_POKER_CARDS;
+  slots.forEach((slot, i) => {
+    const point = slot.querySelector<HTMLInputElement>(".pc-point");
+    const desc = slot.querySelector<HTMLInputElement>(".pc-desc");
+    const card = source[i];
+    if (point) point.value = card ? card.value : "";
+    if (desc) desc.value = card ? card.label : "";
+  });
+}
+
 export async function openSettings(): Promise<void> {
   if (!state.currentRoom) return;
 
@@ -153,6 +176,11 @@ export async function openSettings(): Promise<void> {
     // Load cleanup time
     const cleanupSnap = await get(ref(db, `settings/cleanupTime`));
     cleanupTimeInput.value = cleanupSnap.exists() ? cleanupSnap.val() : "19:00";
+    // Load poker cards config into the 2×5 form (absent → default seed)
+    const cardsSnap = await get(ref(db, "settings/pokerCards"));
+    fillPokerCardsForm(
+      cardsSnap.exists() && Array.isArray(cardsSnap.val()) ? cardsSnap.val() : null
+    );
     settingsModal.classList.add("active");
     return;
   }

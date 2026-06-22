@@ -1,23 +1,26 @@
 import type { CardDef } from "./types";
 
-export const CARDS: CardDef[] = [
-  { value: "0", label: "Free" },
-  { value: "0.1", label: "24 นาที" },
-  { value: "0.3", label: "1 ชั่วโมง" },
-  { value: "0.5", label: "2 ชั่วโมง" },
-  { value: "1", label: "4 ชั่วโมง" },
-  { value: "2", label: "1 วัน" },
-  { value: "3", label: "1.5 วัน" },
-  { value: "4", label: "2 วัน" },
-  { value: "5", label: "2.5 วัน" },
-  { value: "8", label: "4 วัน" },
-  { value: "13", label: "ผีหลอก" },
-  { value: "21", label: "เสร็จกันยา" },
+/** Default poker-card grid — the 2×5 layout (10 slots) used when super admin has
+ *  not yet configured custom cards (stored remotely at `settings/pokerCards`).
+ *  Position matters: indices 0-4 = row 1, 5-9 = row 2. An empty `value` marks an
+ *  unused slot (hidden in poker, keeps its grid position). Default seed:
+ *  row 1 = 0.5,1,2,3,_ ; row 2 = 5,8,13,21,_ (bare numbers). */
+export const DEFAULT_POKER_CARDS: CardDef[] = [
+  { value: "0.5", label: "" },
+  { value: "1", label: "" },
+  { value: "2", label: "" },
+  { value: "3", label: "" },
+  { value: "", label: "" },
+  { value: "5", label: "" },
+  { value: "8", label: "" },
+  { value: "13", label: "" },
+  { value: "21", label: "" },
+  { value: "", label: "" },
 ];
 
 export const SUPER_ADMIN_NAME = "admin889";
 
-export const APP_VERSION = "2026-06-22-v3";
+export const APP_VERSION = "2026-06-22-v4";
 
 export const EMOJIS = [
   "😀", "😂", "🤣", "😊", "😅", "😎", "🤔", "😏", "🙄", "🥳", "🤩", "😤",

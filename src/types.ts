@@ -1,5 +1,7 @@
 export interface CardDef {
   value: string;
+  /** Optional human-readable description shown under the point value on the card
+   *  (e.g. "1 ชั่วโมง"). Empty string = show only the point value. */
   label: string;
 }
 

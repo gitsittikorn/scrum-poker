@@ -1,6 +1,6 @@
-import { db, ref, set, get, update, remove, serverTimestamp, onValue } from "./firebase";
+import { db, ref, set, get, update, serverTimestamp, onValue } from "./firebase";
 import { state, isPO } from "./state";
-import type { User, RoomData, Role, GroupedUsers } from "./types";
+import type { User, RoomData, Role, GroupedUsers, CardDef } from "./types";
 import {
   cardsContainer,
   votingStatus,
@@ -14,8 +14,9 @@ import {
   colUx,
   participantCount,
 } from "./dom";
-import { CARDS } from "./constants";
+import { DEFAULT_POKER_CARDS } from "./constants";
 import { AUTO_UNLOCK_SECONDS } from "./config";
+import { escapeHtml, hasConfiguredCards } from "./utils";
 import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
 
@@ -23,7 +24,12 @@ let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
 /** revealTime ของรอบที่ countdown ปัจจุบันกำลังนับให้อยู่ — null = ยังไม่ได้ตั้ง timer */
 let countdownRevealTime: number | null = null;
-let customPointInput: HTMLInputElement | null = null;
+/** Current poker card set — defaults to the seed, updated live from
+ *  `settings/pokerCards` by initPokerCardsListener(). Replaces the old hardcoded CARDS. */
+let currentCards: CardDef[] = DEFAULT_POKER_CARDS;
+/** Tracks the room's locked state so a live card re-render can re-apply `.disabled`
+ *  without waiting for the next room-data tick. */
+let cardsLocked = false;
 
 /** ผลต่าง (ms) ระหว่างเวลา server กับ client — serverTime = Date.now() + offset
  *  ใช้ sync เวลาคำนวณ countdown แก้ clock skew (เช่นเครื่อง client ช้า/เร็วกว่าจริง) */
@@ -114,21 +120,29 @@ function updateCountdownDisplay(): void {
 // ===== Cards =====
 export function renderCards(): void {
   cardsContainer.innerHTML = "";
-  CARDS.forEach((card, i) => {
-    if (i === 7) {
+  currentCards.forEach((card, i) => {
+    // Force a row break before the 6th slot (start of row 2) when the grid has a
+    // row 2 — keeps the 2-row × ≤5 layout that mirrors the admin config grid.
+    if (i === 5 && currentCards.length > 5) {
       const br = document.createElement("div");
       br.className = "cards-break";
       cardsContainer.appendChild(br);
     }
+    // Empty slot (no point configured) → hidden, but its grid position (and thus
+    // the row break above) is preserved for the surrounding cards.
+    if (!card.value) return;
     const el = document.createElement("div");
     el.className = "poker-card";
     el.dataset.value = card.value;
     el.setAttribute("role", "button");
     el.setAttribute("tabindex", "0");
-    el.setAttribute("aria-label", `โหวต ${card.value} — ${card.label}`);
+    el.setAttribute(
+      "aria-label",
+      `โหวต ${card.value}${card.label ? ` — ${card.label}` : ""}`
+    );
     el.innerHTML = `
-      <span class="card-value">${card.value}</span>
-      <span class="card-label">${card.label}</span>
+      <span class="card-value">${escapeHtml(card.value)}</span>
+      ${card.label ? `<span class="card-label">${escapeHtml(card.label)}</span>` : ""}
     `;
     el.addEventListener("click", () => handleVote(card.value));
     // activeCard = the card currently focused (keyboard nav). Distinct from
@@ -151,31 +165,38 @@ export function renderCards(): void {
     cardsContainer.appendChild(el);
   });
 
-  const customCard = document.createElement("div");
-  customCard.className = "poker-card custom-card";
-  customCard.innerHTML = `
-    <input type="number" id="custom-point-input" placeholder="..." min="0" step="0.01">
-    <span class="card-label">Custom<br>( Enter )</span>
-  `;
-  cardsContainer.appendChild(customCard);
+  // Re-apply locked + selected state so a live re-render (admin changed cards)
+  // doesn't flash an un-locked / un-selected set before the next room-data tick.
+  if (cardsLocked) {
+    document
+      .querySelectorAll(".poker-card")
+      .forEach((el) => el.classList.add("disabled"));
+  }
+  if (state.selectedCard) {
+    document.querySelectorAll(".poker-card").forEach((el) => {
+      el.classList.toggle(
+        "selected",
+        (el as HTMLElement).dataset.value === state.selectedCard
+      );
+    });
+  }
+}
 
-  customPointInput = document.getElementById(
-    "custom-point-input"
-  ) as HTMLInputElement;
-
-  customPointInput.addEventListener("keydown", (e: KeyboardEvent) => {
-    if (e.key === "Enter") handleCustomVote();
+/**
+ * Listen to the global custom poker cards at `settings/pokerCards` and re-render
+ * live whenever super admin changes them. Mirrors the module-scope serverTimeOffset
+ * listener above. Registered once in init() (global config — not per-room).
+ * Absent/empty snapshot falls back to DEFAULT_POKER_CARDS.
+ */
+export function initPokerCardsListener(): void {
+  onValue(ref(db, "settings/pokerCards"), (snap) => {
+    const val = snap.val();
+    // Use stored cards only if at least one slot has a point; otherwise (absent
+    // snapshot, or admin cleared every slot) fall back to the default seed so
+    // poker is never left empty.
+    currentCards = hasConfiguredCards(val) ? (val as CardDef[]) : DEFAULT_POKER_CARDS;
+    renderCards();
   });
-  // จำกัดทศนิยมไม่เกิน 2 ตำแหน่งจริงๆ — กัน paste/IME (number input ไม่สน maxlength)
-  customPointInput.addEventListener("input", () => {
-    const v = customPointInput!.value;
-    const m = v.match(/^\d*\.?\d{0,2}/);
-    if (m && m[0] !== v) customPointInput!.value = m[0];
-  });
-  customPointInput.addEventListener("click", (e: Event) => {
-    e.stopPropagation();
-  });
-  customCard.addEventListener("click", () => customPointInput?.focus());
 }
 
 // ===== Voting Actions =====
@@ -195,42 +216,11 @@ export async function handleVote(value: string): Promise<void> {
       (el as HTMLElement).dataset.value === value
     );
   });
-  if (customPointInput) customPointInput.value = "";
 
   await set(
     ref(db, `rooms/${state.currentRoom}/users/${state.currentUser.uid}/vote`),
     value
   );
-}
-
-export async function handleCustomVote(): Promise<void> {
-  if (!customPointInput) return;
-  const value = customPointInput.value.trim();
-  if (!value || !state.currentRoom || !state.currentUser) return;
-
-  // ทศนิยมไม่เกิน 2 ตำแหน่ง + ตัวเลขบวกเท่านั้น — รับทั้ง "0.5" และ ".5"
-  if (!/^(\d+\.?\d{0,2}|\.\d{1,2})$/.test(value)) {
-    showToast("ระบุตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง");
-    return;
-  }
-
-  const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
-  if (roomSnap.exists() && (roomSnap.val() as RoomData).locked) {
-    showToast("Voting is locked");
-    return;
-  }
-
-  state.selectedCard = value;
-  document.querySelectorAll(".poker-card").forEach((el) => {
-    el.classList.remove("selected");
-  });
-
-  await set(
-    ref(db, `rooms/${state.currentRoom}/users/${state.currentUser.uid}/vote`),
-    value
-  );
-  if (customPointInput) customPointInput.value = "";
-  showToast("Voted: " + value);
 }
 
 // ===== Kick User (PO only) =====
@@ -308,7 +298,6 @@ export async function handleReset(): Promise<void> {
   document
     .querySelectorAll(".poker-card")
     .forEach((el) => el.classList.remove("selected"));
-  if (customPointInput) customPointInput.value = "";
   showToast("Reset complete");
 }
 
@@ -382,6 +371,7 @@ export function updateUI(roomData: RoomData): void {
   const users = roomData.users || {};
   const revealed = roomData.revealed || false;
   const locked = roomData.locked || false;
+  cardsLocked = locked;
   const userList = Object.entries(users);
 
   const adminVisible = isPO() ? "" : "none";
@@ -427,9 +417,6 @@ export function updateUI(roomData: RoomData): void {
   document.querySelectorAll(".poker-card").forEach((el) => {
     el.classList.toggle("disabled", disableVoting);
   });
-  if (customPointInput) {
-    customPointInput.disabled = disableVoting;
-  }
 
   if (state.currentUser && users[state.currentUser.uid]) {
     const myVote = users[state.currentUser.uid].vote;
