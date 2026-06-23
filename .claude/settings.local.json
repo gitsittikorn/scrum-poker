@@ -17,7 +17,12 @@
       "Bash(taskkill //F //IM node.exe)",
       "Bash(start https://scrum-poker-5fbac.web.app)",
       "Bash(magick --version)",
-      "Bash(npx sharp-cli *)"
+      "Bash(npx sharp-cli *)",
+      "Bash(netstat -ano)",
+      "Bash(firebase --version)",
+      "Bash(npx --yes firebase-tools@latest deploy --only hosting --project scrum-poker-5fbac --non-interactive)",
+      "Bash(node -e ' *)",
+      "Bash(npx --yes firebase-tools@latest login --no-localhost)"
     ],
     "additionalDirectories": [
       "c:\\TQM\\mu.sittikorn\\TQM\\scum-poker"

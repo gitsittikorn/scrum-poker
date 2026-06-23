@@ -532,7 +532,7 @@ export async function handleDeleteRoom(): Promise<void> {
   if (!state.currentRoom) return;
   await remove(ref(db, `rooms/${state.currentRoom}`));
   handleLeave(true);
-  showToast("Room deleted");
+  showToast("🧹 ล้างห้องแล้ว ทุกคนถูกให้ออกจากห้อง");
 }
 
 export function setupBeforeUnload(): void {

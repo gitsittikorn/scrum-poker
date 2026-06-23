@@ -5,6 +5,9 @@ export const state = {
   currentUser: null as CurrentUser | null,
   currentUid: null as string | null,
   selectedCard: null as string | null,
+  /** True when the current vote was entered via the custom-input card (so the
+   *  custom card is highlighted instead of any fixed card sharing the same value). */
+  selectedCardCustom: false,
   /** Card currently focused (keyboard) / under consideration — distinct from selectedCard (voted) */
   activeCard: null as string | null,
   currentRole: null as string | null,

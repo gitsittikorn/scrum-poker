@@ -42,7 +42,7 @@ import {
   adminRoleOption,
   cleanupTimeInput,
 } from "./dom";
-import { loadTheme, toggleTheme, loadUsername, openSettings, closeSettings, saveSettings, showToast, spawnFirework, applyFeatureFlags, openDbReport, showWarningModal, showConfirmModal } from "./ui";
+import { loadTheme, toggleTheme, loadUsername, fillPokerCardsForm, refreshPokerSaveButton, openSettings, closeSettings, saveSettings, showToast, spawnFirework, applyFeatureFlags, openDbReport, showWarningModal, showConfirmModal } from "./ui";
 import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
 import { handleJoinRoom, handleLeave, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler, listenForceRefresh, writeForceRefreshVersion } from "./room";
 import { db, ref, update } from "./firebase";
@@ -54,7 +54,7 @@ import { toggleSoundPicker, renderSoundPicker, handleSoundPickerOutsideClick, tr
 import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
 import { state } from "./state";
 import { FEATURES } from "./config";
-import { SUPER_ADMIN_NAME } from "./constants";
+import { SUPER_ADMIN_NAME, DEFAULT_POKER_CARDS } from "./constants";
 
 function init(): void {
   checkVersion();
@@ -192,9 +192,9 @@ function bindEvents(): void {
   btnReset.addEventListener("click", handleReset);
   btnDeleteRoom.addEventListener("click", () => {
     showWarningModal({
-      title: "ลบห้องนี้?",
-      message: "ทุกคนจะถูกเตะออกจากห้อง และข้อมูลภายในห้องจะถูกลบทิ้งทั้งหมด",
-      confirmText: "ลบห้อง",
+      title: "ล้างห้องนี้?",
+      message: "ทุกคนจะถูกให้ออกจากห้องทันที และข้อมูลทั้งหมด (แชท/โหวต) จะถูกล้างให้ว่าง",
+      confirmText: "ล้างห้อง",
       onConfirm: handleDeleteRoom,
     });
   });
@@ -254,10 +254,33 @@ function bindEvents(): void {
       const canonical = value ? String(parseFloat(value)) : "";
       cards.push({ value: canonical, label: (descInput?.value ?? "").trim() });
     }
-    await update(ref(db, "settings"), { pokerCards: cards });
+    const customToggle = document.getElementById("poker-custom-enabled") as HTMLInputElement | null;
+    const customOn = !!customToggle?.checked;
+    // Rule: never allow saving a fully-empty config (no points AND custom off) —
+    // it would wipe the live cards. The custom card counts as a usable card, so a
+    // custom-only config is allowed.
+    if (filled === 0 && !customOn) {
+      showToast("❌ ต้องกรอก point อย่างน้อย 1 ช่อง หรือเปิดการ์ด Custom — ห้ามลบทุกอย่าง");
+      return;
+    }
+    await update(ref(db, "settings"), {
+      pokerCards: cards,
+      pokerCustomCard: customOn,
+    });
     closeSettings();
     showToast(`💾 บันทึกการ์ด Poker แล้ว (${filled} ใบ)`);
   });
+
+  // Super admin: preview the default card grid in the form (commit via save).
+  document.getElementById("btn-super-admin-reset-cards")?.addEventListener("click", () => {
+    fillPokerCardsForm(DEFAULT_POKER_CARDS);
+    refreshPokerSaveButton();
+    showToast("ดึงค่า default แล้ว — กดบันทึกเพื่อใช้งาน");
+  });
+
+  // Live-toggle the poker save button: enabled when ≥1 point OR the custom card is on.
+  document.getElementById("poker-cards-config")?.addEventListener("input", refreshPokerSaveButton);
+  document.getElementById("poker-custom-enabled")?.addEventListener("change", refreshPokerSaveButton);
 
   // Chat events
   btnBarChat.addEventListener("click", toggleChat);

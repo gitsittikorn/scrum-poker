@@ -162,6 +162,20 @@ export function fillPokerCardsForm(cards: CardDef[] | null): void {
   });
 }
 
+/** Toggle the super-admin poker save button: disabled when no slot carries a
+ *  point value. Prevents saving an all-empty config (which would wipe the live
+ *  cards) — the existing DB config stays in effect until a non-empty one is saved. */
+export function refreshPokerSaveButton(): void {
+  const container = document.getElementById("poker-cards-config");
+  const saveBtn = document.getElementById("btn-super-admin-save-cards") as HTMLButtonElement | null;
+  if (!container || !saveBtn) return;
+  const anyPoints = Array.from(container.querySelectorAll<HTMLInputElement>(".pc-point"))
+    .some((i) => i.value.trim() !== "");
+  // The custom card counts as a usable card too — allow saving a custom-only config.
+  const customOn = (document.getElementById("poker-custom-enabled") as HTMLInputElement | null)?.checked ?? false;
+  saveBtn.disabled = !(anyPoints || customOn);
+}
+
 export async function openSettings(): Promise<void> {
   if (!state.currentRoom) return;
 
@@ -181,6 +195,11 @@ export async function openSettings(): Promise<void> {
     fillPokerCardsForm(
       cardsSnap.exists() && Array.isArray(cardsSnap.val()) ? cardsSnap.val() : null
     );
+    refreshPokerSaveButton();
+    // Custom-input card toggle (absent → off)
+    const customSnap = await get(ref(db, "settings/pokerCustomCard"));
+    const customToggle = document.getElementById("poker-custom-enabled") as HTMLInputElement | null;
+    if (customToggle) customToggle.checked = !!customSnap.val();
     settingsModal.classList.add("active");
     return;
   }

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
   <title>Scrum Poker</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🃏</text></svg>">
@@ -109,7 +110,7 @@
         <!-- Cards Section -->
         <section class="voting-section">
           <div id="cards-container" class="cards-container">
-            <!-- Cards rendered by JS, last item is custom input -->
+            <!-- Cards rendered by JS (custom card appended when super admin enables it) -->
           </div>
         </section>
 
@@ -262,9 +263,9 @@
         </div>
         <div class="bottom-bar-right">
           <div class="leave-wrapper" id="delete-room-wrapper" style="display:none">
-            <button id="btn-delete-room" class="btn-bar btn-delete-bar" title="ลบห้อง">
-              <span class="btn-bar-icon" style="font-size:1.6rem;color:var(--danger)">🗑️</span>
-              <span class="btn-bar-label">ลบห้อง</span>
+            <button id="btn-delete-room" class="btn-bar btn-delete-bar" title="ล้างห้อง">
+              <span class="btn-bar-icon" style="font-size:1.6rem;color:var(--danger)">🧹</span>
+              <span class="btn-bar-label">ล้างห้อง</span>
             </button>
           </div>
           <div class="leave-wrapper">
@@ -415,7 +416,7 @@
 
             <div class="settings-divider"></div>
             <div class="settings-section-title">🃏 การ์ด Poker (ทุกห้อง)</div>
-            <small class="form-hint">ปล่อย point ว่าง = ซ่อนการ์ดนั้น · บันทึกแล้วทุกห้องเห็นทันที · ล้างทั้งหมดเพื่อใช้ค่าเริ่มต้น</small>
+            <small class="form-hint">ปล่อย point ว่าง = ซ่อนการ์ดนั้น · บันทึกแล้วทุกห้องเห็นทันที · ต้องมี point อย่างน้อย 1 ช่อง</small>
             <div id="poker-cards-config" class="pc-config">
               <div class="pc-row">
                 <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
@@ -432,6 +433,14 @@
                 <div class="pc-slot"><input type="number" class="pc-point" min="0" step="0.1" inputmode="decimal" placeholder="point"><input type="text" class="pc-desc" maxlength="20" placeholder="คำอธิบาย"></div>
               </div>
             </div>
+            <div class="toggle-group">
+              <label class="toggle-label">
+                <input type="checkbox" id="poker-custom-enabled" aria-label="เปิด/ปิด การ์ด Custom">
+                <span class="toggle-switch" role="switch" aria-checked="false"></span>
+                <span class="toggle-text">✏️ แสดงการ์ด Custom (ให้ผู้ใช้กรอก point เอง)</span>
+              </label>
+            </div>
+            <button id="btn-super-admin-reset-cards" class="btn btn-secondary" style="width:100%;margin-bottom:8px">🔄 ใช้ค่า default</button>
             <button id="btn-super-admin-save-cards" class="btn btn-primary" style="width:100%">💾 บันทึกการ์ด Poker</button>
 
             <div class="settings-divider"></div>

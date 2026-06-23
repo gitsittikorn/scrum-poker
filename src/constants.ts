@@ -4,23 +4,24 @@ import type { CardDef } from "./types";
  *  not yet configured custom cards (stored remotely at `settings/pokerCards`).
  *  Position matters: indices 0-4 = row 1, 5-9 = row 2. An empty `value` marks an
  *  unused slot (hidden in poker, keeps its grid position). Default seed:
- *  row 1 = 0.5,1,2,3,_ ; row 2 = 5,8,13,21,_ (bare numbers). */
+ *  row 1 = 0.5,1,2,3,_ ; row 2 = 5,8,13,_,_ with time/size labels under each
+ *  value (e.g. "2 ชั่วโมง", "แตกการ์ด"). Empty `label` = show value only. */
 export const DEFAULT_POKER_CARDS: CardDef[] = [
-  { value: "0.5", label: "" },
-  { value: "1", label: "" },
-  { value: "2", label: "" },
-  { value: "3", label: "" },
+  { value: "0.5", label: "2 ชั่วโมง" },
+  { value: "1", label: "4 ชั่วโมง" },
+  { value: "2", label: "1 วัน" },
+  { value: "3", label: "1.5 วัน" },
   { value: "", label: "" },
-  { value: "5", label: "" },
-  { value: "8", label: "" },
-  { value: "13", label: "" },
-  { value: "21", label: "" },
+  { value: "5", label: "2.5 วัน" },
+  { value: "8", label: "4 วัน" },
+  { value: "13", label: "แตกการ์ด" },
+  { value: "", label: "" },
   { value: "", label: "" },
 ];
 
 export const SUPER_ADMIN_NAME = "admin889";
 
-export const APP_VERSION = "2026-06-22-v4";
+export const APP_VERSION = "2026-06-24-v5";
 
 export const EMOJIS = [
   "😀", "😂", "🤣", "😊", "😅", "😎", "🤔", "😏", "🙄", "🥳", "🤩", "😤",

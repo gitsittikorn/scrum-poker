@@ -66,7 +66,7 @@
 
 ## 👥 Role & สิทธิ์
 
-| Role | โหวต | แชท | React | Sound | Wheel | Reveal/Reset | ลบห้อง | Feature Flags | Admin Panel |
+| Role | โหวต | แชท | React | Sound | Wheel | Reveal/Reset | ล้างห้อง | Feature Flags | Admin Panel |
 |:----:|:-----:|:----:|:-----:|:-----:|:-----:|:------------:|:------:|:------------:|:-----------:|
 | 📋 PO | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
 | 👨‍💻 Dev | ✅ | ✅ | ✅ | ✅ | ✅ | — | — | — | — |

@@ -27,6 +27,9 @@ let countdownRevealTime: number | null = null;
 /** Current poker card set — defaults to the seed, updated live from
  *  `settings/pokerCards` by initPokerCardsListener(). Replaces the old hardcoded CARDS. */
 let currentCards: CardDef[] = DEFAULT_POKER_CARDS;
+/** Whether the super admin enabled the custom-input card (settings/pokerCustomCard).
+ *  When true, renderCards appends a Custom card after the fixed cards. */
+let customCardEnabled = false;
 /** Tracks the room's locked state so a live card re-render can re-apply `.disabled`
  *  without waiting for the next room-data tick. */
 let cardsLocked = false;
@@ -110,9 +113,7 @@ function updateCountdownDisplay(): void {
   if (countdownRemaining > 0) {
     const revoteBtn = document.getElementById("btn-revote");
     if (revoteBtn) {
-      revoteBtn.textContent = isPO()
-        ? `🔓 Unlock · auto ${countdownRemaining}s`
-        : `🔓 Auto-unlock in ${countdownRemaining}s`;
+      revoteBtn.textContent = `🔓 Auto-unlock in ${countdownRemaining}s`;
     }
   }
 }
@@ -165,6 +166,35 @@ export function renderCards(): void {
     cardsContainer.appendChild(el);
   });
 
+  // Custom-input card — appended after the fixed cards when super admin enabled
+  // it (settings/pokerCustomCard). Lets the user type their own point (1 decimal).
+  if (customCardEnabled) {
+    const el = document.createElement("div");
+    el.className = "poker-card custom-card";
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("aria-label", "โหวตค่ากำหนดเอง");
+    el.innerHTML = `
+      <input type="number" class="custom-point-input" placeholder="…" min="0" step="0.1" inputmode="decimal" aria-label="point กำหนดเอง">
+      <span class="card-label">Custom<br>(Enter)</span>
+    `;
+    const input = el.querySelector<HTMLInputElement>(".custom-point-input")!;
+    input.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleCustomVote(input);
+      }
+    });
+    // Cap at 1 decimal live (number inputs ignore maxlength; guard paste/IME).
+    input.addEventListener("input", () => {
+      const m = input.value.match(/^\d*\.?\d{0,1}/);
+      if (m && m[0] !== input.value) input.value = m[0];
+    });
+    input.addEventListener("click", (e: Event) => e.stopPropagation());
+    el.addEventListener("click", () => input.focus());
+    cardsContainer.appendChild(el);
+  }
+
   // Re-apply locked + selected state so a live re-render (admin changed cards)
   // doesn't flash an un-locked / un-selected set before the next room-data tick.
   if (cardsLocked) {
@@ -172,13 +202,31 @@ export function renderCards(): void {
       .querySelectorAll(".poker-card")
       .forEach((el) => el.classList.add("disabled"));
   }
-  if (state.selectedCard) {
-    document.querySelectorAll(".poker-card").forEach((el) => {
-      el.classList.toggle(
-        "selected",
-        (el as HTMLElement).dataset.value === state.selectedCard
-      );
-    });
+  applyCardSelection();
+}
+
+/** Apply the `.selected` highlight to the voted card, including the custom-input
+ *  card. The custom card is selected when the vote was made through it, or when
+ *  the value matches no fixed card (e.g. a custom vote restored from the DB on
+ *  reload); its input then mirrors the voted value so it survives re-renders. */
+function applyCardSelection(): void {
+  const allCards = Array.from(document.querySelectorAll<HTMLElement>(".poker-card"));
+  allCards.forEach((el) => el.classList.remove("selected"));
+  const sel = state.selectedCard;
+  if (!sel) return;
+  const customCard = document.querySelector<HTMLElement>(".poker-card.custom-card");
+  const customInput = customCard?.querySelector<HTMLInputElement>(".custom-point-input");
+  const matchesFixed = allCards.some(
+    (el) => !el.classList.contains("custom-card") && el.dataset.value === sel,
+  );
+  const useCustom = (state.selectedCardCustom || !matchesFixed) && !!customCard;
+  if (useCustom) {
+    customCard!.classList.add("selected");
+    if (customInput) customInput.value = sel;
+  } else {
+    allCards
+      .filter((el) => !el.classList.contains("custom-card") && el.dataset.value === sel)
+      .forEach((el) => el.classList.add("selected"));
   }
 }
 
@@ -197,6 +245,11 @@ export function initPokerCardsListener(): void {
     currentCards = hasConfiguredCards(val) ? (val as CardDef[]) : DEFAULT_POKER_CARDS;
     renderCards();
   });
+  // Custom-input card toggle (separate path so the fixed grid stays clean).
+  onValue(ref(db, "settings/pokerCustomCard"), (snap) => {
+    customCardEnabled = !!snap.val();
+    renderCards();
+  });
 }
 
 // ===== Voting Actions =====
@@ -209,18 +262,44 @@ export async function handleVote(value: string): Promise<void> {
     return;
   }
 
+  state.selectedCardCustom = false;
   state.selectedCard = value;
-  document.querySelectorAll(".poker-card").forEach((el) => {
-    el.classList.toggle(
-      "selected",
-      (el as HTMLElement).dataset.value === value
-    );
+  applyCardSelection();
+  // Clear the custom-input card (if any) when voting a fixed-point card.
+  document.querySelectorAll(".custom-point-input").forEach((el) => {
+    (el as HTMLInputElement).value = "";
   });
 
   await set(
     ref(db, `rooms/${state.currentRoom}/users/${state.currentUser.uid}/vote`),
     value
   );
+}
+
+/** Vote with a custom point typed into the custom card's input. Accepts positive
+ *  numbers with ≤1 decimal (both "0.5" and ".5"); canonicalizes ".5" → "0.5". */
+export async function handleCustomVote(input: HTMLInputElement): Promise<void> {
+  if (!state.currentRoom || !state.currentUser) return;
+  const raw = input.value.trim();
+  if (!raw) return;
+  if (!/^(\d+\.?\d{0,1}|\.\d{1})$/.test(raw)) {
+    showToast("❌ ระบุตัวเลข (ทศนิยมไม่เกิน 1 ตำแหน่ง)");
+    return;
+  }
+  const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
+  if (roomSnap.exists() && (roomSnap.val() as RoomData).locked) {
+    showToast("Voting is locked");
+    return;
+  }
+  const value = String(parseFloat(raw)); // ".5" → "0.5", "5." → "5"
+  state.selectedCardCustom = true;
+  state.selectedCard = value;
+  applyCardSelection(); // highlight the custom card + mirror value into its input
+  await set(
+    ref(db, `rooms/${state.currentRoom}/users/${state.currentUser.uid}/vote`),
+    value
+  );
+  showToast("✅ โหวต: " + value);
 }
 
 // ===== Kick User (PO only) =====
@@ -294,10 +373,14 @@ export async function handleReset(): Promise<void> {
     await update(ref(db, `rooms/${state.currentRoom}`), updates);
   }
 
+  state.selectedCardCustom = false;
   state.selectedCard = null;
   document
     .querySelectorAll(".poker-card")
     .forEach((el) => el.classList.remove("selected"));
+  document.querySelectorAll(".custom-point-input").forEach((el) => {
+    (el as HTMLInputElement).value = "";
+  });
   showToast("Reset complete");
 }
 
@@ -417,16 +500,14 @@ export function updateUI(roomData: RoomData): void {
   document.querySelectorAll(".poker-card").forEach((el) => {
     el.classList.toggle("disabled", disableVoting);
   });
+  document.querySelectorAll(".custom-point-input").forEach((el) => {
+    (el as HTMLInputElement).disabled = disableVoting;
+  });
 
   if (state.currentUser && users[state.currentUser.uid]) {
     const myVote = users[state.currentUser.uid].vote;
     state.selectedCard = myVote;
-    document.querySelectorAll(".poker-card").forEach((el) => {
-      el.classList.toggle(
-        "selected",
-        (el as HTMLElement).dataset.value === myVote
-      );
-    });
+    applyCardSelection();
   }
 
   // Participants — diff-based update
@@ -654,9 +735,7 @@ function addRevoteButton(): void {
   const revoteBtn = document.createElement("button");
   revoteBtn.id = "btn-revote";
   revoteBtn.className = "btn btn-revote";
-  revoteBtn.textContent = canUnlock
-    ? "🔓 Unlock · auto…"
-    : "🔓 Auto-unlock…";
+  revoteBtn.textContent = "🔓 Auto-unlock…";
   // non-PO เห็น countdown ในปุ่มเหมือนกัน แต่กดไม่ได้ (disabled)
   if (!canUnlock) revoteBtn.disabled = true;
   revoteBtn.addEventListener("click", async () => {

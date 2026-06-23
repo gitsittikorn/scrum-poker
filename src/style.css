@@ -253,6 +253,15 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 6px 24px var(--accent-glow);
 }
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
 
 .btn-icon {
   padding: 8px 12px;
@@ -598,6 +607,49 @@ body {
   text-align: center;
   line-height: 1.2;
   max-width: 82px;
+}
+
+/* Custom-input card (appended after the fixed cards when super admin enables the toggle) */
+.poker-card.custom-card {
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  cursor: text;
+  gap: 2px;
+}
+.poker-card.custom-card:hover:not(.disabled) {
+  border-color: var(--accent);
+  box-shadow: 0 8px 20px var(--shadow), 0 0 16px var(--accent-glow);
+  transform: translateY(-6px);
+}
+.poker-card.custom-card input {
+  width: 64px;
+  padding: 4px;
+  border: none;
+  border-bottom: 2px solid var(--border);
+  border-radius: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-align: center;
+  background: transparent;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--transition);
+}
+.poker-card.custom-card input:focus {
+  border-bottom-color: var(--accent2);
+}
+.poker-card.custom-card input::placeholder {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+/* When selected, the custom card looks like a normal selected card (solid accent
+   border + selected background + glow + ✓ checkmark). Needs (0,3,0) specificity
+   to beat the base .poker-card.custom-card rule, which sets border + background
+   with equal specificity but later source order. */
+.poker-card.custom-card.selected {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--card-selected-bg);
 }
 
 /* ===== Admin Controls ===== */
