@@ -1,177 +1,114 @@
-# 🃏 Scrum Poker
+# 🃏 Scrum Poker — คู่มือการใช้งาน
 
-เว็บ Planning Poker สำหรับทีม Agile — ใช้ร่วมกันได้หลายคนแบบ real-time ผ่าน Firebase
+เครื่องมือโหวตประมาณการ (**Planning Poker**) สำหรับทีม Agile
+ใช้งานร่วมกันได้หลายคนพร้อมกันแบบเรียลไทม์ — เห็นผลทันที **ไม่ต้องลงทะเบียน**
 
-**🔗 URL:** https://scrum-poker-5fbac.web.app
-
----
-
-## ✨ ฟีเจอร์
-
-| หมวด | ฟีเจอร์ | รายละเอียด |
-|------|---------|-------------|
-| 🃏 **Poker** | ไพ่โหวต 12 ใบ | คะแนน 0 – 21 + พิมพ์เลขเอง (สูงสุด 5 ตัวอักษร) |
-| | 👁 Reveal | PO เปิดเผยคะแนน + แสดงค่าเฉลี่ยแยกตาม Role |
-| | 🔓 Auto-unlock | หลัง Reveal สมาชิกเปลี่ยนคะแนนได้เอง (ตั้งเวลาใน Settings) |
-| | 🔄 Reset | PO เริ่มรอบโหวตใหม่ |
-| 💬 **Chat** | Real-time Chat | แชทสดพร้อม Typing Indicator |
-| | ↩ Reply/Quote | ตอบกลับข้อความเฉพาะเจาะจง |
-| | 😀 Emoji Picker | 40 อิโมจิให้เลือก |
-| | 👍 Message Reactions | รีแอกต์ใต้ข้อความ (👍❤️😂🤔🎉🔥) toggle on/off |
-| | 🤖 System Messages | แจ้งเตือนอัตโนมัติ (เข้าร่วม/ออก/Reveal/Reset) |
-| 😀 **React** | 🎈 Floating Reactions | อิโมจิลอยขึ้นจากด้านล่างพร้อมชื่อผู้ส่ง (ทุกคนเห็น) |
-| | ⚡ Quick Reactions | กดรีแอกต์เร็วจาก Bottom Bar |
-| 🔊 **Sound** | 🎵 Sound Effects | เลือกเล่นเสียงฮา ๆ ได้ 25 เสียง |
-| | 🔇 Mute Others | ปิดเสียงจากคนอื่นได้ใน Settings |
-| 🎡 **Wheel** | 🎲 Random Wheel | กงล้อสุ่มชื่อสมาชิก |
-| | ✏️ Custom Entries | เพิ่ม/ลบรายชื่อเอง หรือดึงจากสมาชิกในห้อง |
-| | ⚙️ Wheel Options | Duplicate (1×–5×), ลบผู้ถูกสุ่ม, รวม/ไม่รวม PO |
-| | 🔀 Controls | Shuffle · Reset · Clear |
-| 🛡️ **Admin** | 🔐 Super Admin Panel | ห้อง admin (ซ่อน) สำหรับ Super Admin |
-| | 🚩 Feature Permissions | เปิด/ปิด feature แต่ละห้อง (Poker, Chat, React, Sound, Wheel) |
-| | 📊 Database Report | ดูการใช้งาน Database |
-| | ⏰ Auto Cleanup | ตั้งเวลาลบข้อมูลทุกห้องอัตโนมัติทุกวัน |
-| | 🗑 Clear All | เคลียร์ข้อมูลทุกห้องทันที |
-| 🎨 **อื่น ๆ** | 🌗 Dark/Light Theme | สลับธีมจากหัวข้อห้อง |
-| | 🚩 PO Feature Flags | PO เปิด/ปิด feature ได้เองในแต่ละห้อง |
-| | 📱 Responsive | ใช้งานได้ทั้งมือถือและ desktop |
-| | 🔑 Anonymous Auth | ไม่ต้องลงทะเบียน เข้าใช้ได้เลย |
+🔗 **ลิงก์ใช้งาน:** https://scrum-poker-5fbac.web.app
 
 ---
 
-## 🚀 วิธีใช้งาน
+## 📖 Scrum Poker คืออะไร?
 
-| ลำดับ | ขั้นตอน |
-|:-----:|---------|
-| 1️⃣ | เปิดเว็บ → ใส่ชื่อ (สูงสุด 15 ตัวอักษร) → เลือก Role → เลือกห้อง → กด **เข้าร่วมห้อง** |
-| 2️⃣ | เลือกคะแนนจากไพ่ หรือพิมพ์เลขเอง (กด Enter เพื่อ submit) |
-| 3️⃣ | รอทุกคนโหวตเสร็จ → PO กด **Reveal** เปิดเผยคะแนน |
-| 4️⃣ | ระบบนับถอยหลัง auto-unlock → สมาชิกเปลี่ยนคะแนนได้เอง |
-| 5️⃣ | PO กด **Reset** เพื่อเริ่มรอบใหม่ |
+Scrum Poker คือเกมไพ่ที่ช่วยให้ทีม **ประมาณเวลา/ขนาดของงาน** ไปด้วยกัน
+
+ทุกคนเลือกคะแนนของตัวเองโดย **ยังไม่เห็นของคนอื่น** เมื่อทุกคนโหวตเสร็จจึงเปิดเผยพร้อมกัน แล้วมาคุยกันว่าทำไมบางคนให้คะแนนสูง/ต่ำ วิธีนี้ช่วยให้ทีมเห็นภาพงานเดียวกันและ **ลดการ "ทำตามผู้นำ"** โดยไม่ได้คิดเอง
+
+> 🎯 **เหมาะกับ:** ประชุมวางแผน (Planning), ประเมิน Backlog, หรือทีมที่อยากตกลงความซับซ้อนของงานร่วมกัน
+
+---
+
+## 🚀 เริ่มใช้งานใน 5 ขั้นตอน
+
+| ขั้นตอน | สิ่งที่ต้องทำ |
+|:---:|---|
+| 1️⃣ | เปิดเว็บ → พิมพ์ **ชื่อ** (สูงสุด 15 ตัวอักษร) → เลือก **Role** → เลือก **ห้อง** → กด **เข้าร่วมห้อง** |
+| 2️⃣ | อ่านงานที่จะประมาณ แล้วเลือกไพ่ที่คิดว่าเหมาะสมที่สุด (กด **Enter** เพื่อยืนยัน) |
+| 3️⃣ | รอจนทุกคนเลือกเสร็จ → **PO** (หัวหน้าห้อง) กด **👁 Reveal** เปิดเผยคะแนน |
+| 4️⃣ | ดูค่าเฉลี่ยและความเห็นที่ตรงกันของแต่ละ Role แล้วคุยกันสรุป |
+| 5️⃣ | **PO** กด **🔄 Reset** เพื่อเริ่มรอบโหวตใหม่ |
+
+> 💡 **ไม่ต้องสมัครสมาชิก** — เข้าใช้ได้เลย ระบบจะจดจำชื่อและห้องของคุณไว้บนเครื่อง ปิดและเปิดใหม่ก็กลับเข้าห้องเดิมได้
+
+---
+
+## 🃏 ไพ่แต่ละใบหมายถึงอะไร?
+
+ค่าเริ่มต้น (PO หรือ Super Admin ปรับเปลี่ยนได้ในการตั้งค่า) ใช้ตัวเลขประมาณ **ระยะเวลาทำงาน**:
+
+| คะแนน | ประมาณการ | เหมาะกับงานแบบไหน |
+|:---:|---|---|
+| 0.5 | 2 ชั่วโมง | งานเล็ก ทำเสร็จในครึ่งวัน |
+| 1 | 4 ชั่วโมง | งานเล็ก–กลาง ประมาณครึ่งวันทำการ |
+| 2 | 1 วัน | งาน 1 วันทำการ |
+| 3 | 1.5 วัน | งานที่เกิน 1 วันเล็กน้อย |
+| 5 | 2.5 วัน | งานกลาง–ใหญ่ ทำหลายวัน |
+| 8 | 4 วัน | งานใหญ่ ใกล้ 1 สัปดาห์ |
+| 13 | แตกการ์ด | ใหญ่เกินไป — ควร **แบ่งงานย่อย** ก่อนโหวต |
+
+✏️ **การ์ด Custom:** เปิดใช้ในการตั้งค่าแล้ว ผู้ใช้สามารถพิมพ์คะแนนเองได้ (รองรับทศนิยม เช่น พิมพ์ `.5` จะกลายเป็น `0.5`)
+
+---
+
+## ✨ ฟีเจอร์ทั้งหมด
+
+| ฟีเจอร์ | ทำอะไรได้บ้าง |
+|---|---|
+| 🃏 **Poker** | เลือกไพ่โหวต · PO เปิดเผย/รีเซต · ดูค่าเฉลี่ยแยกตาม Role · นับถอยหลังปลดล็อกอัตโนมัติหลังเปิดเผย |
+| 💬 **แชท** | แชทสดพร้อมเครื่องหมาย "กำลังพิมพ์" · ตอบกลับข้อความเฉพาะ · อิโมจิให้เลือก 40 ตัว · กดรีแอกต์ใต้ข้อความ · ระบบแจ้งเตือนอัตโนมัติ (เข้า/ออก/เปิดเผย/รีเซต) |
+| 😀 **React** | ส่งอิโมจิลอยขึ้นจากด้านล่าง (ทุกคนในห้องเห็น) · กดรีแอกต์ด่วนจากแถบล่าง |
+| 🔊 **เสียง** | เลือกเล่นเสียงฮา ๆ ได้ 29 เสียง · ปิดเสียงจากคนอื่นได้ทีละคนในการตั้งค่า |
+| 🎡 **กงล้อ** | สุ่มชื่อสมาชิก · เพิ่ม/ลบรายชื่อเองหรือดึงจากสมาชิกในห้อง · ตั้งค่าซ้ำชื่อ (1×–5×), ลบผู้ถูกสุ่มออก, รวม/ไม่รวม PO · ปุ่มสับ/รีเซต/ล้าง |
+| 🎨 **อื่น ๆ** | ธีมมืด/สว่าง · ใช้ได้ทั้งมือถือและจอใหญ่ · แชร์ลิงก์ห้องให้เพื่อนเข้าร่วม |
 
 ---
 
 ## 🏠 ห้องที่มี
 
-| ไอคอน | ห้อง | หมายเหตุ |
-|:-----:|------|----------|
-| 🦊 | Kitsune | — |
-| 🔥 | Phoenix | — |
-| 🎨 | UX/UI | — |
-| ❄️ | ห้องเย็น | 🧪 ใช้ทดสอบได้ |
-| 🥶 | ห้องเย็นเจี๊ยบ | 🧪 ใช้ทดสอบได้ |
-| 🛡️ | admin | 🔒 ซ่อน (Super Admin เท่านั้น) |
+| ห้อง | ไอคอน | หมายเหตุ |
+|---|:---:|---|
+| Kitsune | 🦊 | — |
+| Phoenix | 🔥 | — |
+| UX/UI | 🎨 | — |
+| ห้องเย็น | ❄️ | 🧪 ใช้ทดสอบ |
+| ห้องเย็นเจี๊ยบ | 🥶 | 🧪 ใช้ทดสอบ |
+| admin | 🛡️ | 🔒 ซ่อนไว้ (สำหรับ Super Admin ดูแลระบบ) |
+
+> 💡 อยากทดลองฟีเจอร์? แนะนำให้ใช้ **ห้องเย็น** หรือ **ห้องเย็นเจี๊ยบ** เพื่อไม่รบกวนการประชุมจริง
 
 ---
 
-## 👥 Role & สิทธิ์
+## 👥 Role และสิทธิ์
 
-| Role | โหวต | แชท | React | Sound | Wheel | Reveal/Reset | ล้างห้อง | Feature Flags | Admin Panel |
-|:----:|:-----:|:----:|:-----:|:-----:|:-----:|:------------:|:------:|:------------:|:-----------:|
-| 📋 PO | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
-| 👨‍💻 Dev | ✅ | ✅ | ✅ | ✅ | ✅ | — | — | — | — |
-| 🐛 QA | ✅ | ✅ | ✅ | ✅ | ✅ | — | — | — | — |
-| 🎨 UX/UI | ✅ | ✅ | ✅ | ✅ | ✅ | — | — | — | — |
-| 🛡️ Admin | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+เลือกตอนเข้าห้อง — กำหนดว่าจะทำอะไรได้บ้าง:
 
----
+| Role | โหวต | แชท | React | เสียง | กงล้อ | เปิดเผย/รีเซต | ตั้งค่าห้อง |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 📋 PO | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 👨‍💻 Dev | ✅ | ✅ | ✅ | ✅ | ✅ | — | — |
+| 🐛 QA | ✅ | ✅ | ✅ | ✅ | ✅ | — | — |
+| 🎨 UX/UI | ✅ | ✅ | ✅ | ✅ | ✅ | — | — |
 
-## 🛠️ Tech Stack
-
-| เทคโนโลยี | ประเภท | รายละเอียด |
-|-----------|:------:|-------------|
-| 🟦 **TypeScript** | Language | Vanilla TS (ไม่ใช้ framework) — DOM manipulation |
-| ⚡ **Vite 6.3+** | Bundler | Dev server + Build (`src/` → `dist/`) |
-| 🔥 **Firebase RTDB** | Database | Real-time Database (region: `asia-southeast1`) |
-| 🔑 **Firebase Auth** | Auth | Anonymous Auth — auto sign-in ไม่ต้องล็อกอิน |
-| 📦 **pnpm** | Package Manager | Fast, disk-efficient |
-
-### Dependencies
-
-| ประเภท | Package | เวอร์ชัน |
-|--------|---------|----------|
-| 🔴 Runtime | `firebase` | ^11.7.1 |
-| 🔵 Dev | `typescript` | ^5.7.0 |
-| 🔵 Dev | `vite` | ^6.3.0 |
+> 📋 **PO (Product Owner) = หัวหน้าห้อง** — สามารถเปิดเผยคะแนน, รีเซตรอบโหวต, และเปิด/ปิดฟีเจอร์ของห้องได้
+> ส่วน **Dev / QA / UX/UI** โหวตและใช้ฟีเจอร์ร่วมกันได้ปกติ แต่เปิดเผย/รีเซต/ตั้งค่าห้องไม่ได้
 
 ---
 
-## 📁 โครงสร้างไฟล์ (`src/`)
+## 💡 เคล็ดลับและคำถามที่พบบ่อย
 
-| ไฟล์ | หมวด | หน้าที่ |
-|------|:----:|---------|
-| `app.ts` | 🚪 Entry | `init()` + `bindEvents()` — orchestrator หลัก |
-| `types.ts` | 📐 Types | TypeScript interfaces ทั้งหมด |
-| `config.ts` | ⚙️ Config | Feature flags, ค่า default ต่าง ๆ |
-| `constants.ts` | 📋 Constants | CARDS, EMOJIS, SOUNDS, APP_VERSION |
-| `state.ts` | 🗃️ State | Shared mutable state (`currentRoom`, `currentUser`, …) |
-| `dom.ts` | 🖥️ DOM | DOM element references + `$()` helper |
-| `utils.ts` | 🔧 Utils | Pure helpers: `escapeHtml`, `formatChatTime` |
-| `ui.ts` | 🎨 UI | Theme, toast, settings modal, firework effect |
-| `auth.ts` | 🔑 Auth | Firebase auth, version check, auto-rejoin |
-| `room.ts` | 🏠 Room | Room lifecycle: join/leave/listen/delete, auto-unlock timer |
-| `voting.ts` | 🃏 Voting | Card rendering, vote, participant grouping, results |
-| `chat.ts` | 💬 Chat | Chat init/destroy, messages, typing, emoji picker, reply |
-| `reactions.ts` | 😀 React | Floating reactions, message reactions, quick popups |
-| `firebase.ts` | 🔥 Firebase | SDK init + re-exports |
-| `index.html` | 📄 HTML | SPA: landing page + room page |
-| `style.css` | 🎨 CSS | dark/light themes, responsive, animations |
+| คำถาม | คำตอบ |
+|---|---|
+| 📎 **แชร์ห้องยังไง?** | คัดลอกลิงก์ (ที่มี `?room=ชื่อห้อง`) ส่งให้เพื่อน เปิดแล้วเข้าห้องเดียวกันได้เลย |
+| 🚪 **ปิดแท็บแล้วจะหายไปไหม?** | ยังอยู่ในห้อง แต่สถานะจะเป็น "ออฟไลน์" — กลับเข้ามาใหม่ได้ตามปกติ |
+| 🔓 **ทำไมเปิดเผยแล้วโหวตใหม่ได้?** | หลังเปิดเผย ระบบจะนับถอยหลัง (ตั้งเวลาได้ ปกติ 30 วินาที) แล้วปลดล็อกให้เปลี่ยนคะแนนได้ |
+| 🌗 **เปลี่ยนธีมยังไง?** | กดสลับธีมมืด/สว่างที่บริเวณหัวข้อห้องด้านบน |
+| 🔔 **ไม่ได้ยินเสียง?** | ตรวจดูว่าเปิดเสียงของ browser แล้ว และไม่ได้ปิดเสียงจากคนอื่นไว้ในการตั้งค่า |
 
 ---
 
-## 🧪 คำสั่ง
+## 🛠️ สำหรับผู้พัฒนา
 
-| คำสั่ง | Action | รายละเอียด |
-|--------|:------:|-------------|
-| `pnpm dev` | ▶️ Run | Dev server (hot-reload) |
-| `pnpm build` | 📦 Build | Production build → `dist/` |
-| `pnpm preview` | 👁 Preview | Preview production build |
-| `npx tsc --noEmit` | 🔍 Check | Type check |
-| `firebase deploy` | 🚀 Deploy | Deploy to Firebase Hosting (prod) |
-
----
-
-## 🔧 ตั้งค่า (`config.ts`)
-
-แก้ไขไฟล์ `src/config.ts` แล้ว refresh browser ได้เลย:
-
-| Variable | Default | รายละเอียด |
-|----------|---------|-------------|
-| `FEATURES.poker` | `true` | 🃏 ไพ่โหวต, Reveal, Reset |
-| `FEATURES.chat` | `true` | 💬 แชท, typing indicator |
-| `FEATURES.react` | `true` | 😀 floating emoji |
-| `FEATURES.sound` | `true` | 🔊 เอฟเฟกต์เสียง |
-| `FEATURES.wheel` | `true` | 🎡 กงล้อสุ่ม |
-| `AUTO_UNLOCK_SECONDS` | `30` | 🔓 วินาที auto-unlock หลัง reveal |
-| `CHAT_MESSAGE_LIMIT` | `100` | 💬 จำนวนแชทสูงสุดที่โหลด |
-| `FLOATING_EMOJI_DURATION_MS` | `5000` | 🎈 ระยะเวลา floating emoji (ms) |
-| `TYPING_TIMEOUT_MS` | `3000` | ⌨️ ระยะเวลา typing indicator (ms) |
-| `TYPING_DISPLAY_MS` | `15000` | 👁 ระยะเวลา keep-alive typing (ms) |
-| `SOUND_VOLUME` | `0.6` | 🔉 ระดับเสียง (0.0 – 1.0) |
-
----
-
-## 🗄️ Firebase RTDB Data Model
-
-| Path | Fields | รายละเอียด |
-|------|--------|-------------|
-| `rooms/{roomId}/` | `createdAt`, `revealed`, `locked`, `autoUnlockSeconds`, `revealTime`, `drinkers` | ข้อมูลห้อง |
-| `rooms/{roomId}/users/{uid}/` | `name`, `role`, `vote`, `online`, `lastSeen` | สมาชิกในห้อง |
-| `rooms/{roomId}/messages/{pushId}/` | `text`, `senderName`, `senderUid`, `senderRole`, `type`, `timestamp`, `replyTo` | ข้อความแชท |
-| `rooms/{roomId}/messages/{pushId}/reactions/{emoji}/{uid}/` | `senderName` | รีแอกต์บนข้อความ (toggle on/off) |
-| `rooms/{roomId}/typing/{uid}/` | `name`, `timestamp` | Typing indicator |
-| `rooms/{roomId}/liveReactions/{pushId}/` | `emoji`, `senderName`, `senderUid`, `timestamp` | Floating reactions |
-
----
-
-## ⚠️ Notes
-
-| หัวข้อ | รายละเอียด |
-|--------|-------------|
-| 🚫 Deploy | ห้าม deploy โดยไม่ได้รับอนุญาต — production มีผู้ใช้งานจริง |
-| 🧪 Testing | ทดสอบในห้องว่าง (❄️ ห้องเย็น, 🥶 ห้องเย็นเจี๊ยบ) เพื่อไม่รบกวนการใช้งานจริง |
-| 🔗 URL Sharing | `?room=X` สำหรับแชร์ลิงก์ห้อง + auto-rejoin จาก localStorage |
-| 🔄 Version | `APP_VERSION` เปลี่ยน = localStorage ถูกเคลียร์ (บังคับ session ใหม่) |
+วิธีติดตั้งและรันโปรเจกต์บนเครื่อง ดูได้ที่ [SETUP.md](SETUP.md)
+สร้างด้วย **TypeScript + Vite + Firebase Realtime Database**
 
 ---
 

@@ -34,6 +34,9 @@ export const TOAST_DURATION_MS = 3000;
 /** จำนวนข้อความแชทสูงสุดที่จะโหลด */
 export const CHAT_MESSAGE_LIMIT = 100;
 
+/** จำนวนประวัติการสุ่มกงล้อสูงสุดที่จะแสดง/เก็บ (ล่าสุดก่อน) */
+export const WHEEL_HISTORY_LIMIT = 50;
+
 /** ระยะเวลาแสดง floating emoji (ms) */
 export const FLOATING_EMOJI_DURATION_MS = 5000;
 

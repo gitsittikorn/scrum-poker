@@ -1,4 +1,4 @@
-import { db, ref, get } from "./firebase";
+import { db, ref, get, onValue, query, limitToLast, push, remove, off } from "./firebase";
 import { state } from "./state";
 import {
   wheelCanvas,
@@ -8,10 +8,13 @@ import {
   wheelAddInput,
   wheelPanel,
   wheelEntryCount,
+  wheelHistoryList,
+  wheelHistoryCount,
   wheelDuplicateSelect,
   wheelRemoveWinnerToggle,
   btnWheelSpin,
 } from "./dom";
+import { WHEEL_HISTORY_LIMIT } from "./config";
 import { sendSound, playSound } from "./sounds";
 import { spawnFirework, showToast } from "./ui";
 import { escapeHtml } from "./utils";
@@ -29,7 +32,7 @@ const WHEEL_TEAMS: Record<string, string[]> = {
   "Phoenix": ["Run", "Flouk", "Pou", "Puy", "A", "Pond", "Nub", "Char"],
   "Monkey King": ["Cing", "Meaw", "Max", "Prince", "Nuji", "Yam", "Poom"],
   "All": [...WHEEL_ROOM_DEFAULTS],
-  "Team": ["UX/UI", "Kitsune", "Phoenix", "Monkey King"],
+  "Team": ["UX/UI", "Kitsune", "Phoenix", "Monkey King", "RISA"],
 };
 
 // ── State ──────────────────────────────────────────────────────────
@@ -44,9 +47,24 @@ let includePO = false;
 let currentRotation = 0;
 let animFrameId: number | null = null;
 let hasInitialized = false;
+// Currently-selected team preset (Wheel room only) — persisted so the dropdown
+// stays in sync with restored entries across re-entry (Bug 2).
+let currentTeam = "All";
 
 // AbortController for cleanup of event listeners
 let eventAbort: AbortController | null = null;
+
+// ── Spin History (shared via Firebase RTDB) ────────────────────────
+// Stores the query so we can off() it on destroy (prevents listener stacking,
+// same pattern as chat.ts chatListenerQuery). historyEntries mirrors the last
+// snapshot so the ↩️ re-add handler can resolve an id → name.
+let historyListenerQuery: ReturnType<typeof query> | null = null;
+let historyEntries: { id: string; name: string }[] = [];
+
+// ── Member listener (poker rooms) — keeps wheel names fresh ─────────
+// onValue on rooms/{room}/users so renamed/rejoined members update the wheel
+// in real time (Bug 1). Detached in destroyWheel to prevent stacking.
+let memberListenerQuery: ReturnType<typeof ref> | null = null;
 
 // Winner modal refs — guard against stacking + clean listener removal
 let winnerModalEl: HTMLElement | null = null;
@@ -63,20 +81,38 @@ const SPIN_TOTAL_ROTATIONS = 6;
 const EASE_OUT_CUBIC = (t: number) => 1 - Math.pow(1 - t, 3);
 
 // ── Firebase ───────────────────────────────────────────────────────
-async function fetchMembers(): Promise<string[]> {
-  if (!state.currentRoom) return [];
-  const snap = await get(ref(db, `rooms/${state.currentRoom}/users`));
-  if (!snap.exists()) return [];
-  const users = snap.val() as Record<string, User>;
+/** Extract member names from a users snapshot, honoring the Include-PO toggle. */
+function namesFromUsers(users: Record<string, User>): string[] {
   return Object.values(users)
     .filter((u) => includePO || u.role !== "po")
     .map((u) => u.name);
 }
 
+async function fetchMembers(): Promise<string[]> {
+  if (!state.currentRoom) return [];
+  const snap = await get(ref(db, `rooms/${state.currentRoom}/users`));
+  if (!snap.exists()) return [];
+  return namesFromUsers(snap.val() as Record<string, User>);
+}
+
 // ── Local persistence (per room + user) ─────────────────────────────
-// Lets PO leave and come back on the same browser without losing their
-// customized wheel entries. Scoped by room + uid so it never leaks across
-// rooms or people sharing a browser.
+// Scoped by room + uid so cache never leaks across rooms or browsers.
+//
+// Poker rooms store a `memberFingerprint` (a hash of the room's member names)
+// so on return we can detect whether the member set changed (rename/join/leave).
+// If it matches, we restore PO's customizations (duplicate count, manual adds);
+// if it differs, we fetch fresh members so renamed users show their current name.
+//
+// Wheel room is ephemeral: resetWheelRoomOnLeave() wipes the cache + shared
+// history on leave, so re-entry always starts from defaults. The restore path
+// here only matters for a mid-session page refresh / tab reopen.
+let memberFingerprint: string | null = null;
+
+/** Stable hash of a member-name set (order-independent). */
+function fingerprintOf(names: string[]): string {
+  return [...names].sort().join("|");
+}
+
 function wheelStorageKey(): string | null {
   if (!state.currentRoom || !state.currentUser) return null;
   return `scrum-poker-wheel-${state.currentRoom}-${state.currentUser.uid}`;
@@ -88,7 +124,12 @@ function saveWheelState(): void {
   try {
     localStorage.setItem(
       key,
-      JSON.stringify({ entries: wheelEntries, duplicate: duplicateCount }),
+      JSON.stringify({
+        entries: wheelEntries,
+        duplicate: duplicateCount,
+        team: currentTeam,
+        memberFingerprint: memberFingerprint ?? undefined,
+      }),
     );
   } catch {
     // Ignore quota / serialization errors — persistence is best-effort.
@@ -98,6 +139,8 @@ function saveWheelState(): void {
 interface SavedWheelState {
   entries: string[];
   duplicate: number;
+  team?: string;
+  memberFingerprint?: string;
 }
 
 function loadWheelState(): SavedWheelState | null {
@@ -111,6 +154,9 @@ function loadWheelState(): SavedWheelState | null {
     return {
       entries: parsed.entries as string[],
       duplicate: typeof parsed.duplicate === "number" ? parsed.duplicate : 1,
+      team: typeof parsed.team === "string" ? parsed.team : undefined,
+      memberFingerprint:
+        typeof parsed.memberFingerprint === "string" ? parsed.memberFingerprint : undefined,
     };
   } catch {
     return null;
@@ -124,6 +170,7 @@ function restoreWheelState(): boolean {
   wheelEntries = [...saved.entries];
   duplicateCount = saved.duplicate;
   originalMembers = [...new Set(saved.entries)];
+  currentTeam = saved.team ?? "All";
   return true;
 }
 
@@ -135,6 +182,149 @@ export function clearAllWheelCache(): void {
     if (key && key.startsWith("scrum-poker-wheel-")) stale.push(key);
   }
   stale.forEach((k) => localStorage.removeItem(k));
+}
+
+// ── Spin History (shared via Firebase RTDB) ────────────────────────
+// Records everyone who gets picked, in order, visible to all users in the room
+// in real time. Mirrors the chat listener pattern (store query → off on destroy).
+
+/** Start listening to the room's wheelHistory (last 50). Safe to call repeatedly. */
+function startHistoryListener(): void {
+  stopHistoryListener(); // never stack
+  if (!state.currentRoom) return;
+  historyListenerQuery = query(
+    ref(db, `rooms/${state.currentRoom}/wheelHistory`),
+    limitToLast(WHEEL_HISTORY_LIMIT),
+  );
+  onValue(historyListenerQuery, (snap) => {
+    historyEntries = [];
+    snap.forEach((child) => {
+      const v = child.val();
+      if (v && typeof v.name === "string") {
+        historyEntries.push({ id: child.key!, name: v.name });
+      }
+    });
+    // push() keys are ordered oldest→newest, so this already yields "newest at bottom"
+    renderHistory();
+  });
+}
+
+/** Detach the history listener and clear local cache (called on destroy/re-init). */
+function stopHistoryListener(): void {
+  if (historyListenerQuery) {
+    off(historyListenerQuery);
+    historyListenerQuery = null;
+  }
+  historyEntries = [];
+}
+
+/** Render the history list + count badge, scrolling to the newest (bottom). */
+function renderHistory(): void {
+  wheelHistoryCount.textContent = String(historyEntries.length);
+
+  if (historyEntries.length === 0) {
+    wheelHistoryList.innerHTML = '<small class="form-hint">ยังไม่มีประวัติ</small>';
+    return;
+  }
+
+  wheelHistoryList.innerHTML = historyEntries
+    .map(
+      (h, i) => `
+    <div class="wheel-history-row" data-id="${escapeHtml(h.id)}">
+      <span class="wheel-history-idx">${i + 1}</span>
+      <span class="wheel-history-name">${escapeHtml(h.name)}</span>
+      <button class="wheel-entry-btn" data-action="readd" data-id="${escapeHtml(h.id)}" title="เพิ่มกลับเข้ากงล้อ">↩️</button>
+    </div>`,
+    )
+    .join("");
+
+  requestAnimationFrame(() => {
+    wheelHistoryList.scrollTop = wheelHistoryList.scrollHeight;
+  });
+}
+
+/** Record a winner to the shared history (best-effort). */
+function recordHistory(winner: string): void {
+  if (!state.currentRoom) return;
+  push(ref(db, `rooms/${state.currentRoom}/wheelHistory`), { name: winner }).catch(
+    () => {
+      // best-effort — network errors shouldn't break the spin UX
+    },
+  );
+  pruneHistory();
+}
+
+/** Delete history entries older than WHEEL_HISTORY_LIMIT so the DB doesn't grow unbounded.
+ *  limitToLast() only hides old rows from the client; it doesn't delete them server-side. */
+async function pruneHistory(): Promise<void> {
+  if (!state.currentRoom) return;
+  try {
+    const snap = await get(ref(db, `rooms/${state.currentRoom}/wheelHistory`));
+    if (!snap.exists()) return;
+    const keys = Object.keys(snap.val() as Record<string, unknown>).sort(); // oldest→newest
+    if (keys.length <= WHEEL_HISTORY_LIMIT) return;
+    const toRemove = keys.slice(0, keys.length - WHEEL_HISTORY_LIMIT);
+    await Promise.all(
+      toRemove.map((k) =>
+        remove(ref(db, `rooms/${state.currentRoom}/wheelHistory/${k}`)),
+      ),
+    );
+  } catch {
+    // ignore — pruning is best-effort
+  }
+}
+
+/** Wipe the shared spin history for the current room (best-effort). The
+ *  onValue history listener re-renders the empty list automatically. */
+function clearHistory(): void {
+  if (!state.currentRoom) return;
+  remove(ref(db, `rooms/${state.currentRoom}/wheelHistory`)).catch(() => {});
+}
+
+/** Wheel room is ephemeral (req 4-5): on leave, wipe this browser's cached wheel
+ *  state + the shared spin history so re-entry always starts from defaults
+ *  (team "All", default entries, no history). */
+export function resetWheelRoomOnLeave(): void {
+  clearHistory();
+  const key = wheelStorageKey();
+  if (key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // ignore quota / serialization errors
+    }
+  }
+}
+
+// ── Member listener (poker rooms) — live-refresh wheel names ────────
+/** Attach onValue on room users; rebuild the wheel when the member-name set changes
+ *  (rename/join/leave). Skipped in Wheel room (team-based, no FB members to track).
+ *  Safe against PO customizations: the fingerprint only covers names, so votes /
+ *  online / lastSeen writes and manual add / remove-winner never trigger a rebuild. */
+function startMemberListener(): void {
+  stopMemberListener();
+  if (!state.currentRoom || state.isWheelRoom) return;
+  memberListenerQuery = ref(db, `rooms/${state.currentRoom}/users`);
+  onValue(memberListenerQuery, (snap) => {
+    if (!snap.exists() || isSpinning) return;
+    const names = namesFromUsers(snap.val() as Record<string, User>);
+    const fp = fingerprintOf(names);
+    if (fp === memberFingerprint) return; // names unchanged — nothing to do
+    memberFingerprint = fp;
+    originalMembers = names;
+    rebuildWheelEntries(); // preserves duplicateCount
+    drawWheel(currentRotation);
+    renderMemberList();
+    saveWheelState();
+  });
+}
+
+/** Detach the member listener (called on destroy/re-init). */
+function stopMemberListener(): void {
+  if (memberListenerQuery) {
+    off(memberListenerQuery);
+    memberListenerQuery = null;
+  }
 }
 
 // ── Canvas Rendering ───────────────────────────────────────────────
@@ -342,6 +532,9 @@ function onSpinComplete(): void {
   spawnFirework(wheelCanvasContainer);
   showToast(`🎡 ผู้ถูกสุ่ม: ${winner}`);
 
+  // Record to shared history so everyone sees the pick order in real time
+  recordHistory(winner);
+
   // เปิด modal แสดงผู้ถูกสุ่ม — ปิด modal แล้วลบ/ไม่ลบตาม toggle removeWinner
   showWinnerModal(winner);
 }
@@ -489,6 +682,10 @@ function clearEntries(): void {
   saveWheelState();
   drawWheel(0);
   renderMemberList();
+  // Also wipe the shared spin history for this room
+  if (state.currentRoom) {
+    remove(ref(db, `rooms/${state.currentRoom}/wheelHistory`)).catch(() => {});
+  }
 }
 
 function addEntry(name: string): void {
@@ -518,9 +715,18 @@ function editEntry(index: number, newName: string): void {
   renderMemberList();
 }
 
-/** Restart — fetch fresh members from Firebase (or reset to defaults if Wheel room) */
+/** Restart — fetch fresh members from Firebase (or reset to the currently-selected team in Wheel room) */
 async function restartEntries(): Promise<void> {
-  originalMembers = state.isWheelRoom ? [...WHEEL_ROOM_DEFAULTS] : await fetchMembers();
+  if (state.isWheelRoom) {
+    const teamSelect = document.getElementById("wheel-team-select") as HTMLSelectElement;
+    const team = teamSelect?.value || "All";
+    currentTeam = team;
+    originalMembers = [...(WHEEL_TEAMS[team] || WHEEL_ROOM_DEFAULTS)];
+    memberFingerprint = null; // Wheel room has no Firebase members to fingerprint
+  } else {
+    originalMembers = await fetchMembers();
+    memberFingerprint = fingerprintOf(originalMembers);
+  }
   duplicateCount = 1;
   wheelDuplicateSelect.value = "1";
   selectedWinner = null;
@@ -595,6 +801,15 @@ function setupEventDelegation(): void {
     }
   }, { signal });
 
+  // History row ↩️ — re-add that name back into the wheel entries
+  wheelHistoryList.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    if (target.dataset.action !== "readd") return;
+    const id = target.dataset.id;
+    const entry = historyEntries.find((h) => h.id === id);
+    if (entry) addEntry(entry.name);
+  }, { signal });
+
   // Duplicate select — rebuild from unique current entries
   wheelDuplicateSelect.addEventListener("change", () => {
     const newCount = Number(wheelDuplicateSelect.value);
@@ -629,6 +844,7 @@ function setupEventDelegation(): void {
     const members = await fetchMembers();
     if (seq !== includePoSeq) return; // Stale result, discard
     originalMembers = members;
+    memberFingerprint = fingerprintOf(members);
     rebuildWheelEntries();
     saveWheelState();
     drawWheel(currentRotation);
@@ -639,6 +855,8 @@ function setupEventDelegation(): void {
   const teamSelect = document.getElementById("wheel-team-select") as HTMLSelectElement;
   teamSelect?.addEventListener("change", () => {
     const team = teamSelect.value;
+    currentTeam = team;
+    if (state.isWheelRoom) clearHistory(); // เปลี่ยนทีม → ล้างประวัติเสมอ (Wheel room เท่านั้น)
     const members = WHEEL_TEAMS[team] || WHEEL_ROOM_DEFAULTS;
     originalMembers = [...members];
     duplicateCount = 1;
@@ -700,6 +918,8 @@ export function forceCloseWheel(): void {
 
 export function destroyWheel(): void {
   if (animFrameId !== null) cancelAnimationFrame(animFrameId);
+  stopHistoryListener();
+  stopMemberListener();
   // Abort all event listeners
   if (eventAbort) {
     eventAbort.abort();
@@ -709,6 +929,8 @@ export function destroyWheel(): void {
   forceCloseWheel();
   originalMembers = [];
   wheelEntries = [];
+  memberFingerprint = null;
+  currentTeam = "All";
   currentRotation = 0;
   isSpinning = false;
   selectedWinner = null;
@@ -727,10 +949,21 @@ export function destroyWheel(): void {
 }
 
 async function initWheel(): Promise<void> {
-  // Restore previously customized entries (same browser) before fetching defaults
-  if (!restoreWheelState()) {
-    originalMembers = await fetchMembers();
-    duplicateCount = 1;
+  // Always fetch current members so renamed/changed users show their new name.
+  // We only restore PO's customization (duplicate count, manual adds) when the
+  // room's member set is unchanged since the last visit (matched by fingerprint).
+  const freshMembers = await fetchMembers();
+  memberFingerprint = fingerprintOf(freshMembers);
+  const saved = loadWheelState();
+  if (saved && saved.entries.length > 0 && saved.memberFingerprint === memberFingerprint) {
+    // Member set unchanged → keep PO's customized entries
+    wheelEntries = [...saved.entries];
+    duplicateCount = saved.duplicate;
+    originalMembers = [...new Set(saved.entries)];
+  } else {
+    // Members changed (rename/join/leave) or first visit → start from current members
+    originalMembers = freshMembers;
+    duplicateCount = saved?.duplicate ?? 1;
     rebuildWheelEntries();
   }
   wheelDuplicateSelect.value = String(duplicateCount);
@@ -744,6 +977,9 @@ async function initWheel(): Promise<void> {
   drawWheel(0);
   renderMemberList();
   setupEventDelegation();
+  startHistoryListener();
+  renderHistory();
+  startMemberListener(); // poker rooms only — live-refresh on rename/join/leave (Bug 1)
 }
 
 /** Initialize wheel for standalone Wheel room — manual entries only, no Firebase fetch */
@@ -776,7 +1012,9 @@ export function initWheelManual(): void {
   const teamGroup = document.getElementById("wheel-team-group");
   if (teamGroup) teamGroup.style.display = "";
   const teamSelect = document.getElementById("wheel-team-select") as HTMLSelectElement;
-  if (teamSelect) teamSelect.value = "All";
+  if (teamSelect) teamSelect.value = currentTeam; // restored by restoreWheelState() (or "All")
+  startHistoryListener();
+  renderHistory();
 }
 
 // Export control functions for app.ts to bind
