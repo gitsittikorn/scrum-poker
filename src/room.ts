@@ -28,7 +28,7 @@ import {
 } from "./ui";
 import { escapeHtml } from "./utils";
 import { cancelUnlockTimer, updateUI } from "./voting";
-import { destroyWheel, initWheelManual } from "./wheel";
+import { clearAllWheelCache, destroyWheel, initWheelManual, resetWheelRoomOnLeave } from "./wheel";
 
 let roomListenerRef: ReturnType<typeof ref> | null = null;
 let forceRefreshRef: ReturnType<typeof ref> | null = null;
@@ -347,7 +347,10 @@ export function handleLeave(skipMessage = false): void {
   cancelOnDisconnect(roomCode, uid);
   if (!skipMessage) sendSystemMessage(`${leavingName} ออกจากห้อง`);
   destroyChat();
-  if (state.isWheelRoom) destroyWheelRoom();
+  if (state.isWheelRoom) {
+    resetWheelRoomOnLeave(); // req 4-5: clear cache + history → re-entry starts from defaults
+    destroyWheelRoom();
+  }
   destroyWheel();
   // Clean up any lingering not-voted modal
   document.getElementById("not-voted-modal")?.remove();
@@ -511,6 +514,7 @@ async function cleanupIfRoomEmpty(roomCode: string): Promise<void> {
         "sounds",
         "drinkers",
         "kicked",
+        "wheelHistory",
       ].forEach((key) => {
         updates[key] = null;
       });
@@ -635,6 +639,7 @@ export async function handleClearAllRooms(): Promise<void> {
   handleLeave(true);
   // Delete all rooms — every other client gets "Room closed" + kicked out
   await remove(ref(db, "rooms"));
+  clearAllWheelCache(); // req 4: reset wheels to defaults on this browser
   const today = formatDate(new Date());
   await update(ref(db, "settings"), { lastCleanupDate: today });
   showToast("🗑 เคลียร์ข้อมูลทุกห้องแล้ว ทุกคนถูกออกจากห้อง");
@@ -642,42 +647,13 @@ export async function handleClearAllRooms(): Promise<void> {
 
 async function performCleanup(todayStr: string): Promise<void> {
   try {
-    const roomsSnap = await get(ref(db, "rooms"));
-    if (!roomsSnap.exists()) {
-      // No rooms — just mark as done
-      await update(ref(db, "settings"), { lastCleanupDate: todayStr });
-      return;
-    }
-
-    const rooms = roomsSnap.val() as Record<string, any>;
-    const updates: Record<string, unknown> = {};
-
-    for (const roomCode of Object.keys(rooms)) {
-      [
-        "messages",
-        "typing",
-        "liveReactions",
-        "sounds",
-        "drinkers",
-        "kicked",
-      ].forEach((key) => {
-        updates[`rooms/${roomCode}/${key}`] = null;
-      });
-      updates[`rooms/${roomCode}/revealed`] = false;
-      updates[`rooms/${roomCode}/locked`] = false;
-
-      // Reset votes for all users in room
-      const roomData = rooms[roomCode];
-      if (roomData.users) {
-        for (const uid of Object.keys(roomData.users)) {
-          updates[`rooms/${roomCode}/users/${uid}/vote`] = null;
-        }
-      }
-    }
-
-    updates["settings/lastCleanupDate"] = todayStr;
-    await update(ref(db), updates);
-    console.log(`[ScheduledCleanup] Cleaned all rooms at ${todayStr}`);
+    // Behaves like "Clear all" (req 4): delete every room entirely. All clients
+    // get "Room closed" and are kicked; on rejoin the poker wheel resets to
+    // defaults via the member-fingerprint check, and the Wheel room starts fresh.
+    // Safe because nobody uses the app after hours — set cleanupTime off-hours.
+    await remove(ref(db, "rooms"));
+    await update(ref(db, "settings"), { lastCleanupDate: todayStr });
+    console.log(`[ScheduledCleanup] Cleared all rooms at ${todayStr}`);
   } catch (err) {
     console.error("[ScheduledCleanup] Perform error:", err);
   }

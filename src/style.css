@@ -2458,12 +2458,12 @@ body {
   gap: 8px;
 }
 .wheel-select {
-  padding: 4px 8px;
+  padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg-input);
   color: var(--text-primary);
-  font-size: 0.85rem;
+  font-size: 1rem;
   cursor: pointer;
 }
 .wheel-toggle-label {
@@ -2518,6 +2518,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex-shrink: 0;
 }
 .wheel-entry {
   display: flex;
@@ -2569,6 +2570,52 @@ body {
 .wheel-entry-btn.delete:hover {
   background: var(--danger);
   color: #fff;
+}
+
+/* ── Spin History ────────────────────────────────────────────────── */
+.wheel-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.wheel-room-sidebar .wheel-history-list {
+  max-height: 280px;
+}
+.wheel-history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  transition: all 0.15s;
+}
+.wheel-history-row:hover {
+  border-color: var(--accent);
+}
+.wheel-history-idx {
+  color: var(--text-muted);
+  font-weight: 700;
+  min-width: 1.6em;
+  text-align: center;
+}
+.wheel-history-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wheel-history-row .wheel-entry-btn {
+  opacity: 0.5;
+}
+.wheel-history-row:hover .wheel-entry-btn {
+  opacity: 1;
 }
 
 @media (max-width: 700px) {

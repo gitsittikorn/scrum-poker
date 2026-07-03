@@ -97,3 +97,5 @@ export const btnWheelClear = $("btn-wheel-clear") as HTMLButtonElement;
 export const wheelDuplicateSelect = $("wheel-duplicate-select") as HTMLSelectElement;
 export const wheelRemoveWinnerToggle = $("wheel-remove-winner") as HTMLInputElement;
 export const wheelEntryCount = $("wheel-entry-count");
+export const wheelHistoryList = $("wheel-history-list");
+export const wheelHistoryCount = $("wheel-history-count");
