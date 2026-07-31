@@ -264,6 +264,12 @@
           </button>
         </div>
         <div class="bottom-bar-right">
+          <div class="leave-wrapper" id="speaker-clear-wrapper" style="display:none">
+            <button id="btn-clear-speaker-counts" class="btn-bar btn-leave-bar" title="ล้างตัวนับพูด (เริ่มรอบใหม่)">
+              <span class="btn-bar-icon" style="font-size:1.6rem">🔄</span>
+              <span class="btn-bar-label">ล้างตัวนับพูด</span>
+            </button>
+          </div>
           <div class="leave-wrapper" id="delete-room-wrapper" style="display:none">
             <button id="btn-delete-room" class="btn-bar btn-delete-bar" title="ล้างห้อง">
               <span class="btn-bar-icon" style="font-size:1.6rem;color:var(--danger)">🧹</span>
@@ -393,6 +399,12 @@
                 <label class="toggle-label" id="toggle-label-wheel">
                   <span class="toggle-text">🎡 Wheel</span>
                   <input type="checkbox" id="feature-wheel" checked aria-label="Wheel feature toggle">
+                  <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                  <span class="admin-only-badge hidden">🔒 admin only</span>
+                </label>
+                <label class="toggle-label" id="toggle-label-speaker">
+                  <span class="toggle-text">🎤 Speaker Rotate</span>
+                  <input type="checkbox" id="feature-speaker" checked aria-label="Speaker mic counter feature toggle">
                   <span class="toggle-switch" role="switch" aria-checked="true"></span>
                   <span class="admin-only-badge hidden">🔒 admin only</span>
                 </label>

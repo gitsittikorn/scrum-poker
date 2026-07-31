@@ -15,6 +15,7 @@ import {
   featureReact,
   featureSound,
   featureWheel,
+  featureSpeaker,
   cleanupTimeInput,
   btnBarChat,
   btnBarReact,
@@ -28,6 +29,7 @@ import {
   toggleLabelReact,
   toggleLabelSound,
   toggleLabelWheel,
+  toggleLabelSpeaker,
 } from "./dom";
 import { TOAST_DURATION_MS, AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
 import { DEFAULT_POKER_CARDS } from "./constants";
@@ -111,6 +113,7 @@ export function updateSettingsPermissions(permissions: FeaturePermissions, autoU
   applyPermissionToToggle(featureReact, toggleLabelReact, permissions.react);
   applyPermissionToToggle(featureSound, toggleLabelSound, permissions.sound);
   applyPermissionToToggle(featureWheel, toggleLabelWheel, permissions.wheel);
+  applyPermissionToToggle(featureSpeaker, toggleLabelSpeaker, permissions.speakerRotate);
   // Auto-unlock input: disable if super admin locked it
   if (autoUnlockEditable !== undefined) {
     settingsInput.disabled = !autoUnlockEditable;
@@ -130,8 +133,11 @@ export function updateSettingsFeatureState(features: FeatureFlags, autoUnlockSec
   featureReact.checked = features.react;
   featureSound.checked = features.sound;
   featureWheel.checked = features.wheel;
-  // Update auto-unlock input if value provided
-  if (autoUnlockSeconds !== undefined) {
+  featureSpeaker.checked = features.speakerRotate;
+  // Update auto-unlock input if value provided — but NOT while the modal is open,
+  // because PO may be editing it (openSettings loads the value on open already).
+  // Without this guard, every room tick overwrites the in-progress edit → "didn't save".
+  if (autoUnlockSeconds !== undefined && !settingsModal.classList.contains("active")) {
     settingsInput.value = String(autoUnlockSeconds);
   }
   // Update user settings visibility based on sound feature
@@ -176,107 +182,124 @@ export function refreshPokerSaveButton(): void {
   saveBtn.disabled = !(anyPoints || customOn);
 }
 
+/** True ขณะ openSettings กำลังโหลดค่าจาก DB — กัน PO กด save ก่อนค่าโหลดเสร็จ
+ *  (ค่า default ใน HTML checkbox/input อาจทับค่าจริง → flip feature state) */
+let settingsLoading = false;
+/** Generation counter — กัน re-entrancy: open→close→open เร็วๆ ทำให้ finally ของรอบเก่า
+ *  ไป reset loading ของรอบใหม่ก่อนเวลา  เช็ค gen ใน finally ให้เคลียร์เฉพาะรอบล่าสุด */
+let settingsLoadGen = 0;
+
+/** Disable ปุ่ม save ทั้งหมดใน modal ตอนกำลังโหลด (ใช้สไตล์ .btn:disabled ที่มีอยู่แล้ว) */
+function setSettingsLoading(loading: boolean): void {
+  settingsLoading = loading;
+  for (const id of [
+    "btn-settings-save",
+    "btn-super-admin-save-cleanup",
+    "btn-super-admin-save-cards",
+  ]) {
+    const btn = document.getElementById(id) as HTMLButtonElement | null;
+    if (btn) btn.disabled = loading;
+  }
+}
+
 export async function openSettings(): Promise<void> {
   if (!state.currentRoom) return;
 
   // Super admin (admin room) — show DB Report, cleanup time, clear all, README
   if (isSuperAdmin()) {
-    const saveBtn = document.getElementById("btn-settings-save")!;
-    saveBtn.classList.add("hidden");
+    document.getElementById("btn-settings-save")!.classList.add("hidden");
     document.getElementById("settings-auto-unlock-group")?.classList.add("hidden");
     document.getElementById("user-settings")?.classList.add("hidden");
     adminSettings.classList.add("hidden");
     document.getElementById("super-admin-settings")?.classList.remove("hidden");
-    // Load cleanup time
-    const cleanupSnap = await get(ref(db, `settings/cleanupTime`));
-    cleanupTimeInput.value = cleanupSnap.exists() ? cleanupSnap.val() : "19:00";
-    // Load poker cards config into the 2×5 form (absent → default seed)
-    const cardsSnap = await get(ref(db, "settings/pokerCards"));
-    fillPokerCardsForm(
-      cardsSnap.exists() && Array.isArray(cardsSnap.val()) ? cardsSnap.val() : null
-    );
-    refreshPokerSaveButton();
-    // Custom-input card toggle (absent → off)
-    const customSnap = await get(ref(db, "settings/pokerCustomCard"));
-    const customToggle = document.getElementById("poker-custom-enabled") as HTMLInputElement | null;
-    if (customToggle) customToggle.checked = !!customSnap.val();
+
+    // เปิด modal ทันทีหลังตั้ง section visibility — ข้อมูลโหลด async ทีหลัง
+    // (กัน race ที่ modal โผล่ช้าจนคลิกไปตกบน backdrop → modal ปิดเอง)
     settingsModal.classList.add("active");
+    const gen = ++settingsLoadGen;
+    setSettingsLoading(true);
+    try {
+      const [cleanupSnap, cardsSnap, customSnap] = await Promise.all([
+        get(ref(db, `settings/cleanupTime`)),
+        get(ref(db, "settings/pokerCards")),
+        get(ref(db, "settings/pokerCustomCard")),
+      ]);
+      cleanupTimeInput.value = cleanupSnap.exists() ? cleanupSnap.val() : "19:00";
+      fillPokerCardsForm(
+        cardsSnap.exists() && Array.isArray(cardsSnap.val()) ? cardsSnap.val() : null
+      );
+      refreshPokerSaveButton();
+      const customToggle = document.getElementById("poker-custom-enabled") as HTMLInputElement | null;
+      if (customToggle) customToggle.checked = !!customSnap.val();
+    } finally {
+      if (gen === settingsLoadGen) setSettingsLoading(false);
+    }
     return;
   }
 
   document.getElementById("super-admin-settings")?.classList.add("hidden");
 
-  // User settings visibility is controlled by FEATURES.sound check below
+  // Sync section visibility ตาม role/feature ก่อน — แล้วค่อยเปิด modal (ไม่ flash section ผิด)
+  document.getElementById("btn-settings-save")!.classList.toggle("hidden", !isPO());
+  document.getElementById("settings-auto-unlock-group")!.classList.toggle("hidden", !isPO());
 
-  // Save button — visible to PO only
-  const saveBtn = document.getElementById("btn-settings-save")!;
-  if (isPO()) {
-    saveBtn.classList.remove("hidden");
-  } else {
-    saveBtn.classList.add("hidden");
-  }
-
-  // Auto-unlock timeout — visible to PO only
-  const autoUnlockGroup = document.getElementById("settings-auto-unlock-group")!;
-  if (isPO()) {
-    autoUnlockGroup.classList.remove("hidden");
-    const snap = await get(ref(db, `rooms/${state.currentRoom}/autoUnlockSeconds`));
-    settingsInput.value = String(
-      snap.exists() ? snap.val() : AUTO_UNLOCK_SECONDS
-    );
-  } else {
-    autoUnlockGroup.classList.add("hidden");
-  }
-
-  // User settings — visible only when sound feature is enabled (from any source: PO toggle or super admin)
   const userSettings = document.getElementById("user-settings")!;
+  userSettings.classList.toggle("hidden", !FEATURES.sound);
   if (FEATURES.sound) {
-    userSettings.classList.remove("hidden");
     muteOthersSound.checked = localStorage.getItem("scrum-poker-mute-others") === "true";
     const sw = muteOthersSound.nextElementSibling;
     if (sw) sw.setAttribute("aria-checked", String(muteOthersSound.checked));
     renderSoundShortcutSlots();
-  } else {
-    userSettings.classList.add("hidden");
   }
 
-  // PO section — visible to PO only
-  if (isPO()) {
-    adminSettings.classList.remove("hidden");
+  adminSettings.classList.toggle("hidden", !isPO());
 
-    // Load feature flags from Firebase
-    const featuresSnap = await get(ref(db, `rooms/${state.currentRoom}/features`));
-    if (featuresSnap.exists()) {
-      const f = featuresSnap.val();
-      featurePoker.checked = f.poker ?? true;
-      featureChat.checked = f.chat ?? true;
-      featureReact.checked = f.react ?? true;
-      featureSound.checked = f.sound ?? true;
-      featureWheel.checked = f.wheel ?? true;
-    } else {
-      featurePoker.checked = true;
-      featureChat.checked = true;
-      featureReact.checked = true;
-      featureSound.checked = true;
-      featureWheel.checked = true;
-    }
-
-    // Load feature permissions from admin (super admin controls)
-    const permissions = await loadFeaturePermissions(state.currentRoom!);
-    applyPermissionToToggle(featurePoker, toggleLabelPoker, permissions.poker);
-    applyPermissionToToggle(featureChat, toggleLabelChat, permissions.chat);
-    applyPermissionToToggle(featureReact, toggleLabelReact, permissions.react);
-    applyPermissionToToggle(featureSound, toggleLabelSound, permissions.sound);
-    applyPermissionToToggle(featureWheel, toggleLabelWheel, permissions.wheel);
-
-    // Load cleanup time from global settings
-    const cleanupSnap = await get(ref(db, `settings/cleanupTime`));
-    cleanupTimeInput.value = cleanupSnap.exists() ? cleanupSnap.val() : "19:00";
-  } else {
-    adminSettings.classList.add("hidden");
-  }
-
+  // เปิด modal ทันทีหลังตั้ง section visibility — ข้อมูลโหลด async ทีหลัง
   settingsModal.classList.add("active");
+  const gen = ++settingsLoadGen;
+  setSettingsLoading(true);
+  try {
+    // Async: โหลดค่า PO-only fields แบบ parallel (1 round-trip แทน 4 sequential)
+    if (isPO()) {
+      const [autoSnap, featuresSnap, cleanupSnap, permissions] = await Promise.all([
+        get(ref(db, `rooms/${state.currentRoom}/autoUnlockSeconds`)),
+        get(ref(db, `rooms/${state.currentRoom}/features`)),
+        get(ref(db, `settings/cleanupTime`)),
+        loadFeaturePermissions(state.currentRoom!),
+      ]);
+      // อย่าเขียนทับถ้า PO กำลังแก้อยู่แล้ว (กัน race: async load มาถึงช้ากว่าการพิมพ์)
+      if (document.activeElement !== settingsInput) {
+        settingsInput.value = String(
+          autoSnap.exists() ? autoSnap.val() : AUTO_UNLOCK_SECONDS
+        );
+      }
+      if (featuresSnap.exists()) {
+        const f = featuresSnap.val();
+        featurePoker.checked = f.poker ?? true;
+        featureChat.checked = f.chat ?? true;
+        featureReact.checked = f.react ?? true;
+        featureSound.checked = f.sound ?? true;
+        featureWheel.checked = f.wheel ?? true;
+        featureSpeaker.checked = f.speakerRotate ?? true;
+      } else {
+        featurePoker.checked = true;
+        featureChat.checked = true;
+        featureReact.checked = true;
+        featureSound.checked = true;
+        featureWheel.checked = true;
+        featureSpeaker.checked = true;
+      }
+      applyPermissionToToggle(featurePoker, toggleLabelPoker, permissions.poker);
+      applyPermissionToToggle(featureChat, toggleLabelChat, permissions.chat);
+      applyPermissionToToggle(featureReact, toggleLabelReact, permissions.react);
+      applyPermissionToToggle(featureSound, toggleLabelSound, permissions.sound);
+      applyPermissionToToggle(featureWheel, toggleLabelWheel, permissions.wheel);
+      applyPermissionToToggle(featureSpeaker, toggleLabelSpeaker, permissions.speakerRotate);
+      cleanupTimeInput.value = cleanupSnap.exists() ? cleanupSnap.val() : "19:00";
+    }
+  } finally {
+    if (gen === settingsLoadGen) setSettingsLoading(false);
+  }
 }
 
 export function closeSettings(): void {
@@ -285,6 +308,11 @@ export function closeSettings(): void {
 
 export async function saveSettings(): Promise<void> {
   if (!state.currentRoom) return;
+  // กันกด save ก่อน DB โหลดเสร็จ (ค่าใน form ยังเป็น default → จะทับค่าจริง)
+  if (settingsLoading) {
+    showToast("⏳ กำลังโหลดค่า รอสักครู่");
+    return;
+  }
 
   const updates: Record<string, unknown> = {};
 
@@ -307,6 +335,7 @@ export async function saveSettings(): Promise<void> {
     if (!featureReact.disabled) features.react = featureReact.checked;
     if (!featureSound.disabled) features.sound = featureSound.checked;
     if (!featureWheel.disabled) features.wheel = featureWheel.checked;
+    if (!featureSpeaker.disabled) features.speakerRotate = featureSpeaker.checked;
     if (Object.keys(features).length > 0) {
       updates["features"] = features;
     }
@@ -355,6 +384,9 @@ export function applyFeatureFlags(): void {
   // Delete room button — PO only
   const deleteWrapper = document.getElementById("delete-room-wrapper");
   if (deleteWrapper) deleteWrapper.style.display = isPO() ? "" : "none";
+  // Clear speaker-counts button — PO only (rotation logic is always on, so always available to PO)
+  const speakerClearWrapper = document.getElementById("speaker-clear-wrapper");
+  if (speakerClearWrapper) speakerClearWrapper.style.display = (isPO() && FEATURES.speakerRotate) ? "" : "none";
 }
 
 export async function openDbReport(): Promise<void> {

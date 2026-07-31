@@ -13,6 +13,7 @@ import {
   btnReveal,
   btnReset,
   btnDeleteRoom,
+  btnClearSpeakerCounts,
   btnBarChat,
   btnChatClose,
   btnChatSend,
@@ -47,7 +48,7 @@ import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
 import { handleJoinRoom, handleLeave, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler, listenForceRefresh, writeForceRefreshVersion } from "./room";
 import { db, ref, update } from "./firebase";
 import type { CardDef } from "./types";
-import { renderCards, initPokerCardsListener, handleReveal, handleReset } from "./voting";
+import { renderCards, initPokerCardsListener, handleReveal, handleReset, handleClearSpeakerCounts } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
 import { toggleSoundPicker, renderSoundPicker, handleSoundPickerOutsideClick, triggerSound, registerSoundShortcuts, renderSoundShortcutSlots, startKeyCapture, cancelKeyCapture, setShortcutSound, setShortcutsEnabled, clearShortcut } from "./sounds";
@@ -104,8 +105,15 @@ function bindEvents(): void {
   settingsInput.addEventListener("keydown", (e: KeyboardEvent) => {
     if (e.key === "Enter") btnSettingsSave.click();
   });
-  settingsModal.addEventListener("click", (e) => {
-    if (e.target === settingsModal) { cancelKeyCapture(); closeSettings(); }
+  // ปิด settings modal ด้วย Esc เท่านั้น (เอา backdrop-click-to-close ออกแล้ว
+  // — กัน PO คลิกโดนพื้นหลังตอนกำลังจะแก้แล้ว modal ปิดตัวเอง)
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !settingsModal.classList.contains("active")) return;
+    const ae = document.activeElement;
+    // ถ้า focus อยู่นอก settings (เช่น confirm/warning modal เปิดทับอยู่) → ให้ modal นั้นจัดการ Esc เอง
+    if (ae && ae !== document.body && !settingsModal.contains(ae)) return;
+    cancelKeyCapture();
+    closeSettings();
   });
 
   // Sound shortcut section: collapsible (collapsed by default) + key capture + sound select
@@ -196,6 +204,14 @@ function bindEvents(): void {
       message: "ทุกคนจะถูกให้ออกจากห้องทันที และข้อมูลทั้งหมด (แชท/โหวต) จะถูกล้างให้ว่าง",
       confirmText: "ล้างห้อง",
       onConfirm: handleDeleteRoom,
+    });
+  });
+  btnClearSpeakerCounts.addEventListener("click", () => {
+    showConfirmModal({
+      title: "ล้างตัวนับพูด?",
+      message: "จะรีเซ็ตจำนวนครั้งที่สุ่มพูดของทุกคนกลับเป็น 0 (เริ่มรอบใหม่)",
+      confirmText: "ล้าง",
+      onConfirm: handleClearSpeakerCounts,
     });
   });
   document.getElementById("btn-clear-all")?.addEventListener("click", () => {

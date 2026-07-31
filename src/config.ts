@@ -23,6 +23,8 @@ export const FEATURES = {
   sound: true,
   /** Wheel — กงล้อสุ่มชื่อสมาชิก */
   wheel: true,
+  /** Speaker Rotate — สุ่มผู้พูดแบบถ่วงน้ำหนัก (0.7^count) + โชว์ 🎤 count + ปุ่มล้าง. ปิด = uniform random (ของเดิม) + ซ่อนหมด */
+  speakerRotate: true,
 };
 
 /** วินาทีที่จะ auto-unlock หลังจาก reveal (ค่า default สำหรับห้องใหม่) */

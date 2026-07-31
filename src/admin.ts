@@ -27,6 +27,7 @@ const FEATURE_KEYS: (keyof FeaturePermissions)[] = [
   "react",
   "sound",
   "wheel",
+  "speakerRotate",
 ];
 
 const FEATURE_LABELS: Record<keyof FeaturePermissions, string> = {
@@ -35,6 +36,7 @@ const FEATURE_LABELS: Record<keyof FeaturePermissions, string> = {
   react: "😀 React",
   sound: "🔊 Sound",
   wheel: "🎡 Wheel",
+  speakerRotate: "🎤 Speaker Rotate",
 };
 
 const FEATURE_ICONS: Record<keyof FeaturePermissions, string> = {
@@ -43,6 +45,7 @@ const FEATURE_ICONS: Record<keyof FeaturePermissions, string> = {
   react: "😀",
   sound: "🔊",
   wheel: "🎡",
+  speakerRotate: "🎤",
 };
 
 let selectedRoom: string | null = null;
@@ -52,8 +55,8 @@ let autoUnlockListenerRef: ReturnType<typeof ref> | null = null;
 let renderScheduled = false;
 
 /** Current feature state and permissions for the selected room */
-let currentFeatures: FeaturePermissions = { poker: true, chat: true, react: true, sound: true, wheel: true };
-let currentPermissions: FeaturePermissions = { poker: true, chat: true, react: true, sound: true, wheel: true };
+let currentFeatures: FeaturePermissions = { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
+let currentPermissions: FeaturePermissions = { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
 let currentAutoUnlock: number = AUTO_UNLOCK_SECONDS;
 let currentAutoUnlockEditable: boolean = true;
 
@@ -146,8 +149,9 @@ function listenFeatureState(roomCode: string): void {
           react: snap.val().react ?? true,
           sound: snap.val().sound ?? true,
           wheel: snap.val().wheel ?? true,
+          speakerRotate: snap.val().speakerRotate ?? true,
         }
-      : { poker: true, chat: true, react: true, sound: true, wheel: true };
+      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
     scheduleRender();
   });
 
@@ -176,8 +180,9 @@ function listenPermissions(roomCode: string): void {
           react: snap.val().react ?? true,
           sound: snap.val().sound ?? true,
           wheel: snap.val().wheel ?? true,
+          speakerRotate: snap.val().speakerRotate ?? true,
         }
-      : { poker: true, chat: true, react: true, sound: true, wheel: true };
+      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
     currentAutoUnlockEditable = snap.exists()
       ? (snap.val().autoUnlockEditable ?? true)
       : true;
@@ -441,10 +446,11 @@ export async function loadFeaturePermissions(
         react: val.react ?? true,
         sound: val.sound ?? true,
         wheel: val.wheel ?? true,
+        speakerRotate: val.speakerRotate ?? true,
       };
     }
   } catch (err) {
     console.error("[SuperAdmin] Error loading permissions:", err);
   }
-  return { poker: true, chat: true, react: true, sound: true, wheel: true };
+  return { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
 }

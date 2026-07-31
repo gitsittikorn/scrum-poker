@@ -17,6 +17,7 @@ export const statusText = votingStatus.querySelector(".status-text")!;
 export const btnReveal = $("btn-reveal") as HTMLButtonElement;
 export const btnReset = $("btn-reset") as HTMLButtonElement;
 export const btnDeleteRoom = $("btn-delete-room") as HTMLButtonElement;
+export const btnClearSpeakerCounts = $("btn-clear-speaker-counts") as HTMLButtonElement;
 export const participantCount = $("participant-count");
 export const colTeam = $("col-team");
 export const colDev = $("col-dev");
@@ -56,6 +57,7 @@ export const featureChat = $("feature-chat") as HTMLInputElement;
 export const featureReact = $("feature-react") as HTMLInputElement;
 export const featureSound = $("feature-sound") as HTMLInputElement;
 export const featureWheel = $("feature-wheel") as HTMLInputElement;
+export const featureSpeaker = $("feature-speaker") as HTMLInputElement;
 export const cleanupTimeInput = $("cleanup-time") as HTMLInputElement;
 
 // Admin room option & super admin panel
@@ -73,6 +75,7 @@ export const toggleLabelChat = $("toggle-label-chat");
 export const toggleLabelReact = $("toggle-label-react");
 export const toggleLabelSound = $("toggle-label-sound");
 export const toggleLabelWheel = $("toggle-label-wheel");
+export const toggleLabelSpeaker = $("toggle-label-speaker");
 
 // User settings
 export const muteOthersSound = $("mute-others-sound") as HTMLInputElement;

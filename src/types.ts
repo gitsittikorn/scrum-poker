@@ -23,6 +23,8 @@ export interface FeatureFlags {
   react: boolean;
   sound: boolean;
   wheel: boolean;
+  /** Speaker Rotate — ON: weighted random + โชว์ไมค์ count + ปุ่มล้าง. OFF: uniform random (ของเดิม) + ซ่อนหมด */
+  speakerRotate: boolean;
 }
 
 export interface RoomData {
@@ -35,6 +37,8 @@ export interface RoomData {
   users: Record<string, User>;
   /** Firebase field kept as "drinkers" for backward compat; conceptually = speakers who must explain */
   drinkers?: Record<string, boolean>;
+  /** นับจำนวนครั้งที่แต่ละ uid ถูกสุ่มให้พูด (round-robin) — mirror แบบ wheelHistory, แยก node ที่ rooms/{roomId}/speakerCounts */
+  speakerCounts?: Record<string, number>;
   /** Per-room feature flags — absent means all enabled */
   features?: FeatureFlags;
   /** UIDs of users kicked from this room — cleared on rejoin or room cleanup */
@@ -63,6 +67,8 @@ export interface FeaturePermissions {
   react: boolean;
   sound: boolean;
   wheel: boolean;
+  /** Speaker Rotate — super admin คุมได้ว่าจะให้ PO เปิด/ปิดฟีเจอร์นี้ได้ไหม */
+  speakerRotate: boolean;
 }
 
 export type Role = "team" | "dev" | "qa" | "ux";

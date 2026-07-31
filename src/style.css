@@ -797,6 +797,15 @@ body {
   text-overflow: ellipsis;
 }
 
+/* 🎤 (n) ตัวนับครั้งที่ถูกสุ่มให้พูด (ใต้ชื่อ) — ไม่โชว์เมื่อ count 0
+   note: emoji 🎤 ไม่รับ CSS color แต่ตัวเลข "(n)" รับ → เลยใส่สี accent ที่เลข */
+.speaker-mics {
+  font-size: 0.85rem;
+  line-height: 1;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
 .participant-vote {
   font-size: 0.85rem;
   color: var(--text-muted);
