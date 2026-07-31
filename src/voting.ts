@@ -15,7 +15,7 @@ import {
   participantCount,
 } from "./dom";
 import { DEFAULT_POKER_CARDS } from "./constants";
-import { AUTO_UNLOCK_SECONDS } from "./config";
+import { AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
 import { escapeHtml, hasConfiguredCards } from "./utils";
 import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
@@ -33,6 +33,11 @@ let customCardEnabled = false;
 /** Tracks the room's locked state so a live card re-render can re-apply `.disabled`
  *  without waiting for the next room-data tick. */
 let cardsLocked = false;
+
+/** Anti-streak decay for speaker rotation — mirror WHEEL_WEIGHT_DECAY (wheel.ts).
+ *  weight(uid) = DECAY^(speakerCounts[uid]) → คนที่เคยถูกสุ่มให้พูดจะมีโอกาสลดลง
+ *  ใช้ตอน FEATURES.speakerRotate เปิดอยู่ (ปิด = uniform random ของเดิม) */
+const SPEAKER_WEIGHT_DECAY = 0.7;
 
 /** ผลต่าง (ms) ระหว่างเวลา server กับ client — serverTime = Date.now() + offset
  *  ใช้ sync เวลาคำนวณ countdown แก้ clock skew (เช่นเครื่อง client ช้า/เร็วกว่าจริง) */
@@ -320,10 +325,11 @@ export async function handleKick(targetUid: string, targetName: string): Promise
 
 export async function handleReveal(): Promise<void> {
   if (!state.currentRoom || !isPO()) return;
-  const usersSnap = await get(ref(db, `rooms/${state.currentRoom}/users`));
-  if (!usersSnap.exists()) return;
-
-  const users = usersSnap.val() as Record<string, User>;
+  // อ่านทั้งห้องเพื่อเอา users + speakerCounts ใน round-trip เดียว
+  const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
+  if (!roomSnap.exists()) return;
+  const roomVal = roomSnap.val() as RoomData;
+  const users = roomVal.users || {};
   const userList = Object.entries(users);
 
   // Check if all non-PO users who haven't intentionally left have voted.
@@ -341,25 +347,42 @@ export async function handleReveal(): Promise<void> {
 
   // All voted — proceed with reveal
   const grouped = groupUsers(userList);
+  const prevCounts: Record<string, number> = FEATURES.speakerRotate
+    ? { ...(roomVal.speakerCounts ?? {}) }
+    : {};
+  const speakerSet = pickSpeakers(grouped, prevCounts);
   const speakers: Record<string, boolean> = {};
-  const speakerSet = pickSpeakers(grouped);
   speakerSet.forEach((uid) => {
     speakers[uid] = true;
   });
 
-  await update(ref(db, `rooms/${state.currentRoom}`), {
+  const updates: Record<string, unknown> = {
     revealed: true,
     locked: true,
     revealTime: serverTimestamp(), // เก็บเวลาตอน reveal เพื่อคำนวณ auto-unlock ที่เหลือ
     drinkers: speakers, // Firebase field kept as "drinkers" for backward compat
-  });
+  };
+
+  // เก็บ/อัปเดต count เฉพาะตอนเปิดฟีเจอร์ (ปิด = uniform random, ไม่ track count)
+  if (FEATURES.speakerRotate) {
+    const nextCounts = { ...prevCounts };
+    speakerSet.forEach((uid) => {
+      nextCounts[uid] = (nextCounts[uid] ?? 0) + 1;
+    });
+    updates.speakerCounts = nextCounts;
+  }
+
+  await update(ref(db, `rooms/${state.currentRoom}`), updates);
 }
 
 export async function handleReset(): Promise<void> {
   if (!state.currentRoom || !isPO()) return;
   cancelUnlockTimer();
 
-  const usersSnap = await get(ref(db, `rooms/${state.currentRoom}/users`));
+  const [usersSnap, countsSnap] = await Promise.all([
+    get(ref(db, `rooms/${state.currentRoom}/users`)),
+    get(ref(db, `rooms/${state.currentRoom}/speakerCounts`)),
+  ]);
   if (usersSnap.exists()) {
     const updates: Record<string, unknown> = {};
     const users = usersSnap.val() as Record<string, User>;
@@ -370,6 +393,15 @@ export async function handleReset(): Promise<void> {
     updates["locked"] = false;
     updates["revealTime"] = null;
     updates["drinkers"] = null; // Firebase field kept as "drinkers"
+    // เคลียร์ count เฉพาะตอน "รอบจบ" = ทุกคนที่โหวต (non-PO, non-left, เลข) เคยพูด ≥1 ครั้ง
+    // ถ้ายังไม่ครบ = reset เพื่อโหวตใหม่เรื่องเดิม → คง count ไว้ให้ anti-streak ทำงานต่อ
+    const counts: Record<string, number> = countsSnap.val() ?? {};
+    const allSpoken = Object.entries(users).every(([uid, u]) => {
+      if (u.role === "po" || u.left === true) return true;
+      if (isNaN(parseFloat(u.vote ?? ""))) return true;
+      return (counts[uid] ?? 0) >= 1;
+    });
+    if (allSpoken) updates["speakerCounts"] = null;
     await update(ref(db, `rooms/${state.currentRoom}`), updates);
   }
 
@@ -382,6 +414,14 @@ export async function handleReset(): Promise<void> {
     (el as HTMLInputElement).value = "";
   });
   showToast("Reset complete");
+}
+
+/** PO: ล้างตัวนับพูดทั้งห้อง (reset round) — ทุกคนกลับเป็น 0
+ *  ใช้ตอน PO อยากเริ่มรอบการหมุนเวียนผู้พูดใหม่ด้วยมือ */
+export async function handleClearSpeakerCounts(): Promise<void> {
+  if (!state.currentRoom || !isPO()) return;
+  await update(ref(db, `rooms/${state.currentRoom}`), { speakerCounts: null });
+  showToast("🎤 ล้างตัวนับพูดแล้ว (เริ่มรอบใหม่)");
 }
 
 // ===== Grouping & Speaker Picker =====
@@ -423,10 +463,31 @@ function groupUsers(userList: [string, User][]): GroupedUsers {
 }
 
 /** Randomly pick the min-voter and max-voter per role group — they must explain their estimate. */
-function pickSpeakers(grouped: GroupedUsers): Set<string> {
+/** Weighted pick — ถ่วงน้ำหนักสมาชิกใน pool: คนที่เคยถูกสุ่มให้พูด (count สูง) จะมีโอกาสลดลง
+ *  mirror wheel.ts pickWeightedIndex (DECAY^count + running-sum selection) */
+function pickSpeakers(
+  grouped: GroupedUsers,
+  counts: Record<string, number> = {},
+): Set<string> {
   const speakers = new Set<string>();
-  const pickOne = (pool: [string, User][]) =>
-    pool[Math.floor(Math.random() * pool.length)];
+  const pickOne = (pool: [string, User][]) => {
+    if (pool.length <= 1) return pool[0];
+    // ปิดฟีเจอร์ → uniform random (ของเดิม)
+    if (!FEATURES.speakerRotate) {
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+    // เปิดฟีเจอร์ → weighted random (0.7^count)
+    const weights = pool.map(([uid]) =>
+      Math.pow(SPEAKER_WEIGHT_DECAY, counts[uid] ?? 0),
+    );
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < pool.length; i++) {
+      r -= weights[i];
+      if (r < 0) return pool[i];
+    }
+    return pool[pool.length - 1]; // float rounding edge
+  };
   const processGroup = (list: [string, User][]) => {
     const voted = list.filter(([, u]) => u.vote != null);
     const nums = voted
@@ -515,6 +576,10 @@ export function updateUI(roomData: RoomData): void {
   const speakers = new Set<string>(
     roomData.drinkers ? Object.keys(roomData.drinkers) : []
   );
+  // speakerCounts = จำนวนครั้งที่แต่ละ uid ถูกสุ่มให้พูด (round-robin);
+  // {} เมื่อปิดโชว์ไมค์ → micText คืน "" ทั้งหมด (gate เดียวคุมทั้ง feature-off และ count 0)
+  const speakerCounts: Record<string, number> =
+    FEATURES.speakerRotate && roomData.speakerCounts ? roomData.speakerCounts : {};
   // Count everyone still in the room — online AND offline users count,
   // but kicked/intentionally-left users (left === true) are excluded to
   // match the rendered list (groupUsers filters them out above).
@@ -545,6 +610,12 @@ export function updateUI(roomData: RoomData): void {
       span.className = "participant-vote estimating-icon";
       span.textContent = "⏳ Estimating...";
     }
+  };
+
+  /** ข้อความไมค์ใต้ชื่อ: "" = ยังไม่พูด/ปิด feature, "🎤 (n)" = พูดแล้ว n ครั้ง */
+  const micText = (uid: string): string => {
+    const c = speakerCounts[uid] ?? 0;
+    return c >= 1 ? `🎤 (${c})` : "";
   };
 
   /** Build the kick button — opens the reusable confirm modal on click. */
@@ -596,6 +667,13 @@ export function updateUI(roomData: RoomData): void {
     statusDot.className = `participant-status ${isOnline ? "online" : "offline"}`;
 
     info.appendChild(nameEl);
+    const mics = micText(uid);
+    if (mics) {
+      const micRow = document.createElement("div");
+      micRow.className = "speaker-mics";
+      micRow.textContent = mics;
+      info.appendChild(micRow);
+    }
     info.appendChild(voteSpan);
     card.appendChild(avatar);
     card.appendChild(info);
@@ -673,6 +751,22 @@ export function updateUI(roomData: RoomData): void {
           }
         } else if (speakerLabel) {
           speakerLabel.remove();
+        }
+
+        // Sync speaker mic counter (🎤) ใต้ชื่อ — add/update/remove แบบ diff ไม่ recreate → ไม่กระพริบ
+        const micRow = existing.querySelector<HTMLElement>(".speaker-mics");
+        const targetMics = micText(uid);
+        if (targetMics) {
+          if (!micRow) {
+            const row = document.createElement("div");
+            row.className = "speaker-mics";
+            row.textContent = targetMics;
+            nameEl?.after(row); // วางใต้ชื่อ ก่อน voteSpan
+          } else if (micRow.textContent !== targetMics) {
+            micRow.textContent = targetMics;
+          }
+        } else if (micRow) {
+          micRow.remove(); // count 0 หรือปิด feature → ไม่โชว์
         }
 
         // Sync kick button: add/remove based on whether the current viewer is PO.
