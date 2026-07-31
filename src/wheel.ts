@@ -79,6 +79,10 @@ const WHEEL_COLORS = [
 const SPIN_DURATION_MS = 5000;
 const SPIN_TOTAL_ROTATIONS = 6;
 const EASE_OUT_CUBIC = (t: number) => 1 - Math.pow(1 - t, 3);
+// Anti-streak weighting: each past win (in shared wheelHistory) multiplies that
+// name's pick weight by this factor; everyone else's share rises on renormalize.
+// History is capped at WHEEL_HISTORY_LIMIT, so weights drift back to equal over time.
+const WHEEL_WEIGHT_DECAY = 0.7;
 
 // ── Firebase ───────────────────────────────────────────────────────
 /** Extract member names from a users snapshot, honoring the Include-PO toggle. */
@@ -452,6 +456,25 @@ function calculateWinnerIndex(rotation: number): number {
 let spinWinnerIndex = -1;
 let lastTickSegment = -1;
 
+/** Weight for one entry: DECAY^(times this name won, per shared history). */
+function entryWeight(name: string): number {
+  let wins = 0;
+  for (const h of historyEntries) if (h.name === name) wins++;
+  return Math.pow(WHEEL_WEIGHT_DECAY, wins);
+}
+
+/** Weighted random pick over wheelEntries — past winners are less likely. */
+function pickWeightedIndex(): number {
+  const weights = wheelEntries.map(entryWeight);
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < weights.length; i++) {
+    r -= weights[i];
+    if (r < 0) return i;
+  }
+  return wheelEntries.length - 1; // float rounding edge
+}
+
 function spin(): void {
   if (isSpinning) return;
 
@@ -465,7 +488,7 @@ function spin(): void {
 
   shuffleEntries(); // Always shuffle
 
-  spinWinnerIndex = Math.floor(Math.random() * wheelEntries.length);
+  spinWinnerIndex = pickWeightedIndex();
   const n = wheelEntries.length;
   const arcSize = (Math.PI * 2) / n;
   const TWO_PI = Math.PI * 2;
