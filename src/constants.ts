@@ -68,3 +68,11 @@ export const SOUNDS: SoundDef[] = [
   { file: "ไอ้สัส.mp3", label: "ไอ้สัส", emoji: "🤬" },
 ];
 
+/** Notification sounds — เล่น local เมื่อมีคนเข้า/ออกห้อง.
+ *  ไม่อยู่ใน SOUNDS list → ไม่โผล่ใน sound picker / keyboard shortcut / Firebase broadcast.
+ *  ทุก client ตรวจจับเองจาก onValue แล้วเล่น local (ไม่ส่งผ่าน rooms/sounds). */
+export const JOIN_SOUND_FILE = "in.mp3";
+export const LEAVE_SOUND_FILE = "out.mp3";
+/** ไฟล์เสียงที่ preload + decode เหมือน SOUNDS แต่ซ่อนจาก picker (ไม่มี emoji/label). */
+export const NOTIFICATION_SOUNDS: string[] = [JOIN_SOUND_FILE, LEAVE_SOUND_FILE];
+

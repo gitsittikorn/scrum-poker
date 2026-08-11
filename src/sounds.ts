@@ -10,7 +10,7 @@ import {
 } from "./firebase";
 import { state } from "./state";
 import { soundPickerBar, shortcutContent, shortcutEnabledToggle } from "./dom";
-import { SOUNDS, APP_VERSION } from "./constants";
+import { SOUNDS, APP_VERSION, NOTIFICATION_SOUNDS } from "./constants";
 import { SOUND_VOLUME, FEATURES } from "./config";
 import { animateFloatingEmoji } from "./reactions";
 
@@ -82,11 +82,16 @@ async function cleanOldSoundCaches(): Promise<void> {
   );
 }
 
-/** Preload + decode every sound on room join so the first play is instant and complete. */
+/** Preload + decode every sound on room join so the first play is instant and complete.
+ *  Includes NOTIFICATION_SOUNDS (in.mp3/out.mp3) so join/leave cues are instant too —
+ *  these never appear in the picker, but share the same buffer cache. */
 export async function preloadSounds(): Promise<void> {
   getAudioContext();
   cleanOldSoundCaches().catch(() => {});
-  await Promise.all(SOUNDS.map((s) => loadBuffer(s.file)));
+  await Promise.all([
+    ...SOUNDS.map((s) => loadBuffer(s.file)),
+    ...NOTIFICATION_SOUNDS.map((f) => loadBuffer(f)),
+  ]);
 }
 
 /** Render sound picker buttons */

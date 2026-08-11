@@ -27,7 +27,7 @@ import {
   updateSettingsPermissions,
 } from "./ui";
 import { escapeHtml } from "./utils";
-import { cancelUnlockTimer, updateUI } from "./voting";
+import { cancelUnlockTimer, resetPresenceTracking, updateUI } from "./voting";
 import { clearAllWheelCache, destroyWheel, initWheelManual, resetWheelRoomOnLeave } from "./wheel";
 
 let roomListenerRef: ReturnType<typeof ref> | null = null;
@@ -228,6 +228,7 @@ export async function joinRoom(
     initWheelRoom();
   }
 
+  resetPresenceTracking(); // Seed join/leave baseline for this room (no cue on first tick)
   listenRoom();
   if (!state.isSuperAdmin) listenPermissions(); // Admin room doesn't need PO permission listener
   initChat(); // isReinit = false → sets joinedAt
@@ -375,6 +376,7 @@ export function handleLeave(skipMessage = false): void {
     off(permissionsListenerRef);
     permissionsListenerRef = null;
   }
+  resetPresenceTracking(); // Clear join/leave baseline so rejoining seeds fresh
   localStorage.removeItem("scrum-poker-room");
   state.currentRoom = null;
   state.currentUser = null;
