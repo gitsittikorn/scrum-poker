@@ -18,11 +18,12 @@ import {
   colHeaderUx,
   participantCount,
 } from "./dom";
-import { DEFAULT_POKER_CARDS } from "./constants";
+import { DEFAULT_POKER_CARDS, JOIN_SOUND_FILE, LEAVE_SOUND_FILE } from "./constants";
 import { AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
 import { escapeHtml, hasConfiguredCards } from "./utils";
 import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
+import { playSound } from "./sounds";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
@@ -37,6 +38,12 @@ let customCardEnabled = false;
 /** Tracks the room's locked state so a live card re-render can re-apply `.disabled`
  *  without waiting for the next room-data tick. */
 let cardsLocked = false;
+
+/** Uids currently "in room" (record exists, not intentionally left) across updateUI
+ *  ticks — used to detect join/leave and play in.mp3/out.mp3.
+ *  null = no previous snapshot yet (initial load → seed without triggering, so we
+ *  don't blast "in" for everyone already present when joining). */
+let prevInRoomUids: Set<string> | null = null;
 
 /** Anti-streak decay for speaker rotation — mirror WHEEL_WEIGHT_DECAY (wheel.ts).
  *  weight(uid) = DECAY^(speakerCounts[uid]) → คนที่เคยถูกสุ่มให้พูดจะมีโอกาสลดลง
@@ -528,6 +535,54 @@ function pickSpeakers(
   return speakers;
 }
 
+/** Reset join/leave tracking — call on join/leave so the next updateUI seeds fresh
+ *  instead of comparing against the previous room's occupants. */
+export function resetPresenceTracking(): void {
+  prevInRoomUids = null;
+}
+
+/** Play local in.mp3/out.mp3 when ANOTHER user joins or intentionally leaves the room.
+ *  Each client detects independently from its onValue snapshot — no Firebase broadcast
+ *  (keeps these out of the sound board and avoids double-play).
+ *  - "in room" = record exists and `left !== true` (offline-but-present still counts)
+ *  - leave = uid transitions to `left: true` or is removed (Leave button / kick)
+ *  - gated by FEATURES.sound; never plays for the acting user (state.currentUid)
+ *  - one cue per tick so a simultaneous multi-user change isn't an audio pile-up */
+function detectJoinLeave(users: Record<string, User>): void {
+  if (!FEATURES.sound) {
+    prevInRoomUids = null;
+    return;
+  }
+
+  const currentUids = new Set<string>();
+  for (const [uid, u] of Object.entries(users)) {
+    if (u.left !== true) currentUids.add(uid);
+  }
+
+  // First snapshot after (re)join — seed baseline, no cue
+  if (prevInRoomUids === null) {
+    prevInRoomUids = currentUids;
+    return;
+  }
+
+  // Someone joined: present now, absent before
+  for (const uid of currentUids) {
+    if (!prevInRoomUids.has(uid) && uid !== state.currentUid) {
+      void playSound(JOIN_SOUND_FILE);
+      break;
+    }
+  }
+  // Someone left: present before, absent now
+  for (const uid of prevInRoomUids) {
+    if (!currentUids.has(uid) && uid !== state.currentUid) {
+      void playSound(LEAVE_SOUND_FILE);
+      break;
+    }
+  }
+
+  prevInRoomUids = currentUids;
+}
+
 // ===== UI Update =====
 export function updateUI(roomData: RoomData): void {
   const users = roomData.users || {};
@@ -535,6 +590,8 @@ export function updateUI(roomData: RoomData): void {
   const locked = roomData.locked || false;
   cardsLocked = locked;
   const userList = Object.entries(users);
+
+  detectJoinLeave(users);
 
   const adminVisible = isPO() ? "" : "none";
   btnReveal.style.display = adminVisible;
