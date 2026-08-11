@@ -562,6 +562,34 @@ function onSpinComplete(): void {
   showWinnerModal(winner);
 }
 
+// ── Remove-winner decision (แบบ B — คงช่องสุดท้ายในห้อง poker) ──────────
+/** ตัดสินใจว่าจะลบผู้ถูกสุ่มออกจากกงล้อจริงไหมตอนปิด modal:
+ *  - removeWinner ปิด → ไม่ลบ (ทุกห้อง)
+ *  - ห้อง wheel → ลบตาม toggle (logic เดิม ลบจนหมดได้)
+ *  - ห้อง poker → คงช่องสุดท้ายไว้เสมอ ลบเฉพาะเมื่อ winner มี > 1 entry ในกงล้อ */
+function shouldRemoveWinner(winner: string): boolean {
+  if (!removeWinner) return false;
+  if (state.isWheelRoom) return true;
+  return wheelEntries.filter((e) => e === winner).length > 1;
+}
+
+/** Wording ใน modal — สอดคล้องกับสิ่งที่จะเกิดขึ้นจริงใน shouldRemoveWinner()
+ *  ห้อง poker แสดงจำนวนช่องที่จะเหลือด้วย ถ้ายังลบได้ */
+function winnerNoteText(winner: string): string {
+  if (!removeWinner) {
+    return "🔓 โหมดลบผู้ถูกสุ่มปิดอยู่ — กดปิดแล้วยังคงชื่อนี้ไว้ในกงล้อ";
+  }
+  if (state.isWheelRoom) {
+    return "🔒 โหมดลบผู้ถูกสุ่มเปิดอยู่ — กดปิดแล้วจะนำชื่อนี้ออกจากกงล้อ";
+  }
+  // ห้อง poker — บอกจำนวนช่องที่จะเหลือของชื่อนี้
+  const remain = wheelEntries.filter((e) => e === winner).length - 1;
+  if (remain >= 1) {
+    return `🔒 กดปิดแล้วจะนำชื่อนี้ออก 1 ช่อง (เหลืออีก ${remain} ช่อง)`;
+  }
+  return "🔒 ช่องสุดท้ายของชื่อนี้แล้ว — กดปิดแล้วคงชื่อนี้ไว้ในกงล้อ";
+}
+
 // ── Winner Modal ───────────────────────────────────────────────────
 /** แสดง modal รายชื่อผู้ถูกสุ่ม — ปิด modal แล้วลบ/ไม่ลบผู้ถูกสุ่มตาม toggle removeWinner */
 function showWinnerModal(winner: string): void {
@@ -590,9 +618,7 @@ function showWinnerModal(winner: string): void {
 
   const note = document.createElement("div");
   note.className = "wheel-winner-note";
-  note.textContent = removeWinner
-    ? "🔒 โหมดลบผู้ถูกสุ่มเปิดอยู่ — กดปิดแล้วจะนำชื่อนี้ออกจากกงล้อ"
-    : "🔓 โหมดลบผู้ถูกสุ่มปิดอยู่ — กดปิดแล้วยังคงชื่อนี้ไว้ในกงล้อ";
+  note.textContent = winnerNoteText(winner);
   body.appendChild(note);
 
   const actions = document.createElement("div");
@@ -627,12 +653,13 @@ function showWinnerModal(winner: string): void {
   closeBtn.focus();
 }
 
-/** ปิด modal ผู้ถูกสุ่ม — ถ้า removeWinner จะลบผู้ชนะออกจากกงล้อ */
+/** ปิด modal ผู้ถูกสุ่ม — ลบผู้ชนะออกจากกงล้อตาม shouldRemoveWinner()
+ *  (ห้อง poker คงช่องสุดท้ายไว้เสมอ) */
 function closeWinnerModal(): void {
   if (!winnerModalEl) return;
 
-  // toggle on → remove winner from wheel (ทำตอนปิด modal ตามที่ผู้ใช้ต้องการ)
-  if (removeWinner && selectedWinner) {
+  // toggle on + เงื่อนไขคงช่องสุดท้าย → remove winner from wheel
+  if (selectedWinner && shouldRemoveWinner(selectedWinner)) {
     const idx = wheelEntries.indexOf(selectedWinner);
     if (idx !== -1) {
       wheelEntries.splice(idx, 1);
