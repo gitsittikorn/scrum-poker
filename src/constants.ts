@@ -21,7 +21,7 @@ export const DEFAULT_POKER_CARDS: CardDef[] = [
 
 export const SUPER_ADMIN_NAME = "admin889";
 
-export const APP_VERSION = "2026-07-03-v6";
+export const APP_VERSION = "2026-08-11-v1";
 
 export const EMOJIS = [
   "😀", "😂", "🤣", "😊", "😅", "😎", "🤔", "😏", "🙄", "🥳", "🤩", "😤",
