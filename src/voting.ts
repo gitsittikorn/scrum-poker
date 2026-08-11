@@ -12,6 +12,10 @@ import {
   colDev,
   colQa,
   colUx,
+  colHeaderPo,
+  colHeaderDev,
+  colHeaderQa,
+  colHeaderUx,
   participantCount,
 } from "./dom";
 import { DEFAULT_POKER_CARDS } from "./constants";
@@ -462,6 +466,20 @@ function groupUsers(userList: [string, User][]): GroupedUsers {
   return grouped;
 }
 
+/** Wording สรุปความเห็นของ role หลัง reveal — แสดงในหัวคอลัมน์ role:
+ *  "" = ยังไม่มีใครโหวต · "รับจบ สวยๆ" = มีคนโหวตคนเดียว ·
+ *  "จิตใจตรงกัน" = ทุกคนให้คะแนนเท่ากัน · "คุยกันหน่อย" = โหวตต่างกัน */
+function calcConsensus(list: [string, User][]): string {
+  const nums = list
+    .filter(([, u]) => u.vote != null)
+    .map(([, u]) => parseFloat(u.vote!))
+    .filter((n) => !isNaN(n));
+  if (nums.length === 0) return "";
+  if (nums.length === 1) return "รับจบ สวยๆ";
+  if (nums.every((v) => v === nums[0])) return "จิตใจตรงกัน";
+  return "คุยกันหน่อย";
+}
+
 /** Randomly pick the min-voter and max-voter per role group — they must explain their estimate. */
 /** Weighted pick — ถ่วงน้ำหนักสมาชิกใน pool: คนที่เคยถูกสุ่มให้พูด (count สูง) จะมีโอกาสลดลง
  *  mirror wheel.ts pickWeightedIndex (DECAY^count + running-sum selection) */
@@ -742,6 +760,7 @@ export function updateUI(roomData: RoomData): void {
             label.className =
               "speaker-label" + (locked ? " speaker-pulse" : "");
             label.textContent = "📢 พูดเลยลูก";
+            // ขวา หน้า status dot (กึ่งกลางแนวตั้ง เพราะ card align center)
             existing.insertBefore(
               label,
               existing.querySelector(".participant-status")
@@ -766,7 +785,7 @@ export function updateUI(roomData: RoomData): void {
             micRow.textContent = targetMics;
           }
         } else if (micRow) {
-          micRow.remove(); // count 0 หรือปิด feature → ไม่โชว์
+          micRow.remove();
         }
 
         // Sync kick button: add/remove based on whether the current viewer is PO.
@@ -818,7 +837,21 @@ export function updateUI(roomData: RoomData): void {
     ? ""
     : "none";
 
-  // (section ค่าเฉลี่ยถูกลบออกแล้ว — เหลือแค่การ์ดผู้เข้าร่วม + speaker picker)
+  // Role-consensus wording ที่หัวคอลัมน์ — หลัง reveal เท่านั้น (ดู calcConsensus)
+  // ก่อน reveal / หลัง reset → เหลือแค่ชื่อ role เดิม
+  // (icon role อยู่ที่ avatar ในการ์ด — หัวคอลัมน์มีแค่ชื่อ role + wording หลัง reveal)
+  const setColHeader = (el: HTMLElement, label: string, wording: string) => {
+    if (revealed && wording) {
+      const html = `${label} <span class="consensus-wording">${wording}</span>`;
+      if (el.innerHTML !== html) el.innerHTML = html;
+    } else {
+      if (el.textContent !== label) el.textContent = label;
+    }
+  };
+  setColHeader(colHeaderPo, "PO", calcConsensus(grouped.team));
+  setColHeader(colHeaderDev, "Dev", calcConsensus(grouped.dev));
+  setColHeader(colHeaderQa, "QA", calcConsensus(grouped.qa));
+  setColHeader(colHeaderUx, "UX/UI", calcConsensus(grouped.ux));
 }
 
 function addRevoteButton(): void {

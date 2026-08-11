@@ -23,6 +23,11 @@ export const colTeam = $("col-team");
 export const colDev = $("col-dev");
 export const colQa = $("col-qa");
 export const colUx = $("col-ux");
+// หัวคอลัมน์ role (มี wording ความเห็นตรงกัน/ไม่ตรงกันต่อท้ายหลัง reveal)
+export const colHeaderPo = document.querySelector<HTMLElement>(".col-header.po")!;
+export const colHeaderDev = document.querySelector<HTMLElement>(".col-header.dev")!;
+export const colHeaderQa = document.querySelector<HTMLElement>(".col-header.qa")!;
+export const colHeaderUx = document.querySelector<HTMLElement>(".col-header.ux")!;
 export const toastEl = $("toast");
 export const btnSettings = $("btn-settings") as HTMLButtonElement;
 export const settingsModal = $("settings-modal") as HTMLElement;

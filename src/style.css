@@ -732,6 +732,12 @@ body {
   border: 1px solid rgba(236, 72, 153, 0.3);
 }
 
+/* Wording ความเห็นตรงกัน/ไม่ตรงกันที่ต่อท้ายชื่อ role หลัง reveal —
+   ปิด letter-spacing (ทำลายการแสดงผลสระ/วรรณยุกต์ไทย) */
+.col-header .consensus-wording {
+  letter-spacing: normal;
+}
+
 .col-list {
   display: flex;
   flex-direction: column;
