@@ -12,6 +12,10 @@ import {
   settingsModal,
   btnReveal,
   btnReset,
+  btnSaveClickup,
+  btnClickupResolve,
+  btnClickupClear,
+  clickupUrlInput,
   btnDeleteRoom,
   btnClearSpeakerCounts,
   btnBarChat,
@@ -53,6 +57,7 @@ import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, inser
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
 import { toggleSoundPicker, renderSoundPicker, handleSoundPickerOutsideClick, triggerSound, registerSoundShortcuts, renderSoundShortcutSlots, startKeyCapture, cancelKeyCapture, setShortcutSound, setShortcutsEnabled, clearShortcut } from "./sounds";
 import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
+import { handleResolveClickUp, handleClearClickUpTask, handleSaveToClickUp } from "./clickup";
 import { state } from "./state";
 import { FEATURES } from "./config";
 import { SUPER_ADMIN_NAME, DEFAULT_POKER_CARDS } from "./constants";
@@ -208,6 +213,12 @@ function bindEvents(): void {
 
   btnReveal.addEventListener("click", handleReveal);
   btnReset.addEventListener("click", handleReset);
+  btnClickupResolve.addEventListener("click", handleResolveClickUp);
+  btnClickupClear.addEventListener("click", handleClearClickUpTask);
+  btnSaveClickup.addEventListener("click", handleSaveToClickUp);
+  clickupUrlInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleResolveClickUp();
+  });
   btnDeleteRoom.addEventListener("click", () => {
     showWarningModal({
       title: "ล้างห้องนี้?",

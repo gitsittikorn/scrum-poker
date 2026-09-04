@@ -8,6 +8,7 @@ import {
   statusText,
   btnReveal,
   btnReset,
+  btnSaveClickup,
   colTeam,
   colDev,
   colQa,
@@ -20,10 +21,11 @@ import {
 } from "./dom";
 import { DEFAULT_POKER_CARDS, JOIN_SOUND_FILE, LEAVE_SOUND_FILE } from "./constants";
 import { AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
-import { escapeHtml, hasConfiguredCards } from "./utils";
+import { avgFor, escapeHtml, hasConfiguredCards } from "./utils";
 import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
 import { playSound } from "./sounds";
+import { renderTaskBanner } from "./clickup";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
@@ -598,6 +600,23 @@ export function updateUI(roomData: RoomData): void {
   btnReset.style.display = adminVisible;
   const btnDeleteRoom = document.getElementById("btn-delete-room") as HTMLButtonElement;
   if (btnDeleteRoom) btnDeleteRoom.style.display = adminVisible;
+
+  // ClickUp task banner (ทุกคน) + ปุ่มบันทึกคะแนน (PO เท่านั้น — หลัง reveal และมี task ปัจจุบัน)
+  renderTaskBanner(roomData.activeTask ?? null);
+  const showSaveBtn =
+    isPO() && FEATURES.clickup && revealed && Boolean(roomData.activeTask);
+  btnSaveClickup.style.display = showSaveBtn ? "" : "none";
+  if (showSaveBtn) {
+    const notLeft = userList.filter(([, u]) => !u.left);
+    const devAvg = avgFor(notLeft.filter(([, u]) => u.role === "dev"));
+    const qaAvg = avgFor(notLeft.filter(([, u]) => u.role === "qa"));
+    const parts: string[] = [];
+    if (devAvg !== null) parts.push(`Dev ${devAvg}`);
+    if (qaAvg !== null) parts.push(`QA ${qaAvg}`);
+    btnSaveClickup.textContent = parts.length
+      ? `💾 บันทึก ClickUp (${parts.join(" · ")})`
+      : "💾 บันทึก ClickUp";
+  }
 
   if (locked && revealed) {
     statusDot.className = "status-dot locked";

@@ -42,6 +42,7 @@ let prevFeatures: FeatureFlags = {
   sound: true,
   wheel: true,
   speakerRotate: true,
+  clickup: true,
 };
 
 export function checkUrlRoom(): void {
@@ -192,6 +193,7 @@ export async function joinRoom(
     sound: true,
     wheel: true,
     speakerRotate: true,
+    clickup: true,
   };
 
   showPage("room");
@@ -435,8 +437,9 @@ export function listenRoom(): void {
           sound: data.features.sound ?? true,
           wheel: data.features.wheel ?? true,
           speakerRotate: data.features.speakerRotate ?? true,
+          clickup: data.features.clickup ?? true,
         }
-      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
+      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true, clickup: true };
 
     const featuresChanged =
       prevFeatures.poker !== newFeatures.poker ||
@@ -444,7 +447,8 @@ export function listenRoom(): void {
       prevFeatures.react !== newFeatures.react ||
       prevFeatures.sound !== newFeatures.sound ||
       prevFeatures.wheel !== newFeatures.wheel ||
-      prevFeatures.speakerRotate !== newFeatures.speakerRotate;
+      prevFeatures.speakerRotate !== newFeatures.speakerRotate ||
+      prevFeatures.clickup !== newFeatures.clickup;
 
     // Only re-init listeners when chat/react/sound flags changed (not poker/wheel)
     const listenersChanged =
@@ -459,6 +463,7 @@ export function listenRoom(): void {
       FEATURES.sound = newFeatures.sound;
       FEATURES.wheel = newFeatures.wheel;
       FEATURES.speakerRotate = newFeatures.speakerRotate;
+      FEATURES.clickup = newFeatures.clickup;
       prevFeatures = { ...newFeatures };
       // Re-init chat/react/sound listeners only when those flags changed
       // isReinit = true → shows all messages (joinedAt = 0)
@@ -493,8 +498,9 @@ function listenPermissions(): void {
           sound: snap.val().sound ?? true,
           wheel: snap.val().wheel ?? true,
           speakerRotate: snap.val().speakerRotate ?? true,
+          clickup: snap.val().clickup ?? true,
         }
-      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
+      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true, clickup: true };
     const autoUnlockEditable = snap.exists()
       ? (snap.val().autoUnlockEditable ?? true)
       : true;
@@ -524,6 +530,7 @@ async function cleanupIfRoomEmpty(roomCode: string): Promise<void> {
         "kicked",
         "wheelHistory",
         "speakerCounts",
+        "activeTask",
       ].forEach((key) => {
         updates[key] = null;
       });

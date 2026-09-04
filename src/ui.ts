@@ -16,6 +16,7 @@ import {
   featureSound,
   featureWheel,
   featureSpeaker,
+  featureClickup,
   cleanupTimeInput,
   btnBarChat,
   btnBarReact,
@@ -30,6 +31,7 @@ import {
   toggleLabelSound,
   toggleLabelWheel,
   toggleLabelSpeaker,
+  toggleLabelClickup,
 } from "./dom";
 import { TOAST_DURATION_MS, AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
 import { DEFAULT_POKER_CARDS } from "./constants";
@@ -114,6 +116,7 @@ export function updateSettingsPermissions(permissions: FeaturePermissions, autoU
   applyPermissionToToggle(featureSound, toggleLabelSound, permissions.sound);
   applyPermissionToToggle(featureWheel, toggleLabelWheel, permissions.wheel);
   applyPermissionToToggle(featureSpeaker, toggleLabelSpeaker, permissions.speakerRotate);
+  applyPermissionToToggle(featureClickup, toggleLabelClickup, permissions.clickup);
   // Auto-unlock input: disable if super admin locked it
   if (autoUnlockEditable !== undefined) {
     settingsInput.disabled = !autoUnlockEditable;
@@ -134,6 +137,7 @@ export function updateSettingsFeatureState(features: FeatureFlags, autoUnlockSec
   featureSound.checked = features.sound;
   featureWheel.checked = features.wheel;
   featureSpeaker.checked = features.speakerRotate;
+  featureClickup.checked = features.clickup;
   // Update auto-unlock input if value provided — but NOT while the modal is open,
   // because PO may be editing it (openSettings loads the value on open already).
   // Without this guard, every room tick overwrites the in-progress edit → "didn't save".
@@ -281,6 +285,7 @@ export async function openSettings(): Promise<void> {
         featureSound.checked = f.sound ?? true;
         featureWheel.checked = f.wheel ?? true;
         featureSpeaker.checked = f.speakerRotate ?? true;
+        featureClickup.checked = f.clickup ?? true;
       } else {
         featurePoker.checked = true;
         featureChat.checked = true;
@@ -288,6 +293,7 @@ export async function openSettings(): Promise<void> {
         featureSound.checked = true;
         featureWheel.checked = true;
         featureSpeaker.checked = true;
+        featureClickup.checked = true;
       }
       applyPermissionToToggle(featurePoker, toggleLabelPoker, permissions.poker);
       applyPermissionToToggle(featureChat, toggleLabelChat, permissions.chat);
@@ -295,6 +301,7 @@ export async function openSettings(): Promise<void> {
       applyPermissionToToggle(featureSound, toggleLabelSound, permissions.sound);
       applyPermissionToToggle(featureWheel, toggleLabelWheel, permissions.wheel);
       applyPermissionToToggle(featureSpeaker, toggleLabelSpeaker, permissions.speakerRotate);
+      applyPermissionToToggle(featureClickup, toggleLabelClickup, permissions.clickup);
       cleanupTimeInput.value = cleanupSnap.exists() ? cleanupSnap.val() : "19:00";
     }
   } finally {
@@ -336,6 +343,7 @@ export async function saveSettings(): Promise<void> {
     if (!featureSound.disabled) features.sound = featureSound.checked;
     if (!featureWheel.disabled) features.wheel = featureWheel.checked;
     if (!featureSpeaker.disabled) features.speakerRotate = featureSpeaker.checked;
+    if (!featureClickup.disabled) features.clickup = featureClickup.checked;
     if (Object.keys(features).length > 0) {
       updates["features"] = features;
     }

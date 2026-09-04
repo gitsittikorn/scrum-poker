@@ -1,0 +1,20 @@
+{
+  "name": "scrum-poker-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Thin ClickUp proxy for Scrum Poker — resolves task URLs and writes DEV/QA point averages",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.62.1"
+  }
+}

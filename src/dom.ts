@@ -16,6 +16,7 @@ export const statusDot = votingStatus.querySelector(".status-dot")!;
 export const statusText = votingStatus.querySelector(".status-text")!;
 export const btnReveal = $("btn-reveal") as HTMLButtonElement;
 export const btnReset = $("btn-reset") as HTMLButtonElement;
+export const btnSaveClickup = $("btn-save-clickup") as HTMLButtonElement;
 export const btnDeleteRoom = $("btn-delete-room") as HTMLButtonElement;
 export const btnClearSpeakerCounts = $("btn-clear-speaker-counts") as HTMLButtonElement;
 export const participantCount = $("participant-count");
@@ -55,6 +56,15 @@ export const reactPickerBar = $("react-picker-bar");
 export const btnBarSound = $("btn-bar-sound") as HTMLButtonElement;
 export const soundPickerBar = $("sound-picker-bar");
 
+// ClickUp task banner
+export const clickupBanner = $("clickup-banner");
+export const clickupInputRow = $("clickup-input-row");
+export const clickupUrlInput = $("clickup-url-input") as HTMLInputElement;
+export const btnClickupResolve = $("btn-clickup-resolve") as HTMLButtonElement;
+export const btnClickupClear = $("btn-clickup-clear") as HTMLButtonElement;
+export const clickupTaskDisplay = $("clickup-task-display") as HTMLAnchorElement;
+export const clickupTaskName = $("clickup-task-name");
+
 // Admin settings
 export const adminSettings = $("admin-settings");
 export const featurePoker = $("feature-poker") as HTMLInputElement;
@@ -63,6 +73,7 @@ export const featureReact = $("feature-react") as HTMLInputElement;
 export const featureSound = $("feature-sound") as HTMLInputElement;
 export const featureWheel = $("feature-wheel") as HTMLInputElement;
 export const featureSpeaker = $("feature-speaker") as HTMLInputElement;
+export const featureClickup = $("feature-clickup") as HTMLInputElement;
 export const cleanupTimeInput = $("cleanup-time") as HTMLInputElement;
 
 // Admin room option & super admin panel
@@ -84,6 +95,7 @@ export const toggleLabelReact = $("toggle-label-react");
 export const toggleLabelSound = $("toggle-label-sound");
 export const toggleLabelWheel = $("toggle-label-wheel");
 export const toggleLabelSpeaker = $("toggle-label-speaker");
+export const toggleLabelClickup = $("toggle-label-clickup");
 
 // User settings
 export const muteOthersSound = $("mute-others-sound") as HTMLInputElement;

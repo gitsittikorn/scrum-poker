@@ -4,6 +4,17 @@ export function escapeHtml(str: string): string {
   return div.innerHTML;
 }
 
+/** Average of numeric votes in a participant group, rounded to 2 decimals.
+ *  Returns null when nobody in the group voted a number (nothing to save). */
+export function avgFor(list: [string, { vote: string | null }][]): number | null {
+  const nums = list
+    .filter(([, u]) => u.vote != null)
+    .map(([, u]) => parseFloat(u.vote!))
+    .filter((n) => !isNaN(n));
+  if (nums.length === 0) return null;
+  return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 100) / 100;
+}
+
 export function formatChatTime(ts: number | null): string {
   if (!ts) return "";
   const d = new Date(ts);

@@ -25,6 +25,8 @@ export interface FeatureFlags {
   wheel: boolean;
   /** Speaker Rotate — ON: weighted random + โชว์ไมค์ count + ปุ่มล้าง. OFF: uniform random (ของเดิม) + ซ่อนหมด */
   speakerRotate: boolean;
+  /** ClickUp banner — PO วางลิงก์ task บนหัวห้อง + ปุ่มบันทึกเฉลี่ย Dev/QA ลงการ์ด */
+  clickup: boolean;
 }
 
 export interface RoomData {
@@ -43,6 +45,18 @@ export interface RoomData {
   features?: FeatureFlags;
   /** UIDs of users kicked from this room — cleared on rejoin or room cleanup */
   kicked?: Record<string, boolean>;
+  /** ClickUp task ที่ PO เลือกไว้ตอนนี้ — null = ยังไม่เลือก (real-time ทุกคนเห็น) */
+  activeTask?: ActiveTask | null;
+}
+
+export interface ActiveTask {
+  taskId: string;
+  name: string;
+  url: string;
+  customId?: string | null;
+  /** ชื่อคนที่ตั้ง task (ปกติคือ PO) */
+  setBy: string;
+  timestamp: number;
 }
 
 export interface CurrentUser {
@@ -69,6 +83,8 @@ export interface FeaturePermissions {
   wheel: boolean;
   /** Speaker Rotate — super admin คุมได้ว่าจะให้ PO เปิด/ปิดฟีเจอร์นี้ได้ไหม */
   speakerRotate: boolean;
+  /** ClickUp — super admin คุมได้ว่าจะให้ PO เปิด/ปิดฟีเจอร์นี้ได้ไหม */
+  clickup: boolean;
 }
 
 export type Role = "team" | "dev" | "qa" | "ux";
