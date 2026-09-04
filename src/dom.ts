@@ -74,6 +74,9 @@ export const superAdminPermissions = $("super-admin-permissions");
 export const superAdminRoomName = $("super-admin-room-name");
 export const superAdminToggles = $("super-admin-toggles");
 
+// QA Tool page (?qa=1 standalone or admin-room QA tab)
+export const qaToolPage = $("qa-tool-page");
+
 // Admin-only badges on feature toggles
 export const toggleLabelPoker = $("toggle-label-poker");
 export const toggleLabelChat = $("toggle-label-chat");

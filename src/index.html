@@ -100,6 +100,56 @@
         </div>
       </div>
 
+      <!-- QA Tool page — via ?qa=1 (standalone, no login) or the QA Tool tab in the admin room -->
+      <div id="qa-tool-page" class="qa-tool-page hidden">
+        <div class="qa-tool-header">
+          <span class="super-admin-title">🧪 QA Tool</span>
+          <a id="qa-back-link" class="qa-back-link hidden" href="./">← กลับหน้าหลัก</a>
+        </div>
+        <div class="qa-tool-card">
+          <!-- Row 1: AES-256-CBC (HEX) for moment -->
+          <div class="qa-tool-row">
+            <div class="qa-tool-title">เข้ารหัส Order Tracking [order ID] - moment</div>
+            <div class="qa-tool-line">
+              <textarea id="qa-input-moment" class="super-admin-qa-textarea" rows="2" placeholder="Order tracking number (ได้หลายบรรทัด — ทำทีละบรรทัด)"></textarea>
+              <textarea id="qa-output-moment" class="super-admin-qa-textarea" rows="2" readonly placeholder="ผลลัพธ์ (HEX)"></textarea>
+            </div>
+            <div class="qa-tool-actions">
+              <button id="btn-qa-encrypt-moment" class="btn btn-primary">🔒 เข้ารหัสข้อมูล</button>
+              <button id="btn-qa-copy-moment" class="btn btn-secondary">📋 คัดลอกข้อมูล</button>
+            </div>
+          </div>
+
+          <!-- Row 2: Base64 encode for nmw (order ID / sale ID) -->
+          <div class="qa-tool-row">
+            <div class="qa-tool-title">เข้ารหัส Order Tracking [order ID , Sale ID] to Base64 - nmw</div>
+            <div class="qa-tool-line">
+              <textarea id="qa-input-nmw-encode" class="super-admin-qa-textarea" rows="2" placeholder="Order ID หรือ Sale ID (ได้หลายบรรทัด — ทำทีละบรรทัด)"></textarea>
+              <textarea id="qa-output-nmw-encode" class="super-admin-qa-textarea" rows="2" readonly placeholder="ผลลัพธ์ (Base64)"></textarea>
+            </div>
+            <div class="qa-tool-actions">
+              <button id="btn-qa-encode-nmw" class="btn btn-primary">🔒 เข้ารหัสข้อมูล</button>
+              <button id="btn-qa-copy-nmw-encode" class="btn btn-secondary">📋 คัดลอกข้อมูล</button>
+            </div>
+          </div>
+
+          <!-- Row 3: Base64 decode for nmw (order ID / sale ID) -->
+          <div class="qa-tool-row">
+            <div class="qa-tool-title">ถอดรหัส Base64 to Order Tracking [order ID , Sale ID] - nmw</div>
+            <div class="qa-tool-line">
+              <textarea id="qa-input-nmw-decode" class="super-admin-qa-textarea" rows="2" placeholder="Base64 (ได้หลายบรรทัด — ทำทีละบรรทัด)"></textarea>
+              <textarea id="qa-output-nmw-decode" class="super-admin-qa-textarea" rows="2" readonly placeholder="ผลลัพธ์ (Order ID / Sale ID)"></textarea>
+            </div>
+            <div class="qa-tool-actions">
+              <button id="btn-qa-decode-nmw" class="btn btn-primary">🔓 ถอดรหัสข้อมูล</button>
+              <button id="btn-qa-copy-nmw-decode" class="btn btn-secondary">📋 คัดลอกข้อมูล</button>
+            </div>
+          </div>
+
+          <small class="form-hint">moment: AES-256-CBC (HEX) ใช้ ENCRYPTO_KEY/ENCRYPTO_IV จาก .env · nmw: Base64 เข้ารหัส / ถอดรหัส</small>
+        </div>
+      </div>
+
       <main class="room-content">
         <!-- Voting Status -->
         <div id="voting-status" class="voting-status">

@@ -1078,6 +1078,106 @@ body {
   border-color: var(--accent);
 }
 
+/* ===== QA Tool page (?qa=1 standalone or admin-room QA tab) ===== */
+/* Page container — mirrors the super admin panel placement */
+.qa-tool-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 20px 0;
+}
+/* Wider layout while tool rows are shown — rows are long horizontal lines */
+.qa-tool-page.qa-wide,
+.super-admin-panel.qa-wide {
+  max-width: 960px;
+}
+/* Standalone (?qa=1) — own page, wide by default */
+.qa-tool-page.qa-standalone {
+  max-width: 960px;
+  min-height: 100vh;
+  padding: 32px 20px;
+  animation: fadeIn 0.4s ease;
+}
+.qa-tool-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.qa-back-link {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+.qa-back-link:hover {
+  text-decoration: underline;
+}
+.qa-tool-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.qa-tool-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qa-tool-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+/* Input → output textareas on one line */
+.qa-tool-line {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.qa-tool-line .super-admin-qa-textarea {
+  flex: 1 1 0;
+  min-width: 0;
+}
+/* Encrypt + copy buttons together on their own line below (encrypt first) */
+.qa-tool-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.super-admin-qa-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-family: monospace;
+  line-height: 1.5;
+  resize: vertical;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--transition);
+}
+.super-admin-qa-textarea:focus {
+  border-color: var(--accent);
+}
+.super-admin-qa-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+@media (max-width: 720px) {
+  .qa-tool-line {
+    flex-direction: column;
+  }
+  .qa-tool-actions .btn {
+    flex: 1 1 0;
+  }
+}
+
 /* ===== Admin Only Badge ===== */
 .admin-only-badge {
   display: inline-flex;
