@@ -6,9 +6,11 @@ import {
   superAdminPermissions,
   superAdminRoomName,
   superAdminToggles,
+  qaToolPage,
 } from "./dom";
 import { showToast } from "./ui";
 import { AUTO_UNLOCK_SECONDS } from "./config";
+import { restoreQaToolHome } from "./qaTool";
 
 /** Rooms that super admin can manage */
 const MANAGED_ROOMS = [
@@ -49,6 +51,8 @@ const FEATURE_ICONS: Record<keyof FeaturePermissions, string> = {
 };
 
 let selectedRoom: string | null = null;
+/** Sentinel room code for the QA Tool tab (data conversion page, not a real room) */
+const QA_TOOL_TAB = "__qa-tool__";
 let permissionsListenerRef: ReturnType<typeof ref> | null = null;
 let featuresListenerRef: ReturnType<typeof ref> | null = null;
 let autoUnlockListenerRef: ReturnType<typeof ref> | null = null;
@@ -74,6 +78,7 @@ function scheduleRender(): void {
 export function initSuperAdminPanel(): void {
   superAdminPanel.classList.remove("hidden");
   renderRoomTabs();
+  restoreQaToolHome(); // QA tool page back in its home spot (in case of standalone mode)
   // Default to first room
   if (MANAGED_ROOMS.length > 0) {
     selectRoom(MANAGED_ROOMS[0].code);
@@ -83,7 +88,10 @@ export function initSuperAdminPanel(): void {
 /** Destroy super admin panel — called when leaving admin room */
 export function destroySuperAdminPanel(): void {
   superAdminPanel.classList.add("hidden");
+  superAdminPanel.classList.remove("qa-wide");
   superAdminPermissions.classList.add("hidden");
+  qaToolPage.classList.add("hidden");
+  qaToolPage.classList.remove("qa-wide");
   superAdminRoomTabs.innerHTML = "";
   superAdminToggles.innerHTML = "";
   selectedRoom = null;
@@ -112,6 +120,39 @@ function renderRoomTabs(): void {
     btn.addEventListener("click", () => selectRoom(room.code));
     superAdminRoomTabs.appendChild(btn);
   }
+  // QA Tool tab — data conversion page
+  const qaBtn = document.createElement("button");
+  qaBtn.className = "super-admin-room-tab";
+  qaBtn.textContent = "🧪 QA Tool";
+  qaBtn.dataset.room = QA_TOOL_TAB;
+  qaBtn.addEventListener("click", () => selectQaTool());
+  superAdminRoomTabs.appendChild(qaBtn);
+}
+
+/** Show the QA Tool page — hides room permissions and detaches room listeners */
+function selectQaTool(): void {
+  selectedRoom = null;
+  if (permissionsListenerRef) {
+    off(permissionsListenerRef);
+    permissionsListenerRef = null;
+  }
+  if (featuresListenerRef) {
+    off(featuresListenerRef);
+    featuresListenerRef = null;
+  }
+  if (autoUnlockListenerRef) {
+    off(autoUnlockListenerRef);
+    autoUnlockListenerRef = null;
+  }
+  superAdminRoomTabs.querySelectorAll(".super-admin-room-tab").forEach((btn) => {
+    const el = btn as HTMLButtonElement;
+    el.classList.toggle("active", el.dataset.room === QA_TOOL_TAB);
+  });
+  superAdminPermissions.classList.add("hidden");
+  qaToolPage.classList.remove("hidden");
+  // Widen panel + tool page for the long tool rows
+  superAdminPanel.classList.add("qa-wide");
+  qaToolPage.classList.add("qa-wide");
 }
 
 /** Select a room and load its permissions */
@@ -126,6 +167,9 @@ function selectRoom(roomCode: string): void {
   const room = MANAGED_ROOMS.find((r) => r.code === roomCode);
   superAdminRoomName.textContent = room ? room.label : roomCode;
   superAdminPermissions.classList.remove("hidden");
+  qaToolPage.classList.add("hidden");
+  superAdminPanel.classList.remove("qa-wide");
+  qaToolPage.classList.remove("qa-wide");
   // Listen for both feature state and permissions
   listenFeatureState(roomCode);
   listenPermissions(roomCode);

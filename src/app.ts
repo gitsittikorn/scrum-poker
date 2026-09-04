@@ -56,8 +56,17 @@ import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset
 import { state } from "./state";
 import { FEATURES } from "./config";
 import { SUPER_ADMIN_NAME, DEFAULT_POKER_CARDS } from "./constants";
+import { initQaTool, initQaStandalone, isQaStandaloneUrl } from "./qaTool";
 
 function init(): void {
+  // Standalone QA Tool page (?qa=1) — no login, no Firebase, no room join.
+  // All other entry points keep the original auth/room logic untouched.
+  if (isQaStandaloneUrl()) {
+    loadTheme();
+    initQaTool();
+    initQaStandalone();
+    return;
+  }
   checkVersion();
   loadUsername();
   loadTheme();
@@ -71,6 +80,7 @@ function init(): void {
     initPokerCardsListener();
   }
   if (FEATURES.sound) renderSoundPicker();
+  initQaTool(); // bind QA tool buttons once (shown via the admin-room QA tab)
   bindEvents();
   applyFeatureFlags();
   registerSoundShortcuts();
