@@ -25,7 +25,7 @@ import { escapeHtml, hasConfiguredCards, rangeFor, unanimousFor } from "./utils"
 import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
 import { playSound } from "./sounds";
-import { renderTaskBanner, isSaveInFlight } from "./clickup";
+import { renderTaskBanner, isSaveInFlight, onSaveStateChange } from "./clickup";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
@@ -254,7 +254,16 @@ function applyCardSelection(): void {
  * listener above. Registered once in init() (global config — not per-room).
  * Absent/empty snapshot falls back to DEFAULT_POKER_CARDS.
  */
+/** ถอด event บันทึก ClickUp รอบก่อน (กัน stacking ถ้า init ถูกเรียกซ้ำ) */
+let unsubSaveState: (() => void) | null = null;
+
 export function initPokerCardsListener(): void {
+  // ปุ่มบันทึก ClickUp ต้องเปลี่ยนเป็น "…กำลังบันทึก"/กลับค่าเดิม ทันทีที่กด/จบ
+  // ไม่ต้องรอ room tick — ระหว่างบันทึกห้องอาจนิ่ง onValue ไม่ยิง ปุ่มจะดูค้าง
+  unsubSaveState?.();
+  unsubSaveState = onSaveStateChange(() => {
+    if (lastRoomData) renderSaveButton(lastRoomData);
+  });
   onValue(ref(db, "settings/pokerCards"), (snap) => {
     const val = snap.val();
     // Use stored cards only if at least one slot has a point; otherwise (absent
@@ -586,6 +595,63 @@ function detectJoinLeave(users: Record<string, User>): void {
 }
 
 // ===== UI Update =====
+/** roomData ล่าสุดจาก room tick — ใช้ re-render ปุ่มบันทึกตอนได้ event เริ่ม/จบบันทึก
+ *  จาก clickup.ts (ช่วงนั้นอาจไม่มี room tick ใหม่ ปุ่มจะค้างถ้าไม่มีข้อมูลไว้ render) */
+let lastRoomData: RoomData | null = null;
+
+/** ปุ่มบันทึก ClickUp (PO เท่านั้น — หลัง reveal และมี task ปัจจุบัน)
+ *  แยกจาก updateUI เพื่อเรียกซ้ำได้ทันทีเมื่อสถานะบันทึกเปลี่ยน (onSaveStateChange) */
+function renderSaveButton(roomData: RoomData): void {
+  const showSaveBtn =
+    isPO() &&
+    FEATURES.clickup &&
+    state.currentRoom !== ADMIN_ROOM &&
+    (roomData.revealed || false) &&
+    Boolean(roomData.activeTask);
+  btnSaveClickup.style.display = showSaveBtn ? "" : "none";
+  if (!showSaveBtn) return;
+  if (isSaveInFlight()) {
+    // กำลังบันทึกอยู่ (updateUI ทับ label ทุก tick — ต้องเช็คก่อน logic label ปกติ)
+    btnSaveClickup.disabled = true;
+    btnSaveClickup.textContent = "…กำลังบันทึก";
+    return;
+  }
+  const groomMode = roomData.groomMode ?? "groom";
+  const notLeft = Object.entries(roomData.users ?? {}).filter(([, u]) => !u.left);
+  const devList = notLeft.filter(([, u]) => u.role === "dev");
+  const qaList = notLeft.filter(([, u]) => u.role === "qa");
+  const parts: string[] = [];
+  if (groomMode === "pre") {
+    // Pre-Groom: label แสดงช่วง min-max ที่จะคอมเม้นลงการ์ด
+    const dev = rangeFor(devList);
+    const qa = rangeFor(qaList);
+    if (dev !== null) parts.push(`Dev ${dev}`);
+    if (qa !== null) parts.push(`QA ${qa}`);
+    btnSaveClickup.textContent = parts.length
+      ? `💾 บันทึก Pre-Groom (${parts.join(" · ")})`
+      : "💾 บันทึก Pre-Groom";
+    btnSaveClickup.disabled = false;
+  } else {
+    // Groom: ค่าเดียวเมื่อทุกคนใน role โหวตเท่ากัน · ✗ = role นั้นยังไม่ตรงกัน
+    const dev = unanimousFor(devList);
+    const qa = unanimousFor(qaList);
+    if (dev !== null) parts.push(`Dev ${dev}`);
+    else if (devList.length > 0) parts.push("Dev ✗");
+    if (qa !== null) parts.push(`QA ${qa}`);
+    else if (qaList.length > 0) parts.push("QA ✗");
+    btnSaveClickup.textContent = parts.length
+      ? `💾 บันทึก ClickUp (${parts.join(" · ")})`
+      : "💾 บันทึก ClickUp";
+    // ปุ่มกดไม่ได้จนกว่าทุก role ที่มีสมาชิกจะโหวตเท่ากันครบ (และมีค่าให้บันทึกอย่างน้อย 1 role)
+    const devReady = devList.length === 0 || dev !== null;
+    const qaReady = qaList.length === 0 || qa !== null;
+    btnSaveClickup.disabled = !(devReady && qaReady && (dev !== null || qa !== null));
+  }
+  btnSaveClickup.title = btnSaveClickup.disabled
+    ? "รอให้ทุก role โหวตได้ค่าเดียวกันก่อน"
+    : "";
+}
+
 export function updateUI(roomData: RoomData): void {
   const users = roomData.users || {};
   const revealed = roomData.revealed || false;
@@ -602,54 +668,9 @@ export function updateUI(roomData: RoomData): void {
   if (btnDeleteRoom) btnDeleteRoom.style.display = adminVisible;
 
   // ClickUp task banner (ทุกคน) + ปุ่มบันทึกคะแนน (PO เท่านั้น — หลัง reveal และมี task ปัจจุบัน)
-  const groomMode = roomData.groomMode ?? "groom";
-  renderTaskBanner(roomData.activeTask ?? null, groomMode);
-  const showSaveBtn =
-    isPO() &&
-    FEATURES.clickup &&
-    state.currentRoom !== ADMIN_ROOM &&
-    revealed &&
-    Boolean(roomData.activeTask);
-  btnSaveClickup.style.display = showSaveBtn ? "" : "none";
-  if (showSaveBtn && isSaveInFlight()) {
-    // กำลังบันทึกอยู่ (updateUI ทับ label ทุก tick — ต้องเช็คก่อน logic label ปกติ)
-    btnSaveClickup.disabled = true;
-    btnSaveClickup.textContent = "…กำลังบันทึก";
-  } else if (showSaveBtn) {
-    const notLeft = userList.filter(([, u]) => !u.left);
-    const devList = notLeft.filter(([, u]) => u.role === "dev");
-    const qaList = notLeft.filter(([, u]) => u.role === "qa");
-    const parts: string[] = [];
-    if (groomMode === "pre") {
-      // Pre-Groom: label แสดงช่วง min-max ที่จะคอมเม้นลงการ์ด
-      const dev = rangeFor(devList);
-      const qa = rangeFor(qaList);
-      if (dev !== null) parts.push(`Dev ${dev}`);
-      if (qa !== null) parts.push(`QA ${qa}`);
-      btnSaveClickup.textContent = parts.length
-        ? `💾 บันทึก Pre-Groom (${parts.join(" · ")})`
-        : "💾 บันทึก Pre-Groom";
-      btnSaveClickup.disabled = false;
-    } else {
-      // Groom: ค่าเดียวเมื่อทุกคนใน role โหวตเท่ากัน · ✗ = role นั้นยังไม่ตรงกัน
-      const dev = unanimousFor(devList);
-      const qa = unanimousFor(qaList);
-      if (dev !== null) parts.push(`Dev ${dev}`);
-      else if (devList.length > 0) parts.push("Dev ✗");
-      if (qa !== null) parts.push(`QA ${qa}`);
-      else if (qaList.length > 0) parts.push("QA ✗");
-      btnSaveClickup.textContent = parts.length
-        ? `💾 บันทึก ClickUp (${parts.join(" · ")})`
-        : "💾 บันทึก ClickUp";
-      // ปุ่มกดไม่ได้จนกว่าทุก role ที่มีสมาชิกจะโหวตเท่ากันครบ (และมีค่าให้บันทึกอย่างน้อย 1 role)
-      const devReady = devList.length === 0 || dev !== null;
-      const qaReady = qaList.length === 0 || qa !== null;
-      btnSaveClickup.disabled = !(devReady && qaReady && (dev !== null || qa !== null));
-    }
-    btnSaveClickup.title = btnSaveClickup.disabled
-      ? "รอให้ทุก role โหวตได้ค่าเดียวกันก่อน"
-      : "";
-  }
+  lastRoomData = roomData;
+  renderTaskBanner(roomData.activeTask ?? null, roomData.groomMode ?? "groom");
+  renderSaveButton(roomData);
 
   // แถบสถานะ default คือแสดง — ซ่อนเฉพาะกรณี "โหวตแล้ว" ใน branch ล่าง
   votingStatus.style.display = "";
