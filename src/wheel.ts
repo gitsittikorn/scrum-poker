@@ -19,21 +19,7 @@ import { sendSound, playSound } from "./sounds";
 import { spawnFirework, showToast } from "./ui";
 import { escapeHtml } from "./utils";
 import type { User } from "./types";
-
-// ── Default entries for Wheel room ────────────────────────────────
-const WHEEL_ROOM_DEFAULTS = [
-  "Big", "May", "Cing", "Tein", "Toon", "Pun", "Por", "Meaw",
-  "Max", "Nuji", "Prince", "Yam", "Run", "Toey", "Flouk", "Pou",
-  "Puy", "A", "Pond", "Nub", "Char", "Poom",
-];
-
-const WHEEL_TEAMS: Record<string, string[]> = {
-  "Kitsune": ["Big", "May", "Tein", "Toon", "Pun", "Por", "Toey"],
-  "Phoenix": ["Run", "Flouk", "Pou", "Puy", "A", "Pond", "Nub", "Char"],
-  "Monkey King": ["Cing", "Meaw", "Max", "Prince", "Nuji", "Yam", "Poom"],
-  "All": [...WHEEL_ROOM_DEFAULTS],
-  "Team": ["UX/UI", "Kitsune", "Phoenix", "Monkey King", "RISA"],
-};
+import { getWheelTeamNames, whenMembersReady } from "./members";
 
 // ── State ──────────────────────────────────────────────────────────
 let originalMembers: string[] = [];
@@ -174,7 +160,8 @@ function restoreWheelState(): boolean {
   wheelEntries = [...saved.entries];
   duplicateCount = saved.duplicate;
   originalMembers = [...new Set(saved.entries)];
-  currentTeam = saved.team ?? "All";
+  // ทีมเก่าก่อนเปลี่ยนระบบ (Kitsune/Phoenix/…) → กลับไป All
+  currentTeam = saved.team && isValidWheelTeam(saved.team) ? saved.team : "All";
   return true;
 }
 
@@ -769,10 +756,11 @@ function editEntry(index: number, newName: string): void {
 async function restartEntries(): Promise<void> {
   if (state.isWheelRoom) {
     const teamSelect = document.getElementById("wheel-team-select") as HTMLSelectElement;
-    const team = teamSelect?.value || "All";
-    currentTeam = team;
-    originalMembers = [...(WHEEL_TEAMS[team] || WHEEL_ROOM_DEFAULTS)];
-    memberFingerprint = null; // Wheel room has no Firebase members to fingerprint
+    currentTeam = teamSelect?.value || "All";
+    // Wheel room ดึงชื่อจริงจาก member list แยกตาม role (ไม่ใช่ลิสต์ hardcode แล้ว)
+    const members = getWheelTeamNames(currentTeam);
+    originalMembers = [...members];
+    memberFingerprint = fingerprintOf(members); // fingerprint ได้เพราะ members มาจาก Firebase
   } else {
     originalMembers = await fetchMembers();
     memberFingerprint = fingerprintOf(originalMembers);
@@ -907,8 +895,9 @@ function setupEventDelegation(): void {
     const team = teamSelect.value;
     currentTeam = team;
     if (state.isWheelRoom) clearHistory(); // เปลี่ยนทีม → ล้างประวัติเสมอ (Wheel room เท่านั้น)
-    const members = WHEEL_TEAMS[team] || WHEEL_ROOM_DEFAULTS;
+    const members = getWheelTeamNames(team); // ชื่อจริงจาก member list ตาม role
     originalMembers = [...members];
+    memberFingerprint = fingerprintOf(members);
     duplicateCount = 1;
     wheelDuplicateSelect.value = "1";
     selectedWinner = null;
@@ -1032,13 +1021,9 @@ async function initWheel(): Promise<void> {
   startMemberListener(); // poker rooms only — live-refresh on rename/join/leave (Bug 1)
 }
 
-/** Initialize wheel for standalone Wheel room — manual entries only, no Firebase fetch */
+/** Initialize wheel for standalone Wheel room — entries จาก member list (super admin tab Member)
+ *  แยกตาม role ที่เลือกใน dropdown (เดิมเป็นลิสต์ hardcode ในโค้ด) */
 export function initWheelManual(): void {
-  if (!restoreWheelState()) {
-    originalMembers = [...WHEEL_ROOM_DEFAULTS];
-    duplicateCount = 1;
-    rebuildWheelEntries();
-  }
   wheelDuplicateSelect.value = String(duplicateCount);
   removeWinner = true;
   wheelRemoveWinnerToggle.checked = true;
@@ -1052,7 +1037,7 @@ export function initWheelManual(): void {
   drawWheel(0);
   renderMemberList();
   setupEventDelegation();
-  // Hide "Include PO" toggle — no Firebase members in Wheel room
+  // Hide "Include PO" toggle — Wheel room ไม่ได้ดึงรายชื่อจาก users ในห้อง
   const includePoToggle = document.getElementById("wheel-include-po");
   if (includePoToggle) {
     const label = includePoToggle.closest(".toggle-label");
@@ -1062,9 +1047,40 @@ export function initWheelManual(): void {
   const teamGroup = document.getElementById("wheel-team-group");
   if (teamGroup) teamGroup.style.display = "";
   const teamSelect = document.getElementById("wheel-team-select") as HTMLSelectElement;
-  if (teamSelect) teamSelect.value = currentTeam; // restored by restoreWheelState() (or "All")
   startHistoryListener();
   renderHistory();
+
+  // สร้าง entries หลัง member list พร้อม (snapshot แรกจาก Firebase) — กันแข่งกับ listener
+  void (async () => {
+    await whenMembersReady();
+    if (!hasInitialized) return; // ออกจากห้อง (destroyWheel) ไปก่อน snapshot มา — ไม่ต้องวาดแล้ว
+    const saved = loadWheelState();
+    // ทีมที่ save ไว้เป็นค่าเก่า (Kitsune/Phoenix/…) ก่อนเปลี่ยนระบบ → กลับไป All
+    currentTeam = saved?.team && isValidWheelTeam(saved.team) ? saved.team : "All";
+    if (teamSelect) teamSelect.value = currentTeam;
+    const fresh = getWheelTeamNames(currentTeam);
+    memberFingerprint = fingerprintOf(fresh);
+    if (saved && saved.entries.length > 0 && saved.memberFingerprint === memberFingerprint) {
+      // Member set ไม่เปลี่ยน → คง entries ที่ customize ไว้ (เพิ่ม/ลบเอง)
+      restoreWheelState();
+      wheelDuplicateSelect.value = String(duplicateCount);
+      if (teamSelect) teamSelect.value = currentTeam;
+    } else {
+      // ครั้งแรก หรือ admin เพิ่ม/ลบ/แก้ชื่อ → เริ่มจาก member list ล่าสุด
+      originalMembers = fresh;
+      duplicateCount = saved?.duplicate ?? 1;
+      wheelDuplicateSelect.value = String(duplicateCount);
+      rebuildWheelEntries();
+      saveWheelState();
+    }
+    drawWheel(0);
+    renderMemberList();
+  })();
+}
+
+/** Team dropdown ของห้อง Wheel — All + 4 roles + ทีม Monkey King (ค่าอื่น = ของเก่า) */
+function isValidWheelTeam(team: string): boolean {
+  return team === "All" || team === "po" || team === "dev" || team === "qa" || team === "ux" || team === "mk";
 }
 
 // Export control functions for app.ts to bind

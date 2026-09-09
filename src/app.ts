@@ -2,6 +2,8 @@ import {
   usernameInput,
   roomSelect,
   roleSelect,
+  realnameGroup,
+  realnameSelect,
   btnJoinRoom,
   btnLeave,
   btnToggleTheme,
@@ -63,8 +65,34 @@ import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset
 import { handleResolveClickUp, handleClearClickUpTask, handleSaveToClickUp, handleSetGroomMode, openTaskHistory } from "./clickup";
 import { state } from "./state";
 import { FEATURES } from "./config";
-import { SUPER_ADMIN_NAME, DEFAULT_POKER_CARDS } from "./constants";
+import { SUPER_ADMIN_NAME, DEFAULT_POKER_CARDS, REAL_NAME_ROOMS } from "./constants";
 import { initQaTool, initQaStandalone, isQaStandaloneUrl } from "./qaTool";
+import { initMembersListener, onMembersChanged, getMemberNamesByRole } from "./members";
+import type { MemberRole } from "./types";
+
+/** เติม dropdown "ชื่อสำหรับระบุตัวตนใน ClickUp" ตาม role ที่เลือก
+ *  โชว์เฉพาะห้องที่ต้องใช้ชื่อจริง (Kitsune/Phoenix/UXUI/Cold/ColdJiab) และ role ≠ admin —
+ *  TQM1/TQM2/Wheel/admin ไม่เห็นช่องนี้เลย (ลิสต์ชื่อกรองตาม role ที่เลือก)
+ *  เรียกตอนเปลี่ยนห้อง/เปลี่ยน role และตอน member list อัปเดตจาก Firebase */
+function refreshRealNameOptions(): void {
+  if (!REAL_NAME_ROOMS.includes(roomSelect.value) || roleSelect.value === "admin") {
+    realnameGroup.style.display = "none";
+    return;
+  }
+  realnameGroup.style.display = "";
+  const names = getMemberNamesByRole(roleSelect.value as MemberRole);
+  const prev = realnameSelect.value;
+  const saved = localStorage.getItem("scrum-poker-realname") ?? "";
+  realnameSelect.innerHTML = "";
+  realnameSelect.add(
+    new Option(names.length === 0 ? "-- ยังไม่มีชื่อใน role นี้ --" : "-- เลือกชื่อ --", ""),
+  );
+  for (const n of names) realnameSelect.add(new Option(n, n));
+  // คงการเลือกไว้: ตอน member sync ใหม่ (ไม่เคลียร์ที่ผู้ใช้เลือกไว้)
+  // fallback ที่เคย save ไว้ตอน join รอบก่อน (เช่น refresh กลางเซสชัน)
+  if (names.includes(prev)) realnameSelect.value = prev;
+  else if (names.includes(saved)) realnameSelect.value = saved;
+}
 
 function init(): void {
   // Standalone QA Tool page (?qa=1) — no login, no Firebase, no room join.
@@ -78,6 +106,9 @@ function init(): void {
   checkVersion();
   loadUsername();
   loadTheme();
+  // Member list (ชื่อจริง) — ฟังจาก Firebase แล้วเติม dropdown หน้าแรกตาม role
+  initMembersListener();
+  onMembersChanged(refreshRealNameOptions);
   // Show admin room/role options if saved username is super admin
   if (usernameInput.value.trim() === SUPER_ADMIN_NAME) {
     adminRoomOption.style.display = "";
@@ -93,6 +124,7 @@ function init(): void {
   applyFeatureFlags();
   registerSoundShortcuts();
   checkUrlRoom();
+  refreshRealNameOptions(); // หลัง checkUrlRoom เพราะ ?room= กำหนดห้องให้ก่อนว่าจะโชว์ช่องชื่อจริงไหม
   btnJoinRoom.disabled = true;
   btnJoinRoom.textContent = "กำลังเชื่อมต่อ...";
   initAuth().then(() => {
@@ -107,6 +139,9 @@ function init(): void {
 
 function bindEvents(): void {
   btnJoinRoom.addEventListener("click", handleJoinRoom);
+  // เลือกห้อง/role ก่อน → โชว์+กรอง dropdown ชื่อจริงตามที่เลือก
+  roomSelect.addEventListener("change", refreshRealNameOptions);
+  roleSelect.addEventListener("change", refreshRealNameOptions);
   btnLeave.addEventListener("click", () => {
     showConfirmModal({
       title: "ออกจากห้อง?",
@@ -428,6 +463,7 @@ function bindEvents(): void {
     }
     if (!isAdmin && roleSelect.value === "admin") {
       roleSelect.value = "po";
+      refreshRealNameOptions(); // role ถูกรีเซ็ตแบบเขียนค่าตรงๆ — ไม่ fire change event
     }
   });
 

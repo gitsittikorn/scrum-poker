@@ -5,6 +5,8 @@ export const roomPage = $("room-page");
 export const usernameInput = $("username-input") as HTMLInputElement;
 export const roleSelect = $("role-select") as HTMLSelectElement;
 export const roomSelect = $("room-select") as HTMLSelectElement;
+export const realnameGroup = $("realname-group");
+export const realnameSelect = $("realname-select") as HTMLSelectElement;
 export const btnJoinRoom = $("btn-join-room") as HTMLButtonElement;
 export const btnLeave = $("btn-leave") as HTMLButtonElement;
 export const btnToggleTheme = $("btn-toggle-theme") as HTMLButtonElement;
@@ -95,6 +97,10 @@ export const superAdminToggles = $("super-admin-toggles");
 
 // QA Tool page (?qa=1 standalone or admin-room QA tab)
 export const qaToolPage = $("qa-tool-page");
+
+// Super admin tab Member — จัดการรายชื่อสมาชิกถาวร
+export const memberManagePage = $("member-manage-page");
+export const memberColumns = $("member-columns");
 
 // Admin-only badges on feature toggles
 export const toggleLabelPoker = $("toggle-label-poker");

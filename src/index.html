@@ -25,19 +25,8 @@
 
         <div class="landing-form">
           <div class="form-group">
-            <label for="username-input">ชื่อของคุณ</label>
-            <input type="text" id="username-input" placeholder="ใส่ชื่อที่ต้องการแสดง..." maxlength="20" autocomplete="off">
-          </div>
-
-          <div class="form-group">
-            <label for="role-select">Role</label>
-            <select id="role-select">
-              <option value="po">📋 PO</option>
-              <option value="dev">👨‍💻 Dev</option>
-              <option value="qa">🐛 QA</option>
-              <option value="ux">🎨 UX/UI</option>
-              <option id="admin-role-option" value="admin" style="display:none">🛡️ Admin</option>
-            </select>
+            <label for="username-input">ชื่อในวงการ</label>
+            <input type="text" id="username-input" placeholder="ใส่ชื่อเล่นที่ต้องการแสดงในห้อง..." maxlength="20" autocomplete="off">
           </div>
 
           <div class="form-group">
@@ -54,6 +43,25 @@
               <option value="Wheel">🎡 Wheel</option>
               <option id="admin-room-option" value="admin" style="display:none">🛡️ Admin</option>
             </select>
+          </div>
+
+          <div class="form-group">
+            <label for="role-select">Role</label>
+            <select id="role-select">
+              <option value="po">📋 PO</option>
+              <option value="dev">👨‍💻 Dev</option>
+              <option value="qa">🐛 QA</option>
+              <option value="ux">🎨 UX/UI</option>
+              <option id="admin-role-option" value="admin" style="display:none">🛡️ Admin</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="realname-group" style="display:none">
+            <label for="realname-select">ชื่อสำหรับระบุตัวตนใน ClickUp</label>
+            <select id="realname-select">
+              <option value="">-- เลือกชื่อ --</option>
+            </select>
+            <small class="form-hint">ถ้าไม่มีชื่อของคุณในลิสต์ แจ้ง admin เพิ่มก่อน</small>
           </div>
 
           <button id="btn-join-room" class="btn btn-primary" style="width:100%">เข้าร่วมห้อง</button>
@@ -137,6 +145,14 @@
       </div>
 
       <!-- QA Tool page — via ?qa=1 (standalone, no login) or the QA Tool tab in the admin room -->
+      <div id="member-manage-page" class="member-manage-page hidden">
+        <div class="super-admin-header">
+          <span class="super-admin-title">👥 Member</span>
+          <span class="super-admin-subtitle">รายชื่อสำหรับระบุตัวตนใน ClickUp + ห้อง Wheel — ข้อมูลถาวร ไม่หายเวลาเคลียร์ข้อมูลทั้งหมด</span>
+        </div>
+        <div id="member-columns" class="member-columns"></div>
+      </div>
+
       <div id="qa-tool-page" class="qa-tool-page hidden">
         <div class="qa-tool-header">
           <span class="super-admin-title">🧪 QA Tool</span>
@@ -262,10 +278,11 @@
               ทีม:
               <select id="wheel-team-select" class="wheel-select">
                 <option value="All" selected>👥 All</option>
-                <option value="Kitsune">🦊 Kitsune</option>
-                <option value="Phoenix">🔥 Phoenix</option>
-                <option value="Monkey King">🐵 Monkey King</option>
-                <option value="Team">🏢 Team</option>
+                <option value="po">📋 PO</option>
+                <option value="dev">👨‍💻 Dev</option>
+                <option value="qa">🐛 QA</option>
+                <option value="ux">🎨 UX/UI</option>
+                <option value="mk">🐵 Monkey King</option>
               </select>
             </label>
             <label class="wheel-option-label">

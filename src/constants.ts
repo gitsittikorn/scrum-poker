@@ -1,4 +1,4 @@
-import type { CardDef } from "./types";
+import type { CardDef, MemberRole } from "./types";
 
 /** Default poker-card grid — the 2×5 layout (10 slots) used when super admin has
  *  not yet configured custom cards (stored remotely at `settings/pokerCards`).
@@ -24,7 +24,22 @@ export const SUPER_ADMIN_NAME = "admin889";
 /** ห้อง super admin console (ไม่ใช่ห้อง poker) — ไม่แสดงฟีเจอร์ ClickUp */
 export const ADMIN_ROOM = "admin";
 
-export const APP_VERSION = "2026-09-09-v1";
+/** Bump = เคลียร์ localStorage room → ทุกคนกลับไปหน้าแรกกรอกใหม่ (รอบนี้บังคับเลือก realName) */
+export const APP_VERSION = "2026-09-09-v2";
+
+/** ห้องที่บังคับเลือก "ชื่อสำหรับระบุตัวตนใน ClickUp" ตอน join
+ *  (Wheel/TQM1/TQM2/admin ใช้ฟอร์มเดิม — ไม่ต้องเลือก) */
+export const REAL_NAME_ROOMS = ["Kitsune", "Phoenix", "UXUI", "Cold", "ColdJiab"];
+
+/** ลำดับคอลัมน์ใน super admin tab Member (PO ก่อนตาม req) — "mk" คือทีม Monkey King
+ *  สำหรับ grouping ในห้อง Wheel เท่านั้น ไม่ใช่ role สำหรับ join/ClickUp */
+export const MEMBER_ROLES: { code: MemberRole; label: string }[] = [
+  { code: "po", label: "📋 PO" },
+  { code: "dev", label: "👨‍💻 Dev" },
+  { code: "qa", label: "🐛 QA" },
+  { code: "ux", label: "🎨 UX/UI" },
+  { code: "mk", label: "🐵 Monkey King" },
+];
 
 export const EMOJIS = [
   "😀", "😂", "🤣", "😊", "😅", "😎", "🤔", "😏", "🙄", "🥳", "🤩", "😤",

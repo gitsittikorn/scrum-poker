@@ -7,6 +7,9 @@ export interface CardDef {
 
 export interface User {
   name: string;
+  /** ชื่อจริงที่เลือกจาก member list (super admin tab Member) — ใช้ใน ClickUp + ห้อง Wheel
+   *  null = ห้องที่ไม่บังคับ (Wheel/TQM) หรือข้อมูลเก่า → fallback เป็น name */
+  realName?: string | null;
   role: string;
   vote: string | null;
   online: boolean;
@@ -92,6 +95,19 @@ export interface ActiveTask {
 export interface CurrentUser {
   uid: string;
   name: string;
+  /** ชื่อจริงจาก member list — เขียนลง users/{uid}.realName ตอน join */
+  realName?: string | null;
+}
+
+/** รายชื่อสมาชิกถาวร (super admin tab Member) — เก็บที่ members/{pushId}
+ *  อยู่นอก rooms/ → ไม่โดนลบตอนเคลียร์ข้อมูลทั้งหมด / scheduled cleanup
+ *  "mk" = ทีม Monkey King — ไม่ใช่ role จริง ใช้เฉพาะ grouping ในห้อง Wheel
+ *  (คนหนึ่งคนอยู่ได้ทั้งคอลัมน์ role และคอลัมน์ Monkey King) */
+export type MemberRole = "po" | "dev" | "qa" | "ux" | "mk";
+
+export interface Member {
+  name: string;
+  role: MemberRole;
 }
 
 export interface ChatMessage {
