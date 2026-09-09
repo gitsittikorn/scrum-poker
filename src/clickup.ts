@@ -95,14 +95,15 @@ const ATTENDEE_ROLES: { keys: string[]; label: string }[] = [
  *  PO ที่เป็นคนกดบันทึก (savedByUid) จะมี "(owner)" ต่อท้ายชื่อ */
 function buildGroomingComment(
   mode: GroomMode,
-  revealTime: number | null | undefined,
   dev: string | null,
   qa: string | null,
   attendees: [string, User][],
   savedByUid: string | null
 ): string {
   const header = mode === "pre" ? "Pre-Grooming" : "Grooming";
-  const lines = [`${header} : ${formatDateTime(revealTime ?? Date.now())}`];
+  // เวลาตอนกดบันทึก — เดิมใช้ revealTime ทำให้ย้อนหลังเท่ากับที่ reveal ค้างไว้
+  // (reveal ไว้นาน แล้วมาบันทึกทีหลัง เวลาเลยดูเหมือน timezone ช้าไปหลายชั่วโมง)
+  const lines = [`${header} : ${formatDateTime(Date.now())}`];
   if (dev !== null) lines.push(`Dev: ${dev}`);
   if (qa !== null) lines.push(`QA: ${qa}`);
   lines.push("", "Attendees");
@@ -532,7 +533,7 @@ async function doSaveToClickUp(): Promise<void> {
     try {
       await api("/api/clickup/post-comment", {
         taskId: task.taskId,
-        comment: buildGroomingComment(mode, data.revealTime, dev, qa, entries, state.currentUser?.uid ?? null),
+        comment: buildGroomingComment(mode, dev, qa, entries, state.currentUser?.uid ?? null),
       });
       const parts = [dev !== null && `Dev ${dev}`, qa !== null && `QA ${qa}`]
         .filter(Boolean)
@@ -586,7 +587,6 @@ async function doSaveToClickUp(): Promise<void> {
         qa,
         comment: buildGroomingComment(
           mode,
-          data.revealTime,
           dev !== null ? fmt(dev) : null,
           qa !== null ? fmt(qa) : null,
           entries,
