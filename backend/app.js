@@ -11,7 +11,7 @@ const {
   PORT = 3000,
   CORS_ORIGIN = "http://localhost:5173",
   CLICKUP_API_TOKEN,
-  CLICKUP_DEV_POINT_FIELD_NAME = "Dev Point Estimation (Orginal)",
+  CLICKUP_DEV_POINT_FIELD_NAME = "Dev Point Estimation (Original)",
   CLICKUP_QA_POINT_FIELD_NAME = "QA Point Estimation",
 } = process.env;
 
