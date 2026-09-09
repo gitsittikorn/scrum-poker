@@ -12,13 +12,14 @@ app.listen(PORT, () => {
   }
 });
 
-// Render free tier หลับเมื่อไม่มี request 15 นาที — ปลุกตัวเองทุก 10 นาทีกัน cold start
-// (RENDER_EXTERNAL_URL มีเฉพาะบน Render → local ไม่ทำงาน · 744 ชม./เดือน < โควตาฟรี 750)
+// Render free tier หลับเมื่อไม่มี request 15 นาที — ปลุกตัวเองทุก 7 นาทีกัน cold start
+// (ทน ping พลาด 1 ครั้ง: 2×7=14 < 15 · โควตานับเป็นชั่วโมงที่มีชีวิต 744/750 ไม่ว่าจะ ping ถี่แค่ไหน
+//  · RENDER_EXTERNAL_URL มีเฉพาะบน Render → local ไม่ทำงาน)
 const keepaliveUrl = process.env.RENDER_EXTERNAL_URL;
 if (keepaliveUrl) {
   setInterval(
-    () => fetch(`${keepaliveUrl}/api/health`).catch(() => {}),
-    10 * 60 * 1000
+    () => fetch(`${keepaliveUrl}/health`).catch(() => {}),
+    7 * 60 * 1000
   ).unref();
-  console.log(`[keepalive] self-ping ${keepaliveUrl}/api/health every 10 min`);
+  console.log(`[keepalive] self-ping ${keepaliveUrl}/health every 7 min`);
 }

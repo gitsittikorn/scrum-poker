@@ -410,12 +410,13 @@ export function handleLeave(skipMessage = false): void {
 }
 
 /** ปลุก backend (Render free tier หลับถ้าไม่มี request 15 นาที) — ยิงครั้งเดียว
- *  ตอนเข้าห้อง แบบ fire-and-forget ไม่รอผล (GET /api/health ไม่มี side effect) */
+ *  ตอนเข้าห้อง แบบ fire-and-forget ไม่รอผล (GET /health ไม่มี side effect)
+ *  ใครก็ตามเข้าห้อง = ปลุกก่อน ไม่ต้องรอ PO จะกดดึง task */
 let backendPrewarmed = false;
 function prewarmBackend(): void {
   if (backendPrewarmed) return;
   backendPrewarmed = true;
-  void fetch(`${import.meta.env.VITE_BACKEND_URL}/api/health`, { method: "GET" }).catch(() => {});
+  void fetch(`${import.meta.env.VITE_BACKEND_URL}/health`, { method: "GET" }).catch(() => {});
 }
 
 export function listenRoom(): void {
