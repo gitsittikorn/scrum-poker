@@ -409,7 +409,17 @@ export function handleLeave(skipMessage = false): void {
   }
 }
 
+/** ปลุก backend (Render free tier หลับถ้าไม่มี request 15 นาที) — ยิงครั้งเดียว
+ *  ตอนเข้าห้อง แบบ fire-and-forget ไม่รอผล (GET /api/health ไม่มี side effect) */
+let backendPrewarmed = false;
+function prewarmBackend(): void {
+  if (backendPrewarmed) return;
+  backendPrewarmed = true;
+  void fetch(`${import.meta.env.VITE_BACKEND_URL}/api/health`, { method: "GET" }).catch(() => {});
+}
+
 export function listenRoom(): void {
+  prewarmBackend();
   if (roomListenerRef) {
     off(roomListenerRef);
     roomListenerRef = null;
