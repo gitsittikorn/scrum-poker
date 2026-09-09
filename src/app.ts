@@ -12,6 +12,13 @@ import {
   settingsModal,
   btnReveal,
   btnReset,
+  btnSaveClickup,
+  btnClickupResolve,
+  btnClickupClear,
+  btnGroomModePre,
+  btnGroomModeGroom,
+  btnTaskHistory,
+  clickupUrlInput,
   btnDeleteRoom,
   btnClearSpeakerCounts,
   btnBarChat,
@@ -53,6 +60,7 @@ import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, inser
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
 import { toggleSoundPicker, renderSoundPicker, handleSoundPickerOutsideClick, triggerSound, registerSoundShortcuts, renderSoundShortcutSlots, startKeyCapture, cancelKeyCapture, setShortcutSound, setShortcutsEnabled, clearShortcut } from "./sounds";
 import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
+import { handleResolveClickUp, handleClearClickUpTask, handleSaveToClickUp, handleSetGroomMode, openTaskHistory } from "./clickup";
 import { state } from "./state";
 import { FEATURES } from "./config";
 import { SUPER_ADMIN_NAME, DEFAULT_POKER_CARDS } from "./constants";
@@ -208,6 +216,15 @@ function bindEvents(): void {
 
   btnReveal.addEventListener("click", handleReveal);
   btnReset.addEventListener("click", handleReset);
+  btnClickupResolve.addEventListener("click", handleResolveClickUp);
+  btnClickupClear.addEventListener("click", handleClearClickUpTask);
+  btnSaveClickup.addEventListener("click", handleSaveToClickUp);
+  btnGroomModePre.addEventListener("click", () => handleSetGroomMode("pre"));
+  btnGroomModeGroom.addEventListener("click", () => handleSetGroomMode("groom"));
+  btnTaskHistory.addEventListener("click", () => void openTaskHistory());
+  clickupUrlInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleResolveClickUp();
+  });
   btnDeleteRoom.addEventListener("click", () => {
     showWarningModal({
       title: "ล้างห้องนี้?",

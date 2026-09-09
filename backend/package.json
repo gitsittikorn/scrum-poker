@@ -1,0 +1,24 @@
+{
+  "name": "scrum-poker-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Thin ClickUp proxy for Scrum Poker — Express app ตัวเดียวใช้ 2 ที่: local (server.js) และ Firebase Cloud Function (index.js)",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "firebase-functions": "^4.9.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.62.1"
+  }
+}

@@ -42,6 +42,7 @@ let prevFeatures: FeatureFlags = {
   sound: true,
   wheel: true,
   speakerRotate: true,
+  clickup: true,
 };
 
 export function checkUrlRoom(): void {
@@ -192,6 +193,7 @@ export async function joinRoom(
     sound: true,
     wheel: true,
     speakerRotate: true,
+    clickup: true,
   };
 
   showPage("room");
@@ -355,8 +357,11 @@ export function handleLeave(skipMessage = false): void {
     destroyWheelRoom();
   }
   destroyWheel();
-  // Clean up any lingering not-voted modal
+  // Clean up any lingering modals (not-voted / history / splash / confirm)
   document.getElementById("not-voted-modal")?.remove();
+  document.getElementById("task-history-modal")?.remove();
+  document.getElementById("save-splash")?.remove();
+  document.getElementById("confirm-modal")?.remove();
   if (state.isSuperAdmin) destroySuperAdminPanel();
   state.isSuperAdmin = false;
   state.isWheelRoom = false;
@@ -404,7 +409,18 @@ export function handleLeave(skipMessage = false): void {
   }
 }
 
+/** ปลุก backend (Render free tier หลับถ้าไม่มี request 15 นาที) — ยิงครั้งเดียว
+ *  ตอนเข้าห้อง แบบ fire-and-forget ไม่รอผล (GET /health ไม่มี side effect)
+ *  ใครก็ตามเข้าห้อง = ปลุกก่อน ไม่ต้องรอ PO จะกดดึง task */
+let backendPrewarmed = false;
+function prewarmBackend(): void {
+  if (backendPrewarmed) return;
+  backendPrewarmed = true;
+  void fetch(`${import.meta.env.VITE_BACKEND_URL}/health`, { method: "GET" }).catch(() => {});
+}
+
 export function listenRoom(): void {
+  prewarmBackend();
   if (roomListenerRef) {
     off(roomListenerRef);
     roomListenerRef = null;
@@ -435,8 +451,9 @@ export function listenRoom(): void {
           sound: data.features.sound ?? true,
           wheel: data.features.wheel ?? true,
           speakerRotate: data.features.speakerRotate ?? true,
+          clickup: data.features.clickup ?? true,
         }
-      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
+      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true, clickup: true };
 
     const featuresChanged =
       prevFeatures.poker !== newFeatures.poker ||
@@ -444,7 +461,8 @@ export function listenRoom(): void {
       prevFeatures.react !== newFeatures.react ||
       prevFeatures.sound !== newFeatures.sound ||
       prevFeatures.wheel !== newFeatures.wheel ||
-      prevFeatures.speakerRotate !== newFeatures.speakerRotate;
+      prevFeatures.speakerRotate !== newFeatures.speakerRotate ||
+      prevFeatures.clickup !== newFeatures.clickup;
 
     // Only re-init listeners when chat/react/sound flags changed (not poker/wheel)
     const listenersChanged =
@@ -459,6 +477,7 @@ export function listenRoom(): void {
       FEATURES.sound = newFeatures.sound;
       FEATURES.wheel = newFeatures.wheel;
       FEATURES.speakerRotate = newFeatures.speakerRotate;
+      FEATURES.clickup = newFeatures.clickup;
       prevFeatures = { ...newFeatures };
       // Re-init chat/react/sound listeners only when those flags changed
       // isReinit = true → shows all messages (joinedAt = 0)
@@ -493,8 +512,9 @@ function listenPermissions(): void {
           sound: snap.val().sound ?? true,
           wheel: snap.val().wheel ?? true,
           speakerRotate: snap.val().speakerRotate ?? true,
+          clickup: snap.val().clickup ?? true,
         }
-      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
+      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true, clickup: true };
     const autoUnlockEditable = snap.exists()
       ? (snap.val().autoUnlockEditable ?? true)
       : true;
@@ -524,6 +544,7 @@ async function cleanupIfRoomEmpty(roomCode: string): Promise<void> {
         "kicked",
         "wheelHistory",
         "speakerCounts",
+        "activeTask",
       ].forEach((key) => {
         updates[key] = null;
       });

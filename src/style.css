@@ -263,6 +263,20 @@ body {
   border-color: var(--accent);
 }
 
+/* ปุ่มเคลียร์ task (✕) บน banner — แดงชัดเจนทั้ง dark/light ธีม */
+#btn-clickup-clear {
+  border: 2px solid var(--danger);
+  color: var(--danger);
+  background: var(--bg-card);
+  font-weight: 700;
+}
+
+#btn-clickup-clear:hover {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
 .btn-icon {
   padding: 8px 12px;
   background: var(--bg-secondary);
@@ -462,6 +476,313 @@ body {
   border: 1px solid var(--border);
   font-weight: 600;
   font-size: 1.05rem;
+}
+
+/* ===== ClickUp task banner (ใต้ header, เหนือ super-admin panel) ===== */
+.clickup-banner {
+  max-width: 1020px;
+  margin: 16px auto 0;
+  padding: 12px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+}
+
+.clickup-input-row {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.clickup-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.clickup-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color var(--transition);
+}
+
+.clickup-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ===== Groom mode toggle (PO) + badge (ทุกคน) บน banner ClickUp ===== */
+.groom-mode-row {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.groom-mode-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.groom-mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.groom-mode-btn {
+  padding: 7px 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.groom-mode-btn + .groom-mode-btn {
+  border-left: 1px solid var(--border);
+}
+
+.groom-mode-btn.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+}
+
+.groom-mode-btn:not(.active):hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.groom-mode-badge {
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--warning);
+  color: #fff;
+  box-shadow: 0 0 8px var(--warning-glow);
+  white-space: nowrap;
+}
+
+.btn-task-history {
+  padding: 7px 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.btn-task-history:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* ===== Task History Modal — รายการเรียงเก่า → ใหม่ ===== */
+/* specificity สอง class ชนะ .modal-content (max-width 380px) ที่อยู่ท้ายไฟล์เสมอ */
+.modal-content.task-history-content {
+  /* กว้างเท่ากับแถว "ดึง Task" (banner) พอดี — เต็ม viewport จนถึงเพดาน 1020px */
+  width: 100%;
+  max-width: 1020px;
+}
+.task-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.task-history-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+/* Layout แบบคอลัมน์กันพื้นที่ (เหมือน Excel) — ทุกแถวตรงแนวเดียวกัน
+   ไม่สนว่าชื่อการ์ด/ค่า duration ยาวสั้นแค่ไหน: ช่องอื่นกำหนดความกว้างตายตัว
+   เหลือชื่อการ์ดเป็นช่องยืดหดเดียว (ยาวเกิน → ...) */
+.task-history-no {
+  flex: 0 0 30px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+.task-history-time {
+  flex: 0 0 136px;
+  font-size: 0.92rem; /* อ่านง่ายขึ้นสำหรับ date time */
+  color: var(--text-secondary);
+  font-family: monospace;
+  white-space: nowrap;
+}
+.task-history-footer {
+  display: flex;
+  justify-content: flex-end; /* ปุ่มล้างอยู่ขวาล่างตาม convention ของ action ใน modal */
+  padding-top: 14px;
+}
+.btn-task-history-clear {
+  padding: 9px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+}
+.btn-task-history-clear:hover {
+  background: var(--danger);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.task-history-name {
+  flex: 1;
+  min-width: 0;
+  display: block; /* blockify <a> ให้ ellipsis ทำงานทุก browser */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.task-history-name:hover {
+  text-decoration: underline;
+}
+.btn-task-history-reuse {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--bg-secondary);
+  color: var(--success);
+  border: 1px solid var(--success);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.btn-task-history-reuse:hover {
+  background: var(--success);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.task-history-duration {
+  flex: 0 0 96px; /* กันพื้นที่คงที่ — กว้างพอ "⏱ 999 min" ไม่ดันปุ่ม */
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  font-family: monospace;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* แถว task: ลิงก์ชื่อ (ยืดหด + ellipsis) + กลุ่ม icon ลิงก์จาก description ชิดขวา */
+.clickup-task-row {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.clickup-task-row .clickup-task {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.clickup-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.clickup-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  transition: all var(--transition);
+}
+
+.clickup-link:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.clickup-link svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.clickup-link.clickup-link-generic {
+  color: var(--text-muted);
+}
+
+.clickup-task {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+.clickup-task:hover .clickup-task-name {
+  text-decoration: underline;
+}
+
+.clickup-task-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  min-width: 0;
+}
+
+.clickup-task-external {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.clickup-task-icon {
+  flex-shrink: 0;
 }
 
 .status-dot {
@@ -1581,6 +1902,61 @@ body {
 }
 
 /* ===== Firework Particles ===== */
+/* ===== Save Splash — กลางจอหลังบันทึก ClickUp สำเร็จ (มีพลุในกล่อง) ===== */
+.save-splash {
+  z-index: 600;
+  cursor: pointer;
+}
+.save-splash-content {
+  position: relative; /* จุดกำเนิด particle ของพลุ */
+  overflow: hidden;
+  max-width: 430px;
+  text-align: center;
+  gap: 10px;
+  border-color: var(--success);
+  box-shadow: 0 16px 48px var(--shadow), 0 0 44px var(--success-glow);
+  animation: splash-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.save-splash-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--success);
+  margin: 0 0 4px;
+}
+.save-splash-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+.save-splash-line span {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.save-splash-line strong {
+  color: var(--text-primary);
+  font-size: 1.15rem;
+  white-space: nowrap;
+}
+
+@keyframes splash-pop {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 .firework-particle {
   position: absolute;
   width: 6px;

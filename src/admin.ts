@@ -30,6 +30,7 @@ const FEATURE_KEYS: (keyof FeaturePermissions)[] = [
   "sound",
   "wheel",
   "speakerRotate",
+  "clickup",
 ];
 
 const FEATURE_LABELS: Record<keyof FeaturePermissions, string> = {
@@ -39,6 +40,7 @@ const FEATURE_LABELS: Record<keyof FeaturePermissions, string> = {
   sound: "🔊 Sound",
   wheel: "🎡 Wheel",
   speakerRotate: "🎤 Speaker Rotate",
+  clickup: "🔗 ClickUp",
 };
 
 const FEATURE_ICONS: Record<keyof FeaturePermissions, string> = {
@@ -48,6 +50,7 @@ const FEATURE_ICONS: Record<keyof FeaturePermissions, string> = {
   sound: "🔊",
   wheel: "🎡",
   speakerRotate: "🎤",
+  clickup: "🔗",
 };
 
 let selectedRoom: string | null = null;
@@ -59,8 +62,8 @@ let autoUnlockListenerRef: ReturnType<typeof ref> | null = null;
 let renderScheduled = false;
 
 /** Current feature state and permissions for the selected room */
-let currentFeatures: FeaturePermissions = { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
-let currentPermissions: FeaturePermissions = { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
+let currentFeatures: FeaturePermissions = { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true, clickup: true };
+let currentPermissions: FeaturePermissions = { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true, clickup: true };
 let currentAutoUnlock: number = AUTO_UNLOCK_SECONDS;
 let currentAutoUnlockEditable: boolean = true;
 
@@ -194,8 +197,9 @@ function listenFeatureState(roomCode: string): void {
           sound: snap.val().sound ?? true,
           wheel: snap.val().wheel ?? true,
           speakerRotate: snap.val().speakerRotate ?? true,
+          clickup: snap.val().clickup ?? true,
         }
-      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
+      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true, clickup: true };
     scheduleRender();
   });
 
@@ -225,8 +229,9 @@ function listenPermissions(roomCode: string): void {
           sound: snap.val().sound ?? true,
           wheel: snap.val().wheel ?? true,
           speakerRotate: snap.val().speakerRotate ?? true,
+          clickup: snap.val().clickup ?? true,
         }
-      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
+      : { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true, clickup: true };
     currentAutoUnlockEditable = snap.exists()
       ? (snap.val().autoUnlockEditable ?? true)
       : true;
@@ -491,10 +496,11 @@ export async function loadFeaturePermissions(
         sound: val.sound ?? true,
         wheel: val.wheel ?? true,
         speakerRotate: val.speakerRotate ?? true,
+        clickup: val.clickup ?? true,
       };
     }
   } catch (err) {
     console.error("[SuperAdmin] Error loading permissions:", err);
   }
-  return { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true };
+  return { poker: true, chat: true, react: true, sound: true, wheel: true, speakerRotate: true, clickup: true };
 }

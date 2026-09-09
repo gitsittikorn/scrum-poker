@@ -83,6 +83,42 @@
         </div>
       </header>
 
+      <!-- ClickUp Task Banner — PO วางลิงก์ task, ทุกคนเห็น task ปัจจุบันแบบ real-time -->
+      <section id="clickup-banner" class="clickup-banner hidden">
+        <div id="clickup-input-row" class="clickup-input-row hidden">
+          <span class="clickup-label">🔗 Task</span>
+          <input
+            type="text"
+            id="clickup-url-input"
+            class="clickup-input"
+            placeholder="วางลิงก์ ClickUp task..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="btn-clickup-resolve" class="btn btn-primary">ดึง Task</button>
+          <button id="btn-clickup-clear" class="btn btn-icon hidden" title="เคลียร์ task ปัจจุบัน">✕</button>
+        </div>
+        <div id="groom-mode-row" class="groom-mode-row hidden">
+          <div id="groom-mode-controls" class="groom-mode-controls hidden">
+            <span class="clickup-label">🎯 โหมดห้อง</span>
+            <div class="groom-mode-toggle" role="group" aria-label="โหมด grooming">
+              <button type="button" id="btn-groom-mode-pre" class="groom-mode-btn" title="Lead groom ก่อน — คอมเม้น min-max อย่างเดียว ไม่เขียน custom field">Pre-Groom</button>
+              <button type="button" id="btn-groom-mode-groom" class="groom-mode-btn" title="Groom จริง — เขียน custom field + คอมเม้น (ทุก role ต้องโหวตเท่ากัน)">Groom</button>
+            </div>
+          </div>
+          <span id="groom-mode-badge" class="groom-mode-badge hidden" title="ห้องนี้อยู่โหมด Pre-Groom (lead)">🎯 Pre-Groom</span>
+          <button type="button" id="btn-task-history" class="btn btn-task-history" title="ประวัติการดึง task ของห้องนี้">🕘 History</button>
+        </div>
+        <div id="clickup-task-row" class="clickup-task-row hidden">
+          <a id="clickup-task-display" class="clickup-task" target="_blank" rel="noopener noreferrer">
+            <span class="clickup-task-icon">📋</span>
+            <span id="clickup-task-name" class="clickup-task-name"></span>
+            <span class="clickup-task-external">↗</span>
+          </a>
+          <div id="clickup-links" class="clickup-links"></div>
+        </div>
+      </section>
+
       <!-- Super Admin Panel (visible only in admin room) -->
       <div id="super-admin-panel" class="super-admin-panel hidden">
         <div class="super-admin-header">
@@ -168,6 +204,7 @@
         <section class="admin-controls">
           <button id="btn-reveal" class="btn btn-reveal">👁 Reveal</button>
           <button id="btn-reset" class="btn btn-reset">🔄 Reset</button>
+          <button id="btn-save-clickup" class="btn btn-primary" style="display: none">💾 บันทึก ClickUp</button>
         </section>
 
         <!-- Participants Section -->
@@ -455,6 +492,12 @@
                 <label class="toggle-label" id="toggle-label-speaker">
                   <span class="toggle-text">🎤 Speaker Rotate</span>
                   <input type="checkbox" id="feature-speaker" checked aria-label="Speaker mic counter feature toggle">
+                  <span class="toggle-switch" role="switch" aria-checked="true"></span>
+                  <span class="admin-only-badge hidden">🔒 admin only</span>
+                </label>
+                <label class="toggle-label" id="toggle-label-clickup">
+                  <span class="toggle-text">🔗 ClickUp</span>
+                  <input type="checkbox" id="feature-clickup" checked aria-label="ClickUp banner feature toggle">
                   <span class="toggle-switch" role="switch" aria-checked="true"></span>
                   <span class="admin-only-badge hidden">🔒 admin only</span>
                 </label>

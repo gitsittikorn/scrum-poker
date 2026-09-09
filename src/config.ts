@@ -25,6 +25,8 @@ export const FEATURES = {
   wheel: true,
   /** Speaker Rotate — สุ่มผู้พูดแบบถ่วงน้ำหนัก (0.7^count) + โชว์ 🎤 count + ปุ่มล้าง. ปิด = uniform random (ของเดิม) + ซ่อนหมด */
   speakerRotate: true,
+  /** ClickUp — banner ลิงก์ task บนหัวห้อง + ปุ่มบันทึกเฉลี่ย Dev/QA ลงการ์ด (ผ่าน backend) */
+  clickup: true,
 };
 
 /** วินาทีที่จะ auto-unlock หลังจาก reveal (ค่า default สำหรับห้องใหม่) */

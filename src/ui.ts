@@ -16,6 +16,7 @@ import {
   featureSound,
   featureWheel,
   featureSpeaker,
+  featureClickup,
   cleanupTimeInput,
   btnBarChat,
   btnBarReact,
@@ -30,6 +31,7 @@ import {
   toggleLabelSound,
   toggleLabelWheel,
   toggleLabelSpeaker,
+  toggleLabelClickup,
 } from "./dom";
 import { TOAST_DURATION_MS, AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
 import { DEFAULT_POKER_CARDS } from "./constants";
@@ -114,6 +116,7 @@ export function updateSettingsPermissions(permissions: FeaturePermissions, autoU
   applyPermissionToToggle(featureSound, toggleLabelSound, permissions.sound);
   applyPermissionToToggle(featureWheel, toggleLabelWheel, permissions.wheel);
   applyPermissionToToggle(featureSpeaker, toggleLabelSpeaker, permissions.speakerRotate);
+  applyPermissionToToggle(featureClickup, toggleLabelClickup, permissions.clickup);
   // Auto-unlock input: disable if super admin locked it
   if (autoUnlockEditable !== undefined) {
     settingsInput.disabled = !autoUnlockEditable;
@@ -134,6 +137,7 @@ export function updateSettingsFeatureState(features: FeatureFlags, autoUnlockSec
   featureSound.checked = features.sound;
   featureWheel.checked = features.wheel;
   featureSpeaker.checked = features.speakerRotate;
+  featureClickup.checked = features.clickup;
   // Update auto-unlock input if value provided — but NOT while the modal is open,
   // because PO may be editing it (openSettings loads the value on open already).
   // Without this guard, every room tick overwrites the in-progress edit → "didn't save".
@@ -281,6 +285,7 @@ export async function openSettings(): Promise<void> {
         featureSound.checked = f.sound ?? true;
         featureWheel.checked = f.wheel ?? true;
         featureSpeaker.checked = f.speakerRotate ?? true;
+        featureClickup.checked = f.clickup ?? true;
       } else {
         featurePoker.checked = true;
         featureChat.checked = true;
@@ -288,6 +293,7 @@ export async function openSettings(): Promise<void> {
         featureSound.checked = true;
         featureWheel.checked = true;
         featureSpeaker.checked = true;
+        featureClickup.checked = true;
       }
       applyPermissionToToggle(featurePoker, toggleLabelPoker, permissions.poker);
       applyPermissionToToggle(featureChat, toggleLabelChat, permissions.chat);
@@ -295,6 +301,7 @@ export async function openSettings(): Promise<void> {
       applyPermissionToToggle(featureSound, toggleLabelSound, permissions.sound);
       applyPermissionToToggle(featureWheel, toggleLabelWheel, permissions.wheel);
       applyPermissionToToggle(featureSpeaker, toggleLabelSpeaker, permissions.speakerRotate);
+      applyPermissionToToggle(featureClickup, toggleLabelClickup, permissions.clickup);
       cleanupTimeInput.value = cleanupSnap.exists() ? cleanupSnap.val() : "19:00";
     }
   } finally {
@@ -336,6 +343,7 @@ export async function saveSettings(): Promise<void> {
     if (!featureSound.disabled) features.sound = featureSound.checked;
     if (!featureWheel.disabled) features.wheel = featureWheel.checked;
     if (!featureSpeaker.disabled) features.speakerRotate = featureSpeaker.checked;
+    if (!featureClickup.disabled) features.clickup = featureClickup.checked;
     if (Object.keys(features).length > 0) {
       updates["features"] = features;
     }
@@ -588,6 +596,51 @@ export function showConfirmModal(opts: ConfirmModalOptions): void {
 /** Warning modal — destructive variant of showConfirmModal (red, ⚠️ header). */
 export function showWarningModal(opts: Omit<ConfirmModalOptions, "danger">): void {
   showConfirmModal({ ...opts, danger: true });
+}
+
+/** Splash กลางจอหลังบันทึกลง ClickUp สำเร็จ — โชว์ชื่อ custom field จริง + ค่า
+ *  พร้อมพลุในกล่อง · ปิดเองใน 3 วิ หรือคลิกพื้นที่ไหนก็ได้ */
+export function showSaveSplash(
+  lines: { label: string; value: string }[],
+  title = "✅ บันทึกลง ClickUp แล้ว"
+): void {
+  const existing = document.getElementById("save-splash");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "save-splash";
+  overlay.className = "modal-overlay active save-splash";
+
+  const content = document.createElement("div");
+  content.className = "modal-content save-splash-content";
+
+  const h2 = document.createElement("h2");
+  h2.className = "save-splash-title";
+  h2.textContent = title;
+  content.appendChild(h2);
+
+  for (const { label, value } of lines) {
+    const row = document.createElement("div");
+    row.className = "save-splash-line";
+    const name = document.createElement("span");
+    name.textContent = label;
+    const val = document.createElement("strong");
+    val.textContent = value;
+    row.append(name, val);
+    content.appendChild(row);
+  }
+
+  overlay.appendChild(content);
+  overlay.addEventListener("click", () => overlay.remove());
+  const mount = document.getElementById("app") || document.body;
+  mount.appendChild(overlay);
+
+  // พลุ 2 จังหวะ — ตอนเปิดกล่องและตามหลังอีกนิด
+  spawnFirework(content);
+  window.setTimeout(() => {
+    if (overlay.isConnected) spawnFirework(content);
+  }, 450);
+  window.setTimeout(() => overlay.remove(), 3000);
 }
 
 export function spawnFirework(container: HTMLElement): void {

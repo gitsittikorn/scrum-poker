@@ -1,0 +1,16 @@
+# Render Blueprint — สมัคร render.com (GitHub login ไม่ต้องมีบัตร) แล้ว
+# New → Blueprint → ชี้ repo นี้ → ใส่ token ตอนถาม → deploy เสร็จเอง
+services:
+  - type: web
+    name: scrum-poker-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      # secret — Render จะถามตอน setup (อย่า commit ลง repo)
+      - key: CLICKUP_API_TOKEN
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://scrum-poker-5fbac.web.app,http://localhost:5173
