@@ -23,6 +23,7 @@
 | `src/voting.ts` | Card rendering, vote actions, participant grouping, results, `pickSpeakers` |
 | `src/chat.ts` | Chat init/destroy, messages, typing indicator, emoji picker, reply |
 | `src/reactions.ts` | Live floating reactions, message reactions, quick reaction popups |
+| `src/members.ts` | Member registry (`members/` node): listener + cache, CRUD, name lookup per role |
 | `src/firebase.ts` | Firebase SDK init + re-exports |
 | `src/index.html` | SPA: landing page + room page (chat panel, bottom bar, floating reactions) |
 | `src/style.css` | Full CSS: dark/light themes, responsive, animations |
@@ -40,6 +41,7 @@ state.ts ← ui.ts, auth.ts, room.ts, voting.ts, chat.ts, reactions.ts
 dom.ts ← ui.ts, auth.ts, room.ts, voting.ts, chat.ts, reactions.ts, app.ts
 firebase.ts ← ui.ts, auth.ts, room.ts, voting.ts, chat.ts, reactions.ts
 utils.ts ← ui.ts, room.ts, voting.ts, chat.ts, reactions.ts
+members.ts ← admin.ts, app.ts, room.ts, wheel.ts
 reactions.ts ← chat.ts
 chat.ts ← room.ts, voting.ts, app.ts
 voting.ts ← room.ts
@@ -51,15 +53,19 @@ app.ts ← everything (orchestrator)
 ```
 rooms/{roomId}/
   createdAt, revealed, locked, autoUnlockSeconds, revealTime, drinkers
-  users/{uid}/ — name, role, vote, online, lastSeen
+  users/{uid}/ — name (ชื่อเล่น), realName (ชื่อจริงจาก member list, nullable), role, vote, online, lastSeen
   messages/{pushId}/ — text, senderName, senderUid, senderRole, type ("user"|"system"), timestamp, replyTo
     reactions/{emoji}/{uid} — senderName (toggle on/off)
   typing/{uid}/ — name, timestamp
   liveReactions/{pushId}/ — emoji, senderName, senderUid, timestamp
+
+members/{pushId}/ — name, role ("po"|"dev"|"qa"|"ux")  ← ถาวร อยู่นอก rooms/ (รอด clear-all)
 ```
 
 ## Features
 - **Rooms**: 5 fixed rooms (Kitsune, Phoenix, UX/UI, Cold, ColdJiab)
+- **Real Name (ClickUp identity)**: ฟอร์มหน้าแรก = ชื่อในวงการ + Role + ชื่อสำหรับระบุตัวตนใน ClickUp (dropdown กรองตาม role จาก member list — บังคับเฉพาะ Kitsune/Phoenix/UXUI/Cold/ColdJiab; Wheel/TQM1/TQM2/admin ใช้ฟอร์มเดิม) → ClickUp attendees ใช้ `realName ?? name`, ห้อง poker/wheel ในห้อง poker แสดงชื่อเล่น, ห้อง Wheel แสดงชื่อจริงจาก member list
+- **Member list (super admin tab Member)**: 4 คอลัมน์ PO/Dev/QA/UX/UI เพิ่ม/ลบ/แก้ไข — เก็บถาวรที่ `members/` ไม่โดนลบตอนเคลียร์ข้อมูลทั้งหมด; แก้/ลบระหว่างเซสชัน คนในห้องใช้ชื่อ snapshot จนจบเซสชัน; ห้อง Wheel ดึง entries จากตรงนี้แยกตาม role (dropdown All/PO/Dev/QA/UX/UI)
 - **Roles**: PO (admin), Dev, QA, UX/UI — PO can reveal/reset/delete
 - **Voting**: 12 predefined cards + custom input, real-time via Firebase
 - **Results**: Average per role, consensus check, speaker picker (min/max voter per group)

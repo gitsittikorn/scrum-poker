@@ -88,9 +88,10 @@ const ATTENDEE_ROLES: { keys: string[]; label: string }[] = [
   { keys: ["ux"], label: "UX/UI" },
 ];
 
-/** ข้อความคอมเม้นที่โพสต์ลงการ์ด ClickUp — dev/qa เป็น string สำเร็จรูปแล้ว
+/** ข้อความคอมเม้นท์ที่โพสต์ลงการ์ด ClickUp — dev/qa เป็น string สำเร็จรูปแล้ว
  *  ("3" ตอน groom / "1-3" ตอน pre-groom)
  *  Attendees บรรทัดเดียวต่อ role ชื่อคั่นด้วย comma (ข้าม role ที่ไม่มีคน)
+ *  ใช้ชื่อจริง (realName จาก member list) — ชื่อเล่นแสดงแค่ในห้อง poker
  *  PO ที่เป็นคนกดบันทึก (savedByUid) จะมี "(owner)" ต่อท้ายชื่อ */
 function buildGroomingComment(
   mode: GroomMode,
@@ -110,8 +111,11 @@ function buildGroomingComment(
     // เครื่องหมาย (owner) ใส่หลังเรียงแล้ว กัน suffix กระทบลำดับการเรียง
     const names = attendees
       .filter(([, u]) => keys.includes(u.role))
-      .sort(([, a], [, b]) => a.name.localeCompare(b.name, "th"))
-      .map(([uid, u]) => (uid === savedByUid ? `${u.name}(owner)` : u.name));
+      .sort(([, a], [, b]) => (a.realName ?? a.name).localeCompare(b.realName ?? b.name, "th"))
+      .map(([uid, u]) => {
+        const n = u.realName ?? u.name; // fallback ชื่อเล่นเฉพาะข้อมูลเก่า/ห้องไม่บังคับ
+        return uid === savedByUid ? `${n}(owner)` : n;
+      });
     if (names.length === 0) continue;
     lines.push(`Role - ${label}: ${names.join(", ")}`);
   }

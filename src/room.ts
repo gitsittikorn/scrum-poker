@@ -1,8 +1,8 @@
 import { destroySuperAdminPanel, initSuperAdminPanel } from "./admin";
 import { destroyChat, initChat, sendSystemMessage } from "./chat";
 import { AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
-import { APP_VERSION, SUPER_ADMIN_NAME } from "./constants";
-import { roleSelect, roomCodeDisplay, roomSelect, userBadge } from "./dom";
+import { APP_VERSION, REAL_NAME_ROOMS, SUPER_ADMIN_NAME } from "./constants";
+import { realnameSelect, roleSelect, roomCodeDisplay, roomSelect, userBadge } from "./dom";
 import {
   db,
   get,
@@ -16,7 +16,7 @@ import {
   update,
 } from "./firebase";
 import { state } from "./state";
-import type { FeatureFlags, FeaturePermissions, RoomData, User } from "./types";
+import type { FeatureFlags, FeaturePermissions, MemberRole, RoomData, User } from "./types";
 import {
   applyFeatureFlags,
   closeSettings,
@@ -27,6 +27,7 @@ import {
   updateSettingsPermissions,
 } from "./ui";
 import { escapeHtml } from "./utils";
+import { isKnownMemberName } from "./members";
 import { cancelUnlockTimer, resetPresenceTracking, updateUI } from "./voting";
 import { clearAllWheelCache, destroyWheel, initWheelManual, resetWheelRoomOnLeave } from "./wheel";
 
@@ -93,10 +94,28 @@ export async function handleJoinRoom(): Promise<void> {
     return;
   }
 
+  // ห้อง poker หลัก 5 ห้อง บังคับเลือกชื่อจริงจาก member list ก่อนเข้า
+  // (Wheel/TQM1/TQM2/admin ใช้ฟอร์มเดิม — เลือกไว้ก็เก็บให้ แต่ไม่บังคับ)
+  let realName: string | null = realnameSelect.value.trim() || null;
+  if (REAL_NAME_ROOMS.includes(roomCode) && roleSelect.value !== "admin") {
+    if (!realName) {
+      showToast("เลือกชื่อสำหรับระบุตัวตนใน ClickUp ก่อนเข้าห้องนี้");
+      realnameSelect.focus();
+      return;
+    }
+    // กันชื่อถูกลบ/เปลี่ยนระหว่างกรอกฟอร์ม (member list sync ใหม่ตอนกด join)
+    if (!isKnownMemberName(realName, roleSelect.value as MemberRole)) {
+      showToast(`ชื่อ "${realName}" ไม่อยู่ในลิสต์ role นี้แล้ว — เลือกใหม่อีกครั้ง`);
+      realnameSelect.focus();
+      return;
+    }
+  }
+
   saveUsername(username);
   localStorage.setItem("scrum-poker-room", roomCode);
+  localStorage.setItem("scrum-poker-realname", realName ?? "");
   const role = roleSelect.value;
-  state.currentUser = { uid: state.currentUid, name: username };
+  state.currentUser = { uid: state.currentUid, name: username, realName };
 
   try {
     const roomRef = ref(db, `rooms/${roomCode}`);
@@ -143,6 +162,8 @@ export async function joinRoom(
   const userRef = ref(db, `rooms/${roomCode}/users/${state.currentUser!.uid}`);
   await set(userRef, {
     name: state.currentUser!.name,
+    // ชื่อจริงจาก member list — ClickUp + ห้อง Wheel ใช้, ห้อง poker แสดงชื่อเล่น (name)
+    realName: state.currentUser!.realName ?? null,
     role: roleSelect.value,
     vote: clearVote ? null : existingVote,
     online: true,

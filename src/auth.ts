@@ -40,6 +40,7 @@ export async function autoRejoinFromUrl(): Promise<void> {
   const roomFromUrl = params.get("room");
   const savedUsername = localStorage.getItem("scrum-poker-username");
   const savedRole = localStorage.getItem("scrum-poker-role");
+  const savedRealName = localStorage.getItem("scrum-poker-realname");
   if (!roomFromUrl || !savedUsername || !state.currentUid) return;
 
   // Show admin options if rejoining as super admin
@@ -56,7 +57,8 @@ export async function autoRejoinFromUrl(): Promise<void> {
   }
 
   console.log("[AutoJoin] From URL:", roomFromUrl);
-  state.currentUser = { uid: state.currentUid, name: savedUsername };
+  // realName เป็น snapshot จากตอนกด join — refresh กลางเซสชันไม่ต้องเลือกใหม่
+  state.currentUser = { uid: state.currentUid, name: savedUsername, realName: savedRealName || null };
   state.currentRole = savedRole || "dev";
 
   const options = roomSelect.options;

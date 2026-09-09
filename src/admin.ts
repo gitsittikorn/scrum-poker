@@ -1,5 +1,5 @@
 import { db, ref, get, update, onValue, off } from "./firebase";
-import type { FeaturePermissions } from "./types";
+import type { FeaturePermissions, MemberRole } from "./types";
 import {
   superAdminPanel,
   superAdminRoomTabs,
@@ -7,10 +7,14 @@ import {
   superAdminRoomName,
   superAdminToggles,
   qaToolPage,
+  memberManagePage,
+  memberColumns,
 } from "./dom";
 import { showToast } from "./ui";
 import { AUTO_UNLOCK_SECONDS } from "./config";
 import { restoreQaToolHome } from "./qaTool";
+import { MEMBER_ROLES } from "./constants";
+import { onMembersChanged, getAllMembers, addMember, updateMemberName, deleteMember } from "./members";
 
 /** Rooms that super admin can manage */
 const MANAGED_ROOMS = [
@@ -56,6 +60,11 @@ const FEATURE_ICONS: Record<keyof FeaturePermissions, string> = {
 let selectedRoom: string | null = null;
 /** Sentinel room code for the QA Tool tab (data conversion page, not a real room) */
 const QA_TOOL_TAB = "__qa-tool__";
+/** Sentinel room code for the Member tab (จัดการรายชื่อสมาชิกถาวร) */
+const MEMBER_TAB = "__member__";
+/** true เมื่อ tab Member กำลังแสดงอยู่ — กัน re-render ตอนอยู่ tab อื่น */
+let memberTabActive = false;
+let unsubscribeMembers: (() => void) | null = null;
 let permissionsListenerRef: ReturnType<typeof ref> | null = null;
 let featuresListenerRef: ReturnType<typeof ref> | null = null;
 let autoUnlockListenerRef: ReturnType<typeof ref> | null = null;
@@ -95,9 +104,15 @@ export function destroySuperAdminPanel(): void {
   superAdminPermissions.classList.add("hidden");
   qaToolPage.classList.add("hidden");
   qaToolPage.classList.remove("qa-wide");
+  memberManagePage.classList.add("hidden");
   superAdminRoomTabs.innerHTML = "";
   superAdminToggles.innerHTML = "";
   selectedRoom = null;
+  memberTabActive = false;
+  if (unsubscribeMembers) {
+    unsubscribeMembers();
+    unsubscribeMembers = null;
+  }
   if (permissionsListenerRef) {
     off(permissionsListenerRef);
     permissionsListenerRef = null;
@@ -123,6 +138,13 @@ function renderRoomTabs(): void {
     btn.addEventListener("click", () => selectRoom(room.code));
     superAdminRoomTabs.appendChild(btn);
   }
+  // Member tab — รายชื่อสมาชิกถาวร (ClickUp + Wheel)
+  const memberBtn = document.createElement("button");
+  memberBtn.className = "super-admin-room-tab";
+  memberBtn.textContent = "👥 Member";
+  memberBtn.dataset.room = MEMBER_TAB;
+  memberBtn.addEventListener("click", () => selectMemberTab());
+  superAdminRoomTabs.appendChild(memberBtn);
   // QA Tool tab — data conversion page
   const qaBtn = document.createElement("button");
   qaBtn.className = "super-admin-room-tab";
@@ -135,6 +157,42 @@ function renderRoomTabs(): void {
 /** Show the QA Tool page — hides room permissions and detaches room listeners */
 function selectQaTool(): void {
   selectedRoom = null;
+  detachRoomListeners();
+  superAdminRoomTabs.querySelectorAll(".super-admin-room-tab").forEach((btn) => {
+    const el = btn as HTMLButtonElement;
+    el.classList.toggle("active", el.dataset.room === QA_TOOL_TAB);
+  });
+  superAdminPermissions.classList.add("hidden");
+  qaToolPage.classList.remove("hidden");
+  memberManagePage.classList.add("hidden");
+  memberTabActive = false;
+  // Widen panel + tool page for the long tool rows
+  superAdminPanel.classList.add("qa-wide");
+  qaToolPage.classList.add("qa-wide");
+}
+
+/** Show the Member tab — 4 คอลัมน์ PO/Dev/QA/UX/UI + เพิ่ม/ลบ/แก้ไขรายชื่อ */
+function selectMemberTab(): void {
+  selectedRoom = null;
+  detachRoomListeners();
+  superAdminRoomTabs.querySelectorAll(".super-admin-room-tab").forEach((btn) => {
+    const el = btn as HTMLButtonElement;
+    el.classList.toggle("active", el.dataset.room === MEMBER_TAB);
+  });
+  superAdminPermissions.classList.add("hidden");
+  qaToolPage.classList.add("hidden");
+  memberManagePage.classList.remove("hidden");
+  memberTabActive = true;
+  renderMemberColumns();
+  if (!unsubscribeMembers) {
+    unsubscribeMembers = onMembersChanged(() => {
+      if (memberTabActive) renderMemberColumns();
+    });
+  }
+}
+
+/** Detach per-room feature/permission listeners (shared by QA + Member tabs) */
+function detachRoomListeners(): void {
   if (permissionsListenerRef) {
     off(permissionsListenerRef);
     permissionsListenerRef = null;
@@ -147,15 +205,121 @@ function selectQaTool(): void {
     off(autoUnlockListenerRef);
     autoUnlockListenerRef = null;
   }
-  superAdminRoomTabs.querySelectorAll(".super-admin-room-tab").forEach((btn) => {
-    const el = btn as HTMLButtonElement;
-    el.classList.toggle("active", el.dataset.room === QA_TOOL_TAB);
+}
+
+/** Render 4 role columns with entries + inline edit/delete + add row */
+function renderMemberColumns(): void {
+  // กัน re-render ทำล้าง input ที่กำลังแก้ไขอยู่ (pattern เดียวกับ clickup.ts)
+  if (document.activeElement?.classList.contains("member-row-input")) return;
+
+  const all = getAllMembers();
+  memberColumns.innerHTML = "";
+
+  for (const { code, label } of MEMBER_ROLES) {
+    const entries = all.filter(([, m]) => m.role === code);
+
+    const col = document.createElement("div");
+    col.className = "member-col";
+
+    const header = document.createElement("div");
+    header.className = "member-col-header";
+    header.innerHTML = `${label} <span class="badge">${entries.length}</span>`;
+
+    const rows = document.createElement("div");
+    rows.className = "member-rows";
+    if (entries.length === 0) {
+      const empty = document.createElement("small");
+      empty.className = "form-hint";
+      empty.textContent = "ยังไม่มีรายชื่อ";
+      rows.appendChild(empty);
+    }
+    for (const [id, m] of entries) {
+      rows.appendChild(buildMemberRow(id, m.name, code));
+    }
+
+    const addRow = document.createElement("div");
+    addRow.className = "member-add-row";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.maxLength = 50;
+    input.autocomplete = "off";
+    input.placeholder = "เพิ่มชื่อ...";
+    const addBtn = document.createElement("button");
+    addBtn.className = "btn btn-primary";
+    addBtn.textContent = "+";
+    addBtn.title = `เพิ่มชื่อใน ${label}`;
+    const doAdd = () => {
+      void addMember(input.value, code).then((ok) => {
+        if (ok) input.value = "";
+        input.focus();
+      });
+    };
+    addBtn.addEventListener("click", doAdd);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") doAdd();
+    });
+
+    addRow.appendChild(input);
+    addRow.appendChild(addBtn);
+
+    col.appendChild(header);
+    col.appendChild(rows);
+    col.appendChild(addRow);
+    memberColumns.appendChild(col);
+  }
+}
+
+/** One member row — name span + inline edit (✏️) + delete (✕) */
+function buildMemberRow(id: string, name: string, role: MemberRole): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "member-row";
+  row.dataset.id = id;
+
+  const nameSpan = document.createElement("span");
+  nameSpan.className = "member-row-name";
+  nameSpan.textContent = name;
+
+  const editBtn = document.createElement("button");
+  editBtn.className = "member-row-btn edit";
+  editBtn.textContent = "✏️";
+  editBtn.title = "แก้ไข";
+  editBtn.addEventListener("click", () => {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "member-row-input";
+    input.value = name;
+    input.maxLength = 50;
+    nameSpan.replaceWith(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const save = () => {
+      if (done) return;
+      done = true;
+      void updateMemberName(id, input.value);
+    };
+    input.addEventListener("blur", save);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") save();
+      if (e.key === "Escape") {
+        done = true;
+        renderMemberColumns();
+      }
+    });
   });
-  superAdminPermissions.classList.add("hidden");
-  qaToolPage.classList.remove("hidden");
-  // Widen panel + tool page for the long tool rows
-  superAdminPanel.classList.add("qa-wide");
-  qaToolPage.classList.add("qa-wide");
+
+  const delBtn = document.createElement("button");
+  delBtn.className = "member-row-btn delete";
+  delBtn.textContent = "✕";
+  delBtn.title = "ลบ";
+  delBtn.addEventListener("click", () => {
+    void deleteMember(id);
+  });
+
+  row.appendChild(nameSpan);
+  row.appendChild(editBtn);
+  row.appendChild(delBtn);
+  return row;
 }
 
 /** Select a room and load its permissions */
@@ -171,6 +335,8 @@ function selectRoom(roomCode: string): void {
   superAdminRoomName.textContent = room ? room.label : roomCode;
   superAdminPermissions.classList.remove("hidden");
   qaToolPage.classList.add("hidden");
+  memberManagePage.classList.add("hidden");
+  memberTabActive = false;
   superAdminPanel.classList.remove("qa-wide");
   qaToolPage.classList.remove("qa-wide");
   // Listen for both feature state and permissions

@@ -1399,6 +1399,118 @@ body {
   border-color: var(--accent);
 }
 
+/* ===== Super admin tab Member — รายชื่อสมาชิกถาวร (4 คอลัมน์ PO/Dev/QA/UX/UI) ===== */
+.member-manage-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px 0;
+}
+.member-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.member-col {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.member-col-header {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.member-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* แถวชื่อ 1 คน — pattern เดียวกับ wheel-entry */
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  transition: all 0.15s;
+}
+.member-row:hover {
+  border-color: var(--accent);
+}
+.member-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.member-row-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+}
+.member-row-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.5;
+  transition: all 0.15s;
+}
+.member-row:hover .member-row-btn { opacity: 1; }
+.member-row-btn:hover { background: var(--bg-primary); }
+.member-row-btn.delete {
+  border: 1.5px solid var(--danger);
+  color: var(--danger);
+}
+.member-row-btn.delete:hover {
+  background: var(--danger);
+  color: #fff;
+}
+/* ช่องเพิ่มชื่อใต้คอลัมน์ — pattern เดียวกับ wheel-add-row */
+.member-add-row {
+  display: flex;
+  gap: 6px;
+}
+.member-add-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.member-add-row input:focus {
+  border-color: var(--accent);
+}
+.member-add-row .btn {
+  flex-shrink: 0;
+  padding: 4px 12px;
+}
+
 /* ===== QA Tool page (?qa=1 standalone or admin-room QA tab) ===== */
 /* Page container — mirrors the super admin panel placement */
 .qa-tool-page {
