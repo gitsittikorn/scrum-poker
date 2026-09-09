@@ -270,6 +270,7 @@ export async function handleResolveClickUp(): Promise<void> {
 
   btnClickupResolve.disabled = true;
   btnClickupResolve.textContent = "…กำลังดึง";
+  const wakeTimer = armWakeNotice("ดึง task");
   try {
     const task = await api<ResolvedTask>("/api/clickup/resolve-task", { input });
     await applyResolvedTask(task);
@@ -279,6 +280,7 @@ export async function handleResolveClickUp(): Promise<void> {
   } catch (err) {
     showToast(`❌ ${(err as Error).message}`);
   } finally {
+    window.clearTimeout(wakeTimer);
     btnClickupResolve.disabled = false;
     btnClickupResolve.textContent = "ดึง Task";
   }
@@ -453,10 +455,21 @@ export async function openTaskHistory(): Promise<void> {
 }
 
 let saveInFlight = false;
+/** ให้ voting.ts อ่าน (ปุ่มบันทึกโชว์ "…กำลังบันทึก" ระหว่างบันทึก — updateUI ทับ label ทุก tick
+ *  จึงต้องเช็ค flag นี้ใน updateUI แทนการ set ค่าค้างไว้ตอนกด) */
+export const isSaveInFlight = (): boolean => saveInFlight;
+
+/** ถ้า action ใช้เวลาเกิน 8 วิ (ปกติ backend หลับ) — บอก user ว่ารอได้ ไม่ต้องกดซ้ำ */
+function armWakeNotice(action: string): number {
+  return window.setTimeout(() => {
+    showToast(`⏳ กำลังปลุกระบบ${action} — อาจใช้เวลา ~1 นาที ไม่ต้องกดซ้ำ`);
+  }, 8000);
+}
 
 export async function handleSaveToClickUp(): Promise<void> {
   if (!isPO() || !state.currentRoom || saveInFlight) return;
   saveInFlight = true;
+  const wakeTimer = armWakeNotice("บันทึก");
   try {
     const snap = await get(ref(db, `rooms/${state.currentRoom}`));
     const data = snap.val() as RoomData | null;
@@ -597,6 +610,7 @@ export async function handleSaveToClickUp(): Promise<void> {
     }
     await doSave();
   } finally {
+    window.clearTimeout(wakeTimer);
     saveInFlight = false;
   }
 }

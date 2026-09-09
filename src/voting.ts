@@ -25,7 +25,7 @@ import { escapeHtml, hasConfiguredCards, rangeFor, unanimousFor } from "./utils"
 import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
 import { playSound } from "./sounds";
-import { renderTaskBanner } from "./clickup";
+import { renderTaskBanner, isSaveInFlight } from "./clickup";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
@@ -611,7 +611,11 @@ export function updateUI(roomData: RoomData): void {
     revealed &&
     Boolean(roomData.activeTask);
   btnSaveClickup.style.display = showSaveBtn ? "" : "none";
-  if (showSaveBtn) {
+  if (showSaveBtn && isSaveInFlight()) {
+    // กำลังบันทึกอยู่ (updateUI ทับ label ทุก tick — ต้องเช็คก่อน logic label ปกติ)
+    btnSaveClickup.disabled = true;
+    btnSaveClickup.textContent = "…กำลังบันทึก";
+  } else if (showSaveBtn) {
     const notLeft = userList.filter(([, u]) => !u.left);
     const devList = notLeft.filter(([, u]) => u.role === "dev");
     const qaList = notLeft.filter(([, u]) => u.role === "qa");
