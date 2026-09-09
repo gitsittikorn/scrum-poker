@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(curl -s -X POST http://localhost:3000/api/clickup/resolve-task -H \"Content-Type: application/json\" -d \"{\\\\\"input\\\\\":\\\\\"https://app.clickup.com/t/9018499665/86eq6n0wa\\\\\"}\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/clickup/resolve-task -H \"Content-Type: application/json\" -d \"{\\\\\"input\\\\\":\\\\\"https://app.clickup.com/t/9018244625/CES-5700\\\\\"}\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/clickup/post-comment -H \"Content-Type: application/json\" -d \"{\\\\\"taskId\\\\\":\\\\\"x\\\\\"}\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/clickup/save-points -H \"Content-Type: application/json\" -d \"{\\\\\"taskId\\\\\":\\\\\"x\\\\\",\\\\\"dev\\\\\":null,\\\\\"qa\\\\\":null}\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/clickup/resolve-task -H \"Content-Type: application/json\" -d \"{\\\\\"input\\\\\":\\\\\"CES-5700\\\\\"}\")"
+    ]
+  }
+}

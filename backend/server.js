@@ -77,16 +77,21 @@ async function getTeamId() {
 }
 
 // Fetch a task by whatever the user pasted: full URL, bare short id, or custom id.
+// Always asks for include_markdown_description so inline links ([display](url))
+// survive — the plain `description` (HTML) field drops editor-made links.
 async function fetchTaskByInput(rawInput) {
   const input = String(rawInput || "").trim();
   if (!input) throw Object.assign(new Error("กรุณาใส่ลิงก์หรือ id ของ task"), { status: 400 });
 
-  // 1) URL forms: app.clickup.com/t/{taskId} or /t/{customId}/{taskId}
-  const urlMatch = input.match(/clickup\.com\/t\/([A-Za-z0-9-]+)(?:\/([A-Za-z0-9]+))?/i);
+  // 1) URL forms: app.clickup.com/t/{taskId}, /t/{teamId}/{taskId} or /t/{teamId}/{customId}
+  //    (custom id มีขีด เช่น CES-5700 — ทั้งสองกลุ่มต้องยอมรับ hyphen)
+  const urlMatch = input.match(/clickup\.com\/t\/([A-Za-z0-9-]+)(?:\/([A-Za-z0-9-]+))?/i);
   const candidate = urlMatch ? (urlMatch[2] || urlMatch[1]) : input.replace(/^\/+/, "");
 
   try {
-    const { data } = await clickup.get(`/task/${encodeURIComponent(candidate)}`);
+    const { data } = await clickup.get(`/task/${encodeURIComponent(candidate)}`, {
+      params: { include_markdown_description: true },
+    });
     return data;
   } catch (err) {
     const status = err.response?.status;
@@ -96,7 +101,7 @@ async function fetchTaskByInput(rawInput) {
     if (retryable || !urlMatch) {
       const teamId = await getTeamId();
       const { data } = await clickup.get("/task/" + encodeURIComponent(candidate), {
-        params: { custom_task_ids: true, team_id: teamId },
+        params: { custom_task_ids: true, team_id: teamId, include_markdown_description: true },
       });
       return data;
     }
@@ -133,22 +138,91 @@ function qaPointField(task) {
 
 const isNum = (v) => v === null || v === undefined || (typeof v === "number" && Number.isFinite(v));
 
+// Pull links out of the task's MARKDOWN description (fetched with
+// include_markdown_description=true). Supports markdown inline links
+// [display](url) — display can be shortened text — plus bare URLs with or
+// without protocol. Classify the known brands, cap at 6. Only http(s)
+// survives — anything javascript:/data: is dropped by construction.
+function extractLinks(rawMarkdown) {
+  // markdown ว่าง/ไม่มี = ไม่พบลิงก์ (คืน [] ทันที)
+  const md = String(rawMarkdown || "");
+  if (!md.trim()) return [];
+  const seen = new Set();
+  const urls = [];
+  const add = (u) => {
+    u = u
+      .replace(/(&(quot|amp|lt|gt|#39|apos);)+$/i, "") // entity ท้าย URL จากการ decode ไม่สมบูรณ์
+      .replace(/[)\].,;]+$/, ""); // trailing punctuation/bracket ของ markdown
+    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+    if (!seen.has(u)) {
+      seen.add(u);
+      urls.push(u);
+    }
+  };
+  // 1) markdown inline link [display](url) — ดึง URL จากวงเล็บแล้ว "ตัด construct
+  //    ทิ้ง" จากข้อความที่เหลือ กัน pass อื่นไปเก็บ URL/domain ที่หลงเหลือใน display
+  //    text ของลิงก์ซ้ำ (เช่น [www.figma.com\nhttps://x](https://x))
+  const stripped = md.replace(/\[[^\]]*\]\(\s*(https?:\/\/[^\s)]+?)\s*\)/gi, (_m, url) => {
+    add(url);
+    return " ";
+  });
+  // 2) Figma URL ตรง ๆ (แม้ไม่ได้อยู่ในรูป markdown link)
+  for (const m of stripped.matchAll(/https?:\/\/(?:www\.)?figma\.com\/[^\s)\]"'<>]+/gi)) add(m[0]);
+  // 3) bare http(s) URLs อื่น ๆ — หยุดที่ space วงเล็บปิด bracket quote < >
+  for (const m of stripped.matchAll(/https?:\/\/[^\s)\]"'<>]+/gi)) add(m[0]);
+  // 4) href attribute (กันกรณีปน HTML)
+  for (const m of stripped.matchAll(/href=(?:"([^"]+)"|'([^']+)')/g)) add(m[1] ?? m[2]);
+  // 5) ลิงก์พิมพ์เปล่าไม่มีโปรโตคอล — www.* หรือโฮสต์ที่รู้จัก (lookbehind กันจับซ้ำใน hostname อื่น)
+  for (const m of stripped.matchAll(/www\.[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s)\]"'<>]*)?/gi)) add(m[0]);
+  for (const m of stripped.matchAll(/(?<![\w.])(?:figma\.com|fig\.ma|docs\.google\.com|drive\.google\.com)\/[^\s)\]"'<>]*/gi)) {
+    add(m[0]);
+  }
+
+  const out = [];
+  for (const u of urls) {
+    let host = "";
+    let path = "";
+    try {
+      const parsed = new URL(u);
+      host = parsed.hostname;
+      path = parsed.pathname;
+    } catch {
+      continue;
+    }
+    let type = "link";
+    if (/(^|\.)figma\.com$/.test(host) || /(^|\.)fig\.ma$/.test(host)) type = "figma";
+    else if (host === "docs.google.com") {
+      if (path.startsWith("/spreadsheets")) type = "sheets";
+      else if (path.startsWith("/document")) type = "docs";
+    }
+    out.push({ type, url: u });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
 // ── routes ──────────────────────────────────────────────────────────────
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, clickupConfigured: Boolean(CLICKUP_API_TOKEN) });
 });
 
-// { input } → { taskId, name, url, customId, status }
+// { input } → { taskId, name, url, customId, status, links }
 app.post("/api/clickup/resolve-task", async (req, res, next) => {
   try {
     const task = await fetchTaskByInput(req.body?.input);
+    const links = extractLinks(task.markdown_description);
+    const figmaUrls = links.filter((l) => l.type === "figma").map((l) => l.url);
+    console.log(`[clickup] resolve task=${task.id} custom=${task.custom_id || "-"}`);
+    console.log(`[clickup]   markdown_description=${JSON.stringify(task.markdown_description ?? null)}`);
+    console.log(`[clickup]   figma=${JSON.stringify(figmaUrls)} total_links=${links.length}`);
     res.json({
       taskId: task.id,
       name: task.name,
       url: task.url,
       customId: task.custom_id || null,
       status: task.status?.status || null,
+      links,
     });
   } catch (err) {
     next(clickupError(err));
@@ -170,12 +244,14 @@ app.post("/api/clickup/check-existing", async (req, res, next) => {
   }
 });
 
-// { taskId, dev?, qa? } → write each provided value to its custom field
+// { taskId, dev?, qa?, comment? } → write each provided value to its custom field,
+// then post `comment` (grooming summary) on the card when every write succeeded
 app.post("/api/clickup/save-points", async (req, res, next) => {
   try {
     const { taskId } = req.body || {};
     const dev = req.body?.dev ?? null;
     const qa = req.body?.qa ?? null;
+    const comment = typeof req.body?.comment === "string" ? req.body.comment.trim() : "";
     if (!taskId) throw Object.assign(new Error("ต้องระบุ taskId"), { status: 400 });
     if (!isNum(dev) || !isNum(qa)) throw Object.assign(new Error("ค่า point ไม่ถูกต้อง"), { status: 400 });
     if (dev === null && qa === null) throw Object.assign(new Error("ไม่มีค่าที่จะบันทึก"), { status: 400 });
@@ -198,8 +274,8 @@ app.post("/api/clickup/save-points", async (req, res, next) => {
     }
 
     const jobs = [];
-    if (dev !== null) jobs.push(["dev", devField.id, dev]);
-    if (qa !== null) jobs.push(["qa", qaField.id, qa]);
+    if (dev !== null) jobs.push(["dev", devField.id, dev, devField.name]);
+    if (qa !== null) jobs.push(["qa", qaField.id, qa, qaField.name]);
 
     const results = await Promise.allSettled(
       // ClickUp's set-custom-field endpoint is POST (PUT returns 405)
@@ -211,14 +287,44 @@ app.post("/api/clickup/save-points", async (req, res, next) => {
     const out = {};
     let anyFailed = false;
     results.forEach((r, i) => {
-      const [key] = jobs[i];
-      if (r.status === "fulfilled") out[key] = { ok: true };
+      const [key, , , fieldName] = jobs[i];
+      if (r.status === "fulfilled") out[key] = { ok: true, field: fieldName };
       else {
         anyFailed = true;
         out[key] = { ok: false, error: r.reason?.response?.data?.err || r.reason?.message || "บันทึกไม่สำเร็จ" };
       }
     });
+
+    // Grooming comment — best-effort: only when the points actually landed
+    if (comment && !anyFailed) {
+      try {
+        await clickup.post(`/task/${encodeURIComponent(taskId)}/comment`, {
+          comment_text: comment,
+          notify_all: false,
+        });
+        out.comment = { ok: true };
+      } catch (err) {
+        out.comment = { ok: false, error: clickupError(err).message };
+      }
+    }
     res.status(anyFailed ? 502 : 200).json(out);
+  } catch (err) {
+    next(clickupError(err));
+  }
+});
+
+// { taskId, comment } → post a comment on the card (pre-groom summary — no field writes)
+app.post("/api/clickup/post-comment", async (req, res, next) => {
+  try {
+    const taskId = String(req.body?.taskId || "").trim();
+    const comment = typeof req.body?.comment === "string" ? req.body.comment.trim() : "";
+    if (!taskId) throw Object.assign(new Error("ต้องระบุ taskId"), { status: 400 });
+    if (!comment) throw Object.assign(new Error("ต้องระบุ comment"), { status: 400 });
+    await clickup.post(`/task/${encodeURIComponent(taskId)}/comment`, {
+      comment_text: comment,
+      notify_all: false,
+    });
+    res.json({ ok: true });
   } catch (err) {
     next(clickupError(err));
   }

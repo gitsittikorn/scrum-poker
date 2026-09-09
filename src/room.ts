@@ -357,8 +357,11 @@ export function handleLeave(skipMessage = false): void {
     destroyWheelRoom();
   }
   destroyWheel();
-  // Clean up any lingering not-voted modal
+  // Clean up any lingering modals (not-voted / history / splash / confirm)
   document.getElementById("not-voted-modal")?.remove();
+  document.getElementById("task-history-modal")?.remove();
+  document.getElementById("save-splash")?.remove();
+  document.getElementById("confirm-modal")?.remove();
   if (state.isSuperAdmin) destroySuperAdminPanel();
   state.isSuperAdmin = false;
   state.isWheelRoom = false;

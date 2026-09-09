@@ -21,6 +21,9 @@ export const DEFAULT_POKER_CARDS: CardDef[] = [
 
 export const SUPER_ADMIN_NAME = "admin889";
 
+/** ห้อง super admin console (ไม่ใช่ห้อง poker) — ไม่แสดงฟีเจอร์ ClickUp */
+export const ADMIN_ROOM = "admin";
+
 export const APP_VERSION = "2026-08-11-v1";
 
 export const EMOJIS = [

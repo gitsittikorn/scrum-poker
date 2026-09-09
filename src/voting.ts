@@ -19,9 +19,9 @@ import {
   colHeaderUx,
   participantCount,
 } from "./dom";
-import { DEFAULT_POKER_CARDS, JOIN_SOUND_FILE, LEAVE_SOUND_FILE } from "./constants";
+import { ADMIN_ROOM, DEFAULT_POKER_CARDS, JOIN_SOUND_FILE, LEAVE_SOUND_FILE } from "./constants";
 import { AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
-import { avgFor, escapeHtml, hasConfiguredCards } from "./utils";
+import { escapeHtml, hasConfiguredCards, rangeFor, unanimousFor } from "./utils";
 import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
 import { playSound } from "./sounds";
@@ -602,22 +602,53 @@ export function updateUI(roomData: RoomData): void {
   if (btnDeleteRoom) btnDeleteRoom.style.display = adminVisible;
 
   // ClickUp task banner (ทุกคน) + ปุ่มบันทึกคะแนน (PO เท่านั้น — หลัง reveal และมี task ปัจจุบัน)
-  renderTaskBanner(roomData.activeTask ?? null);
+  const groomMode = roomData.groomMode ?? "groom";
+  renderTaskBanner(roomData.activeTask ?? null, groomMode);
   const showSaveBtn =
-    isPO() && FEATURES.clickup && revealed && Boolean(roomData.activeTask);
+    isPO() &&
+    FEATURES.clickup &&
+    state.currentRoom !== ADMIN_ROOM &&
+    revealed &&
+    Boolean(roomData.activeTask);
   btnSaveClickup.style.display = showSaveBtn ? "" : "none";
   if (showSaveBtn) {
     const notLeft = userList.filter(([, u]) => !u.left);
-    const devAvg = avgFor(notLeft.filter(([, u]) => u.role === "dev"));
-    const qaAvg = avgFor(notLeft.filter(([, u]) => u.role === "qa"));
+    const devList = notLeft.filter(([, u]) => u.role === "dev");
+    const qaList = notLeft.filter(([, u]) => u.role === "qa");
     const parts: string[] = [];
-    if (devAvg !== null) parts.push(`Dev ${devAvg}`);
-    if (qaAvg !== null) parts.push(`QA ${qaAvg}`);
-    btnSaveClickup.textContent = parts.length
-      ? `💾 บันทึก ClickUp (${parts.join(" · ")})`
-      : "💾 บันทึก ClickUp";
+    if (groomMode === "pre") {
+      // Pre-Groom: label แสดงช่วง min-max ที่จะคอมเม้นลงการ์ด
+      const dev = rangeFor(devList);
+      const qa = rangeFor(qaList);
+      if (dev !== null) parts.push(`Dev ${dev}`);
+      if (qa !== null) parts.push(`QA ${qa}`);
+      btnSaveClickup.textContent = parts.length
+        ? `💾 บันทึก Pre-Groom (${parts.join(" · ")})`
+        : "💾 บันทึก Pre-Groom";
+      btnSaveClickup.disabled = false;
+    } else {
+      // Groom: ค่าเดียวเมื่อทุกคนใน role โหวตเท่ากัน · ✗ = role นั้นยังไม่ตรงกัน
+      const dev = unanimousFor(devList);
+      const qa = unanimousFor(qaList);
+      if (dev !== null) parts.push(`Dev ${dev}`);
+      else if (devList.length > 0) parts.push("Dev ✗");
+      if (qa !== null) parts.push(`QA ${qa}`);
+      else if (qaList.length > 0) parts.push("QA ✗");
+      btnSaveClickup.textContent = parts.length
+        ? `💾 บันทึก ClickUp (${parts.join(" · ")})`
+        : "💾 บันทึก ClickUp";
+      // ปุ่มกดไม่ได้จนกว่าทุก role ที่มีสมาชิกจะโหวตเท่ากันครบ (และมีค่าให้บันทึกอย่างน้อย 1 role)
+      const devReady = devList.length === 0 || dev !== null;
+      const qaReady = qaList.length === 0 || qa !== null;
+      btnSaveClickup.disabled = !(devReady && qaReady && (dev !== null || qa !== null));
+    }
+    btnSaveClickup.title = btnSaveClickup.disabled
+      ? "รอให้ทุก role โหวตได้ค่าเดียวกันก่อน"
+      : "";
   }
 
+  // แถบสถานะ default คือแสดง — ซ่อนเฉพาะกรณี "โหวตแล้ว" ใน branch ล่าง
+  votingStatus.style.display = "";
   if (locked && revealed) {
     statusDot.className = "status-dot locked";
     statusText.textContent = "Voting locked — Results revealed";
@@ -643,10 +674,15 @@ export function updateUI(roomData: RoomData): void {
     cancelUnlockTimer();
     const hasVoted =
       state.currentUser && users[state.currentUser.uid]?.vote !== null;
-    statusDot.className = hasVoted ? "status-dot voted" : "status-dot";
-    statusText.textContent = hasVoted
-      ? "Voted! You can change your vote"
-      : "Select your estimate";
+    if (hasVoted) {
+      // โหวตแล้ว — ซ่อนแถบสถานะทั้งแถวเพื่อคืนพื้นที่หน้าจอ
+      // (การ์ดที่โหวตอยู่มี highlight + การ์ดผู้เล่นมี ✅ อยู่แล้ว)
+      votingStatus.style.display = "none";
+    } else {
+      votingStatus.style.display = "";
+      statusDot.className = "status-dot";
+      statusText.textContent = "Select your estimate";
+    }
     const existing = document.getElementById("btn-revote");
     if (existing) existing.remove();
   }

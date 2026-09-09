@@ -62,8 +62,16 @@ export const clickupInputRow = $("clickup-input-row");
 export const clickupUrlInput = $("clickup-url-input") as HTMLInputElement;
 export const btnClickupResolve = $("btn-clickup-resolve") as HTMLButtonElement;
 export const btnClickupClear = $("btn-clickup-clear") as HTMLButtonElement;
+export const clickupTaskRow = $("clickup-task-row");
 export const clickupTaskDisplay = $("clickup-task-display") as HTMLAnchorElement;
 export const clickupTaskName = $("clickup-task-name");
+export const clickupLinks = $("clickup-links");
+export const groomModeRow = $("groom-mode-row");
+export const groomModeControls = $("groom-mode-controls");
+export const btnGroomModePre = $("btn-groom-mode-pre") as HTMLButtonElement;
+export const btnGroomModeGroom = $("btn-groom-mode-groom") as HTMLButtonElement;
+export const groomModeBadge = $("groom-mode-badge");
+export const btnTaskHistory = $("btn-task-history") as HTMLButtonElement;
 
 // Admin settings
 export const adminSettings = $("admin-settings");

@@ -47,6 +47,32 @@ export interface RoomData {
   kicked?: Record<string, boolean>;
   /** ClickUp task ที่ PO เลือกไว้ตอนนี้ — null = ยังไม่เลือก (real-time ทุกคนเห็น) */
   activeTask?: ActiveTask | null;
+  /** โหมด session — "groom" (default): บันทึก field + comment, "pre": pre-groom ของ lead บันทึก comment อย่างเดียว */
+  groomMode?: GroomMode;
+}
+
+/** โหมดการ groom ของห้อง — PO สลับเองผ่าน toggle บน banner ClickUp */
+export type GroomMode = "groom" | "pre";
+
+/** รายการประวัติการดึง task — push ที่ rooms/{roomId}/taskHistory/{pushId}
+ *  (push key เรียงตามเวลา → ลำดับ ASC อัตโนมัติ) */
+export interface TaskHistoryEntry {
+  taskId: string;
+  name: string;
+  customId?: string | null;
+  url: string;
+  links?: TaskLink[];
+  /** ชื่อคนที่กดดึง (ปกติคือ PO) */
+  resolvedBy: string;
+  resolvedAt: number;
+  /** เวลาที่บันทึกลง ClickUp สำเร็จ (groom/pre) — ใช้คำนวณ duration, null = ยังไม่บันทึก */
+  savedAt?: number | null;
+}
+
+/** ลิงก์ที่ parse จาก description ของการ์ด ClickUp — แสดงเป็น icon ข้างชื่อ task */
+export interface TaskLink {
+  type: "figma" | "sheets" | "docs" | "link";
+  url: string;
 }
 
 export interface ActiveTask {
@@ -57,6 +83,10 @@ export interface ActiveTask {
   /** ชื่อคนที่ตั้ง task (ปกติคือ PO) */
   setBy: string;
   timestamp: number;
+  /** ลิงก์จาก description (Figma/Sheets/Docs/generic) — snapshot ตอนกดดึง Task, สูงสุด 6 อัน */
+  links?: TaskLink[];
+  /** push key ของรายการ taskHistory รอบนี้ — ใช้ตอนบันทึก ClickUp เพื่อจดเวลา savedAt */
+  historyKey?: string;
 }
 
 export interface CurrentUser {

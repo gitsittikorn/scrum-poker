@@ -598,6 +598,51 @@ export function showWarningModal(opts: Omit<ConfirmModalOptions, "danger">): voi
   showConfirmModal({ ...opts, danger: true });
 }
 
+/** Splash กลางจอหลังบันทึกลง ClickUp สำเร็จ — โชว์ชื่อ custom field จริง + ค่า
+ *  พร้อมพลุในกล่อง · ปิดเองใน 3 วิ หรือคลิกพื้นที่ไหนก็ได้ */
+export function showSaveSplash(
+  lines: { label: string; value: string }[],
+  title = "✅ บันทึกลง ClickUp แล้ว"
+): void {
+  const existing = document.getElementById("save-splash");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "save-splash";
+  overlay.className = "modal-overlay active save-splash";
+
+  const content = document.createElement("div");
+  content.className = "modal-content save-splash-content";
+
+  const h2 = document.createElement("h2");
+  h2.className = "save-splash-title";
+  h2.textContent = title;
+  content.appendChild(h2);
+
+  for (const { label, value } of lines) {
+    const row = document.createElement("div");
+    row.className = "save-splash-line";
+    const name = document.createElement("span");
+    name.textContent = label;
+    const val = document.createElement("strong");
+    val.textContent = value;
+    row.append(name, val);
+    content.appendChild(row);
+  }
+
+  overlay.appendChild(content);
+  overlay.addEventListener("click", () => overlay.remove());
+  const mount = document.getElementById("app") || document.body;
+  mount.appendChild(overlay);
+
+  // พลุ 2 จังหวะ — ตอนเปิดกล่องและตามหลังอีกนิด
+  spawnFirework(content);
+  window.setTimeout(() => {
+    if (overlay.isConnected) spawnFirework(content);
+  }, 450);
+  window.setTimeout(() => overlay.remove(), 3000);
+}
+
 export function spawnFirework(container: HTMLElement): void {
   const rect = container.getBoundingClientRect();
   const cx = rect.width / 2;
