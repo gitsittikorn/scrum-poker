@@ -1399,15 +1399,16 @@ body {
   border-color: var(--accent);
 }
 
-/* ===== Super admin tab Member — รายชื่อสมาชิกถาวร (4 คอลัมน์ PO/Dev/QA/UX/UI) ===== */
+/* ===== Super admin tab Member — รายชื่อสมาชิกถาวร (PO/Dev/QA/UX/UI/Monkey King) ===== */
+/* กว้างกว่า panel อื่นเพื่อให้ 5 คอลัมน์อยู่แถวเดียวกัน — จอแคบกว่านี้ค่อย wrap ลงแถวใหม่ */
 .member-manage-page {
-  max-width: 960px;
+  max-width: 1160px;
   margin: 0 auto;
   padding: 24px 20px 0;
 }
 .member-columns {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
   gap: 12px;
   align-items: start;
 }

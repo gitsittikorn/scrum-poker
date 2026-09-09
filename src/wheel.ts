@@ -1053,6 +1053,7 @@ export function initWheelManual(): void {
   // สร้าง entries หลัง member list พร้อม (snapshot แรกจาก Firebase) — กันแข่งกับ listener
   void (async () => {
     await whenMembersReady();
+    if (!hasInitialized) return; // ออกจากห้อง (destroyWheel) ไปก่อน snapshot มา — ไม่ต้องวาดแล้ว
     const saved = loadWheelState();
     // ทีมที่ save ไว้เป็นค่าเก่า (Kitsune/Phoenix/…) ก่อนเปลี่ยนระบบ → กลับไป All
     currentTeam = saved?.team && isValidWheelTeam(saved.team) ? saved.team : "All";
@@ -1077,9 +1078,9 @@ export function initWheelManual(): void {
   })();
 }
 
-/** Team dropdown ของห้อง Wheel — All + 4 roles (ค่าอื่น = ของเก่าก่อนเปลี่ยนระบบ) */
+/** Team dropdown ของห้อง Wheel — All + 4 roles + ทีม Monkey King (ค่าอื่น = ของเก่า) */
 function isValidWheelTeam(team: string): boolean {
-  return team === "All" || team === "po" || team === "dev" || team === "qa" || team === "ux";
+  return team === "All" || team === "po" || team === "dev" || team === "qa" || team === "ux" || team === "mk";
 }
 
 // Export control functions for app.ts to bind

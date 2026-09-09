@@ -182,6 +182,8 @@ function selectMemberTab(): void {
   superAdminPermissions.classList.add("hidden");
   qaToolPage.classList.add("hidden");
   memberManagePage.classList.remove("hidden");
+  superAdminPanel.classList.remove("qa-wide");
+  qaToolPage.classList.remove("qa-wide");
   memberTabActive = true;
   renderMemberColumns();
   if (!unsubscribeMembers) {
@@ -216,7 +218,10 @@ function renderMemberColumns(): void {
   memberColumns.innerHTML = "";
 
   for (const { code, label } of MEMBER_ROLES) {
-    const entries = all.filter(([, m]) => m.role === code);
+    // เรียงชื่อ a-z ต่อคอลัมน์ (localeCompare จัดการพ่วงวรรณยุกต์ไทยให้ด้วย)
+    const entries = all
+      .filter(([, m]) => m.role === code)
+      .sort(([, a], [, b]) => a.name.localeCompare(b.name, "th"));
 
     const col = document.createElement("div");
     col.className = "member-col";

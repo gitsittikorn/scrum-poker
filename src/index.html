@@ -30,6 +30,22 @@
           </div>
 
           <div class="form-group">
+            <label for="room-select">เลือกห้อง</label>
+            <select id="room-select">
+              <option value="">-- เลือกห้อง --</option>
+              <option value="Kitsune">🦊 Kitsune</option>
+              <option value="Phoenix">🔥 Phoenix</option>
+              <option value="UXUI">🎨 UX/UI</option>
+              <option value="Cold">❄️ ห้องเย็น</option>
+              <option value="ColdJiab">🥶 ห้องเย็นเจี๊ยบ</option>
+              <option value="TQM1">🏢 TQM 1</option>
+              <option value="TQM2">🏢 TQM 2</option>
+              <option value="Wheel">🎡 Wheel</option>
+              <option id="admin-room-option" value="admin" style="display:none">🛡️ Admin</option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label for="role-select">Role</label>
             <select id="role-select">
               <option value="po">📋 PO</option>
@@ -45,23 +61,7 @@
             <select id="realname-select">
               <option value="">-- เลือกชื่อ --</option>
             </select>
-            <small class="form-hint">ใช้ในคอมเม้นต์ ClickUp — ถ้าไม่มีชื่อของคุณในลิสต์ แจ้ง admin เพิ่มก่อน</small>
-          </div>
-
-          <div class="form-group">
-            <label for="room-select">เลือกห้อง</label>
-            <select id="room-select">
-              <option value="">-- เลือกห้อง --</option>
-              <option value="Kitsune">🦊 Kitsune</option>
-              <option value="Phoenix">🔥 Phoenix</option>
-              <option value="UXUI">🎨 UX/UI</option>
-              <option value="Cold">❄️ ห้องเย็น</option>
-              <option value="ColdJiab">🥶 ห้องเย็นเจี๊ยบ</option>
-              <option value="TQM1">🏢 TQM 1</option>
-              <option value="TQM2">🏢 TQM 2</option>
-              <option value="Wheel">🎡 Wheel</option>
-              <option id="admin-room-option" value="admin" style="display:none">🛡️ Admin</option>
-            </select>
+            <small class="form-hint">ถ้าไม่มีชื่อของคุณในลิสต์ แจ้ง admin เพิ่มก่อน</small>
           </div>
 
           <button id="btn-join-room" class="btn btn-primary" style="width:100%">เข้าร่วมห้อง</button>
@@ -282,6 +282,7 @@
                 <option value="dev">👨‍💻 Dev</option>
                 <option value="qa">🐛 QA</option>
                 <option value="ux">🎨 UX/UI</option>
+                <option value="mk">🐵 Monkey King</option>
               </select>
             </label>
             <label class="wheel-option-label">

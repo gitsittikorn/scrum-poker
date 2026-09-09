@@ -100,8 +100,10 @@ export interface CurrentUser {
 }
 
 /** รายชื่อสมาชิกถาวร (super admin tab Member) — เก็บที่ members/{pushId}
- *  อยู่นอก rooms/ → ไม่โดนลบตอนเคลียร์ข้อมูลทั้งหมด / scheduled cleanup */
-export type MemberRole = "po" | "dev" | "qa" | "ux";
+ *  อยู่นอก rooms/ → ไม่โดนลบตอนเคลียร์ข้อมูลทั้งหมด / scheduled cleanup
+ *  "mk" = ทีม Monkey King — ไม่ใช่ role จริง ใช้เฉพาะ grouping ในห้อง Wheel
+ *  (คนหนึ่งคนอยู่ได้ทั้งคอลัมน์ role และคอลัมน์ Monkey King) */
+export type MemberRole = "po" | "dev" | "qa" | "ux" | "mk";
 
 export interface Member {
   name: string;

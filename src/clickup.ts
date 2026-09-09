@@ -170,8 +170,8 @@ function renderTaskLinks(links: TaskLink[] | undefined): void {
 // ===== Banner render (เรียกจาก updateUI ทุก tick) =====
 
 export function renderTaskBanner(task: ActiveTask | null, groomMode: GroomMode = "groom"): void {
-  // ห้อง admin (super admin console) ไม่มี ClickUp — ใช้เฉพาะห้อง poker จริงเท่านั้น
-  if (!FEATURES.clickup || !state.currentRoom || state.currentRoom === ADMIN_ROOM) {
+  // ห้อง admin (super admin console) และห้อง Wheel ไม่มี ClickUp — ใช้เฉพาะห้อง poker จริงเท่านั้น
+  if (!FEATURES.clickup || !state.currentRoom || state.currentRoom === ADMIN_ROOM || state.isWheelRoom) {
     clickupBanner.classList.add("hidden");
     return;
   }

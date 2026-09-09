@@ -620,13 +620,19 @@ export function startCleanupScheduler(): void {
 
 // ===== Force Refresh (via Firebase RTDB) =====
 
-/** Listen for force refresh version — reload all clients when changed */
+/** Listen for force refresh version — reload all clients when changed
+ *  reload เฉพาะเมื่อ remote เป็นรุ่นใหม่กว่าจริงๆ (มี deploy ใหม่) และยังไม่เคย reload
+ *  ให้ remote เวอร์ชันนี้ — กันลูป reload วนไปเรื่อยๆ ตอน dev (local ใหม่กว่า prod)
+ *  ทั้งกันเคส prod เก่า reload แล้วยังได้โค้ดเก่า (cache) อยู่ */
 export function listenForceRefresh(): void {
   destroyForceRefreshListener();
   forceRefreshRef = ref(db, "settings/forceRefreshVersion");
   onValue(forceRefreshRef, (snap) => {
     const remoteVersion = snap.val() as string | null;
-    if (remoteVersion && remoteVersion !== APP_VERSION) {
+    if (remoteVersion && remoteVersion > APP_VERSION) {
+      const seenKey = "scrum-poker-force-refreshed";
+      if (localStorage.getItem(seenKey) === remoteVersion) return; // รอบนี้ reload ไปแล้ว
+      localStorage.setItem(seenKey, remoteVersion);
       console.log(
         `[ForceRefresh] Remote=${remoteVersion}, Local=${APP_VERSION} — reloading`,
       );
@@ -635,9 +641,20 @@ export function listenForceRefresh(): void {
   });
 }
 
-/** Write current APP_VERSION to Firebase so old clients trigger force refresh */
+/** Write current APP_VERSION to Firebase so old clients trigger force refresh
+ *  - dev server ไม่เขียน: กัน local (รุ่นใหม่ ยังไม่ deploy) สู้กับ prod จนกลายเป็น
+ *    ping-pong reload วนไม่จบ (prod เขียน v1 กลับมา → local reload → เขียน v2 ใหม่…)
+ *  - prod เขียนเฉพาะเวอร์ชันสูงกว่า (อัปเกรดอย่างเดียว ไม่กดฝั่งอื่นตกเวอร์ชัน) */
 export function writeForceRefreshVersion(): void {
-  set(ref(db, "settings/forceRefreshVersion"), APP_VERSION);
+  if (import.meta.env.DEV) return;
+  void get(ref(db, "settings/forceRefreshVersion"))
+    .then((snap) => {
+      const remote = snap.val() as string | null;
+      if (!remote || remote < APP_VERSION) {
+        void set(ref(db, "settings/forceRefreshVersion"), APP_VERSION);
+      }
+    })
+    .catch((err) => console.error("[ForceRefresh] Write check failed:", err));
 }
 
 /** Clean up force refresh listener */

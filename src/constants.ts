@@ -31,12 +31,14 @@ export const APP_VERSION = "2026-09-09-v2";
  *  (Wheel/TQM1/TQM2/admin ใช้ฟอร์มเดิม — ไม่ต้องเลือก) */
 export const REAL_NAME_ROOMS = ["Kitsune", "Phoenix", "UXUI", "Cold", "ColdJiab"];
 
-/** ลำดับคอลัมน์ใน super admin tab Member + dropdown ห้อง Wheel (PO ก่อนตาม req) */
+/** ลำดับคอลัมน์ใน super admin tab Member (PO ก่อนตาม req) — "mk" คือทีม Monkey King
+ *  สำหรับ grouping ในห้อง Wheel เท่านั้น ไม่ใช่ role สำหรับ join/ClickUp */
 export const MEMBER_ROLES: { code: MemberRole; label: string }[] = [
   { code: "po", label: "📋 PO" },
   { code: "dev", label: "👨‍💻 Dev" },
   { code: "qa", label: "🐛 QA" },
   { code: "ux", label: "🎨 UX/UI" },
+  { code: "mk", label: "🐵 Monkey King" },
 ];
 
 export const EMOJIS = [

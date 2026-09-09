@@ -41,6 +41,14 @@ const SEED = [
   { name: "Big", role: "qa" },
   { name: "May", role: "qa" },
   { name: "Pond", role: "qa" },
+  // ทีม Monkey King — grouping สำหรับห้อง Wheel (คนเดียวกันกับในคอลัมน์ role ของตัวเอง)
+  { name: "Cing", role: "mk" },
+  { name: "Meaw", role: "mk" },
+  { name: "Max", role: "mk" },
+  { name: "Prince", role: "mk" },
+  { name: "Nuji", role: "mk" },
+  { name: "Yam", role: "mk" },
+  { name: "Poom", role: "mk" },
 ];
 
 const app = initializeApp(firebaseConfig);

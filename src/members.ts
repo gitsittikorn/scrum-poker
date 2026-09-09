@@ -1,4 +1,4 @@
-import { db, ref, push, update, remove, onValue, off } from "./firebase";
+import { db, ref, push, update, remove, onValue } from "./firebase";
 import type { Member, MemberRole } from "./types";
 import { showToast } from "./ui";
 
@@ -53,14 +53,22 @@ export function getMemberNamesByRole(role: MemberRole): string[] {
     .sort((a, b) => a.localeCompare(b, "th"));
 }
 
-/** กลุ่มชื่อสำหรับ dropdown ห้อง Wheel — "All" = ทุก role */
+/** กลุ่มชื่อสำหรับ dropdown ห้อง Wheel — "All" = ทุกคน (dedupe เพราะคนในทีม mk
+ *  มี entry ซ้ำอยู่ในคอลัมน์ role ของตัวเองด้วย) */
 export function getWheelTeamNames(team: string): string[] {
-  if (team === "po" || team === "dev" || team === "qa" || team === "ux") {
+  if (team === "po" || team === "dev" || team === "qa" || team === "ux" || team === "mk") {
     return getMemberNamesByRole(team);
   }
+  const seen = new Set<string>();
   return Object.values(membersCache)
     .filter((m) => m?.name && typeof m.name === "string" && m.name.trim())
     .map((m) => m.name.trim())
+    .filter((n) => {
+      const key = n.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .sort((a, b) => a.localeCompare(b, "th"));
 }
 
@@ -123,13 +131,4 @@ export async function deleteMember(id: string): Promise<void> {
 /** รายการ [id, member] ทั้งหมด — สำหรับ render ตารางใน super admin */
 export function getAllMembers(): [string, Member][] {
   return Object.entries(membersCache).filter(([, m]) => m && typeof m.name === "string");
-}
-
-/** หยุดฟัง (ใช้ตอนออกจาก admin room — ปล่อยฟอร์มหน้าแรกที่ไม่มีอะไรจะ update ก็ได้) */
-export function destroyMembersListener(): void {
-  if (membersListenerRef) {
-    off(membersListenerRef);
-    membersListenerRef = null;
-  }
-  membersCache = {};
 }
