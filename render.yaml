@@ -14,3 +14,8 @@ services:
         sync: false
       - key: CORS_ORIGIN
         value: https://scrum-poker-5fbac.web.app,http://localhost:5173
+      # ชื่อ custom field บนบอร์ด CES/BIZTech (บอร์ดเก่าสะกด "(Orginal)" ไม่มี i — ไม่ใช้แล้ว)
+      - key: CLICKUP_DEV_POINT_FIELD_NAME
+        value: Dev Point Estimation (Original)
+      - key: CLICKUP_QA_POINT_FIELD_NAME
+        value: QA Point Estimation

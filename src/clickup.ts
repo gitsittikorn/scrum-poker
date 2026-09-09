@@ -30,7 +30,7 @@ import {
   groomModeControls,
   groomModeRow,
 } from "./dom";
-import { showConfirmModal, showToast, showSaveSplash } from "./ui";
+import { showConfirmModal, showToast, showSaveSplash, showWakeNotice } from "./ui";
 import { sendSystemMessage } from "./chat";
 import { formatDateTime, rangeFor, unanimousFor } from "./utils";
 import { FEATURES } from "./config";
@@ -459,11 +459,9 @@ let saveInFlight = false;
  *  จึงต้องเช็ค flag นี้ใน updateUI แทนการ set ค่าค้างไว้ตอนกด) */
 export const isSaveInFlight = (): boolean => saveInFlight;
 
-/** ถ้า action ใช้เวลาเกิน 8 วิ (ปกติ backend หลับ) — บอก user ว่ารอได้ ไม่ต้องกดซ้ำ */
+/** ถ้า action ใช้เวลาเกิน 8 วิ (ปกติ backend หลับ) — กล่องกลางจอค้าง 4 วิ บอกว่ารอได้ ไม่ต้องกดซ้ำ */
 function armWakeNotice(action: string): number {
-  return window.setTimeout(() => {
-    showToast(`⏳ กำลังปลุกระบบ${action} — อาจใช้เวลา ~1 นาที ไม่ต้องกดซ้ำ`);
-  }, 8000);
+  return window.setTimeout(() => showWakeNotice(action), 8000);
 }
 
 export async function handleSaveToClickUp(): Promise<void> {

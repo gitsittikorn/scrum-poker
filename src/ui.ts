@@ -598,6 +598,34 @@ export function showWarningModal(opts: Omit<ConfirmModalOptions, "danger">): voi
   showConfirmModal({ ...opts, danger: true });
 }
 
+/** แจ้งกลางจอว่ากำลังปลุก backend (Render cold start) — ค้างไว้ 4 วิ หรือคลิกปิด
+ *  เรียกเมื่อ action ใช้เวลาเกินปกติ (armWakeNotice ใน clickup.ts) */
+export function showWakeNotice(action: string): void {
+  document.getElementById("wake-notice")?.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "wake-notice";
+  overlay.className = "modal-overlay active wake-notice";
+
+  const content = document.createElement("div");
+  content.className = "wake-notice-content";
+  const icon = document.createElement("div");
+  icon.className = "wake-notice-icon";
+  icon.textContent = "⏳";
+  const title = document.createElement("div");
+  title.className = "wake-notice-title";
+  title.textContent = action ? `กำลังปลุกระบบ — ${action}` : "กำลังปลุกระบบ";
+  const sub = document.createElement("div");
+  sub.className = "wake-notice-sub";
+  sub.textContent = "อาจใช้เวลาประมาณ 1 นาที ไม่ต้องกดซ้ำ";
+  content.append(icon, title, sub);
+
+  overlay.appendChild(content);
+  overlay.addEventListener("click", () => overlay.remove());
+  (document.getElementById("app") || document.body).appendChild(overlay);
+  window.setTimeout(() => overlay.remove(), 4000);
+}
+
 /** Splash กลางจอหลังบันทึกลง ClickUp สำเร็จ — โชว์ชื่อ custom field จริง + ค่า
  *  พร้อมพลุในกล่อง · ปิดเองใน 3 วิ หรือคลิกพื้นที่ไหนก็ได้ */
 export function showSaveSplash(
