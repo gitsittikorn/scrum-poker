@@ -459,6 +459,34 @@ let saveInFlight = false;
  *  จึงต้องเช็ค flag นี้ใน updateUI แทนการ set ค่าค้างไว้ตอนกด) */
 export const isSaveInFlight = (): boolean => saveInFlight;
 
+const saveStateListeners = new Set<() => void>();
+/** voting.ts สมัครรับ event ตอนเริ่ม/จบการบันทึก เพื่อ re-render ปุ่มทันที —
+ *  ห้ามรอ room tick อย่างเดียว (ระหว่างบันทึกห้องอาจนิ่ง onValue ไม่ยิง ปุ่มจะดูค้าง)
+ *  คืนฟังก์ชันถอด listener กัน stacking เวลาเรียกซ้ำ */
+export function onSaveStateChange(cb: () => void): () => void {
+  saveStateListeners.add(cb);
+  return () => saveStateListeners.delete(cb);
+}
+
+function setSaveInFlight(v: boolean): void {
+  saveInFlight = v;
+  for (const cb of saveStateListeners) cb();
+}
+
+/** ครอบ action ด้วยสถานะ "กำลังบันทึก" + wake notice — ใช้ทั้ง flow หลักและ onConfirm
+ *  ของ modal ทับค่าเดิม (ตอนกดยืนยันใน modal handler หลักจบไปแล้ว ต้องครอบอีกรอบ
+ *  ไม่งั้นช่วงบันทึกจริงไม่มี loading และกดปุ่มซ้ำได้) */
+async function withSaveBusy(action: () => Promise<void>): Promise<void> {
+  const wakeTimer = armWakeNotice("บันทึก");
+  setSaveInFlight(true);
+  try {
+    await action();
+  } finally {
+    window.clearTimeout(wakeTimer);
+    setSaveInFlight(false);
+  }
+}
+
 /** ถ้า action ใช้เวลาเกิน 8 วิ (ปกติ backend หลับ) — กล่องกลางจอค้าง 4 วิ บอกว่ารอได้ ไม่ต้องกดซ้ำ */
 function armWakeNotice(action: string): number {
   return window.setTimeout(() => showWakeNotice(action), 8000);
@@ -466,149 +494,148 @@ function armWakeNotice(action: string): number {
 
 export async function handleSaveToClickUp(): Promise<void> {
   if (!isPO() || !state.currentRoom || saveInFlight) return;
-  saveInFlight = true;
-  const wakeTimer = armWakeNotice("บันทึก");
-  try {
-    const snap = await get(ref(db, `rooms/${state.currentRoom}`));
-    const data = snap.val() as RoomData | null;
-    if (!data) return;
-    const task = data.activeTask ?? null;
-    if (!data.revealed) {
-      showToast("⚠️ ต้อง Reveal ผลโหวตก่อนบันทึก");
-      return;
-    }
-    if (!task) {
-      showToast("⚠️ ยังไม่ได้เลือก task จาก ClickUp");
-      return;
-    }
+  await withSaveBusy(doSaveToClickUp);
+}
 
-    const entries = Object.entries(data.users ?? {}).filter(([, u]) => !u.left);
-    const devList = entries.filter(([, u]) => u.role === "dev");
-    const qaList = entries.filter(([, u]) => u.role === "qa");
-    const mode: GroomMode = data.groomMode ?? "groom";
+async function doSaveToClickUp(): Promise<void> {
+  if (!state.currentRoom) return;
+  const snap = await get(ref(db, `rooms/${state.currentRoom}`));
+  const data = snap.val() as RoomData | null;
+  if (!data) return;
+  const task = data.activeTask ?? null;
+  if (!data.revealed) {
+    showToast("⚠️ ต้อง Reveal ผลโหวตก่อนบันทึก");
+    return;
+  }
+  if (!task) {
+    showToast("⚠️ ยังไม่ได้เลือก task จาก ClickUp");
+    return;
+  }
 
-    // ── Pre-Groom: คอมเม้น min-max อย่างเดียว ไม่แตะ custom field ──
-    if (mode === "pre") {
-      const dev = rangeFor(devList);
-      const qa = rangeFor(qaList);
-      if (dev === null && qa === null) {
-        showToast("⚠️ ไม่มีโหวตจาก Dev/QA ให้บันทึก");
-        return;
-      }
-      try {
-        await api("/api/clickup/post-comment", {
-          taskId: task.taskId,
-          comment: buildGroomingComment(mode, data.revealTime, dev, qa, entries, state.currentUser?.uid ?? null),
-        });
-        const parts = [dev !== null && `Dev ${dev}`, qa !== null && `QA ${qa}`]
-          .filter(Boolean)
-          .join(" · ");
-        // สำเร็จ — ใช้ splash กลางจออย่างเดียวเหมือน groom (ไม่มี toast มุมล่าง)
-        showSaveSplash(
-          [
-            dev !== null && { label: "Dev", value: dev },
-            qa !== null && { label: "QA", value: qa },
-          ].filter(Boolean) as { label: string; value: string }[],
-          "✅ บันทึก Pre-Groom ลง ClickUp แล้ว"
-        );
-        void sendSystemMessage(`บันทึก Pre-Groom ลง ClickUp แล้ว → ${task.name} (${parts})`);
-        void recordSavedAt(task.historyKey);
-      } catch (err) {
-        showToast(`❌ ${(err as Error).message}`);
-      }
-      return;
-    }
+  const entries = Object.entries(data.users ?? {}).filter(([, u]) => !u.left);
+  const devList = entries.filter(([, u]) => u.role === "dev");
+  const qaList = entries.filter(([, u]) => u.role === "qa");
+  const mode: GroomMode = data.groomMode ?? "groom";
 
-    // ── Groom: ทุกคนใน role (ไม่นับคนที่ออกแล้ว) ต้องโหวตเลขเดียวกันถึงบันทึกได้ ──
-    const dev = unanimousFor(devList);
-    const qa = unanimousFor(qaList);
-    const pending: string[] = [];
-    if (devList.length > 0 && dev === null) pending.push(`Dev (${votesStr(devList)})`);
-    if (qaList.length > 0 && qa === null) pending.push(`QA (${votesStr(qaList)})`);
-    if (pending.length > 0) {
-      showToast(`⚠️ ${pending.join(" และ ")} ยังโหวตไม่ตรงกัน — คุยกันให้ได้ค่าเดียวกันก่อน`);
-      return;
-    }
+  // ── Pre-Groom: คอมเม้น min-max อย่างเดียว ไม่แตะ custom field ──
+  if (mode === "pre") {
+    const dev = rangeFor(devList);
+    const qa = rangeFor(qaList);
     if (dev === null && qa === null) {
       showToast("⚠️ ไม่มีโหวตจาก Dev/QA ให้บันทึก");
       return;
     }
-
-    let existing: ExistingPoints;
     try {
-      existing = await api<ExistingPoints>("/api/clickup/check-existing", {
+      await api("/api/clickup/post-comment", {
         taskId: task.taskId,
+        comment: buildGroomingComment(mode, data.revealTime, dev, qa, entries, state.currentUser?.uid ?? null),
       });
+      const parts = [dev !== null && `Dev ${dev}`, qa !== null && `QA ${qa}`]
+        .filter(Boolean)
+        .join(" · ");
+      // สำเร็จ — ใช้ splash กลางจออย่างเดียวเหมือน groom (ไม่มี toast มุมล่าง)
+      showSaveSplash(
+        [
+          dev !== null && { label: "Dev", value: dev },
+          qa !== null && { label: "QA", value: qa },
+        ].filter(Boolean) as { label: string; value: string }[],
+        "✅ บันทึก Pre-Groom ลง ClickUp แล้ว"
+      );
+      void sendSystemMessage(`บันทึก Pre-Groom ลง ClickUp แล้ว → ${task.name} (${parts})`);
+      void recordSavedAt(task.historyKey);
     } catch (err) {
       showToast(`❌ ${(err as Error).message}`);
-      return;
     }
-
-    const doSave = async (): Promise<void> => {
-      try {
-        const result = await api<SaveResult>("/api/clickup/save-points", {
-          taskId: task.taskId,
-          dev,
-          qa,
-          comment: buildGroomingComment(
-            mode,
-            data.revealTime,
-            dev !== null ? fmt(dev) : null,
-            qa !== null ? fmt(qa) : null,
-            entries,
-            state.currentUser?.uid ?? null
-          ),
-        });
-        const saved: string[] = [];
-        const failed: string[] = [];
-        if (result.dev) (result.dev.ok ? saved : failed).push(`Dev ${fmt(dev!)}`);
-        if (result.qa) (result.qa.ok ? saved : failed).push(`QA ${fmt(qa!)}`);
-        const commentFailed = result.comment && !result.comment.ok;
-        if (failed.length) {
-          showToast(`❌ บันทึกไม่สำเร็จ: ${failed.join(", ")}`);
-        } else if (commentFailed) {
-          showToast("⚠️ บันทึกคะแนนสำเร็จ แต่คอมเม้นบนการ์ดไม่สำเร็จ");
-        } else {
-          // สำเร็จ — ไม่มี toast มุมล่างแล้ว ใช้ splash กลางจออย่างเดียว
-          // (โชว์ชื่อ custom field จริง + ค่าที่บันทึก + พลุ)
-          showSaveSplash(
-            [
-              result.dev?.ok && { label: result.dev.field ?? "Dev", value: fmt(dev!) },
-              result.qa?.ok && { label: result.qa.field ?? "QA", value: fmt(qa!) },
-            ].filter(Boolean) as { label: string; value: string }[]
-          );
-        }
-        if (saved.length) {
-          void sendSystemMessage(
-            `บันทึกคะแนนลง ClickUp แล้ว → ${task.name} (${saved.join(" · ")})`
-          );
-        }
-        // จด duration เฉพาะรอบที่ field สำเร็จครบ (บางส่วนพัง = รอบยังไม่จบ อย่าให้ history หลอกว่าเสร็จ)
-        if (failed.length === 0 && saved.length > 0) {
-          void recordSavedAt(task.historyKey);
-        }
-      } catch (err) {
-        showToast(`❌ ${(err as Error).message}`);
-      }
-    };
-
-    // การ์ดมีค่าเดิม → ยืนยันก่อนเขียนทับ (modal รองรับ multi-line ผ่าน white-space: pre-line)
-    if (existing.dev != null || existing.qa != null) {
-      const changes: string[] = ["บันทึกทับค่าเดิมใน ClickUp ไหม?"];
-      if (dev !== null) changes.push(`Dev: ${fmt(existing.dev ?? 0)} → ${fmt(dev)}`);
-      if (qa !== null) changes.push(`QA: ${fmt(existing.qa ?? 0)} → ${fmt(qa)}`);
-      showConfirmModal({
-        title: "การ์ดนี้มีค่าอยู่แล้ว",
-        message: changes.join("\n"),
-        confirmText: "บันทึกทับ",
-        danger: true,
-        onConfirm: doSave,
-      });
-      return;
-    }
-    await doSave();
-  } finally {
-    window.clearTimeout(wakeTimer);
-    saveInFlight = false;
+    return;
   }
+
+  // ── Groom: ทุกคนใน role (ไม่นับคนที่ออกแล้ว) ต้องโหวตเลขเดียวกันถึงบันทึกได้ ──
+  const dev = unanimousFor(devList);
+  const qa = unanimousFor(qaList);
+  const pending: string[] = [];
+  if (devList.length > 0 && dev === null) pending.push(`Dev (${votesStr(devList)})`);
+  if (qaList.length > 0 && qa === null) pending.push(`QA (${votesStr(qaList)})`);
+  if (pending.length > 0) {
+    showToast(`⚠️ ${pending.join(" และ ")} ยังโหวตไม่ตรงกัน — คุยกันให้ได้ค่าเดียวกันก่อน`);
+    return;
+  }
+  if (dev === null && qa === null) {
+    showToast("⚠️ ไม่มีโหวตจาก Dev/QA ให้บันทึก");
+    return;
+  }
+
+  let existing: ExistingPoints;
+  try {
+    existing = await api<ExistingPoints>("/api/clickup/check-existing", {
+      taskId: task.taskId,
+    });
+  } catch (err) {
+    showToast(`❌ ${(err as Error).message}`);
+    return;
+  }
+
+  const doSave = async (): Promise<void> => {
+    try {
+      const result = await api<SaveResult>("/api/clickup/save-points", {
+        taskId: task.taskId,
+        dev,
+        qa,
+        comment: buildGroomingComment(
+          mode,
+          data.revealTime,
+          dev !== null ? fmt(dev) : null,
+          qa !== null ? fmt(qa) : null,
+          entries,
+          state.currentUser?.uid ?? null
+        ),
+      });
+      const saved: string[] = [];
+      const failed: string[] = [];
+      if (result.dev) (result.dev.ok ? saved : failed).push(`Dev ${fmt(dev!)}`);
+      if (result.qa) (result.qa.ok ? saved : failed).push(`QA ${fmt(qa!)}`);
+      const commentFailed = result.comment && !result.comment.ok;
+      if (failed.length) {
+        showToast(`❌ บันทึกไม่สำเร็จ: ${failed.join(", ")}`);
+      } else if (commentFailed) {
+        showToast("⚠️ บันทึกคะแนนสำเร็จ แต่คอมเม้นบนการ์ดไม่สำเร็จ");
+      } else {
+        // สำเร็จ — ไม่มี toast มุมล่างแล้ว ใช้ splash กลางจออย่างเดียว
+        // (โชว์ชื่อ custom field จริง + ค่าที่บันทึก + พลุ)
+        showSaveSplash(
+          [
+            result.dev?.ok && { label: result.dev.field ?? "Dev", value: fmt(dev!) },
+            result.qa?.ok && { label: result.qa.field ?? "QA", value: fmt(qa!) },
+          ].filter(Boolean) as { label: string; value: string }[]
+        );
+      }
+      if (saved.length) {
+        void sendSystemMessage(
+          `บันทึกคะแนนลง ClickUp แล้ว → ${task.name} (${saved.join(" · ")})`
+        );
+      }
+      // จด duration เฉพาะรอบที่ field สำเร็จครบ (บางส่วนพัง = รอบยังไม่จบ อย่าให้ history หลอกว่าเสร็จ)
+      if (failed.length === 0 && saved.length > 0) {
+        void recordSavedAt(task.historyKey);
+      }
+    } catch (err) {
+      showToast(`❌ ${(err as Error).message}`);
+    }
+  };
+
+  // การ์ดมีค่าเดิม → ยืนยันก่อนเขียนทับ (modal รองรับ multi-line ผ่าน white-space: pre-line)
+  // กดยืนยันแล้วครอบด้วย withSaveBusy อีกรอบ — handler หลักจบไปแล้ว ค่าเดิมจะได้มี loading เหมือนกัน
+  if (existing.dev != null || existing.qa != null) {
+    const changes: string[] = ["บันทึกทับค่าเดิมใน ClickUp ไหม?"];
+    if (dev !== null) changes.push(`Dev: ${fmt(existing.dev ?? 0)} → ${fmt(dev)}`);
+    if (qa !== null) changes.push(`QA: ${fmt(existing.qa ?? 0)} → ${fmt(qa)}`);
+    showConfirmModal({
+      title: "การ์ดนี้มีค่าอยู่แล้ว",
+      message: changes.join("\n"),
+      confirmText: "บันทึกทับ",
+      danger: true,
+      onConfirm: () => withSaveBusy(doSave),
+    });
+    return;
+  }
+  await doSave();
 }
