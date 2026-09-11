@@ -700,6 +700,53 @@ body {
   white-space: nowrap;
   text-align: right;
 }
+/* badge 🔁 ข้างชื่อ — รอบเก่าของการ์ดที่ถูกนำมา groom ใหม่ (hover ดูคำอธิบาย) */
+.task-history-regroom {
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  cursor: help;
+}
+/* คอลัมน์ point ท้ายแถว (Dev/QA) — .old = รอบเก่าที่ไม่ถูกนับในยอดรวม จางลง */
+.task-history-point {
+  flex: 0 0 40px;
+  text-align: center;
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  font-family: monospace;
+  white-space: nowrap;
+}
+.task-history-point.old {
+  opacity: 0.45;
+}
+/* แถวรวมท้ายตาราง — sticky ก้นพื้นที่ scroll เห็นยอดตลอด พื้นทึบกันแถวข้อมูลลอดใต้ */
+.task-history-row.task-history-total {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--bg-secondary);
+  border-color: var(--accent);
+}
+.task-history-total-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: help;
+}
+.task-history-total .task-history-point {
+  color: var(--accent);
+  font-weight: 700;
+}
+/* spacer ในแถวรวม — จองความกว้างคอลัมน์ให้ตรงแถวข้อมูล แต่มองไม่เห็น/กดไม่ได้ */
+.task-history-spacer {
+  visibility: hidden;
+  pointer-events: none;
+}
 
 /* แถว task: ลิงก์ชื่อ (ยืดหด + ellipsis) + กลุ่ม icon ลิงก์จาก description ชิดขวา */
 .clickup-task-row {

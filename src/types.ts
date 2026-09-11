@@ -70,11 +70,34 @@ export interface TaskHistoryEntry {
   resolvedAt: number;
   /** เวลาที่บันทึกลง ClickUp สำเร็จ (groom/pre) — ใช้คำนวณ duration, null = ยังไม่บันทึก */
   savedAt?: number | null;
+  /** โหมดของรอบนั้น (จดตอนบันทึกสำเร็จ) — undefined = รายการเก่าก่อนมีการจด point */
+  groomMode?: GroomMode | null;
+  /** point ที่บันทึกลง ClickUp ของรอบนี้ (โหมด groom = เลขเดียว) · null = ไม่มีค่า
+   *  ใช้รวมยอดในหน้า history — นับเฉพาะรอบล่าสุดของแต่ละการ์ด */
+  dev?: number | null;
+  qa?: number | null;
+  /** ช่วง pre-groom เช่น "1-3" (โหมด pre) — แสดงใน history แต่ไม่เข้ายอดรวม */
+  devRange?: string | null;
+  qaRange?: string | null;
 }
 
-/** ลิงก์ที่ parse จาก description ของการ์ด ClickUp — แสดงเป็น icon ข้างชื่อ task */
+/** ลิงก์ที่ parse จาก description ของการ์ด ClickUp — แสดงเป็น icon ข้างชื่อ task
+ *  brand (figma/sheets/docs/slides/drive/miro/github/clickup) = โลโก้สี
+ *  ไฟล์ (image/pdf/file) + link = icon เส้นโทน theme */
 export interface TaskLink {
-  type: "figma" | "sheets" | "docs" | "link";
+  type:
+    | "figma"
+    | "sheets"
+    | "docs"
+    | "slides"
+    | "drive"
+    | "miro"
+    | "github"
+    | "clickup"
+    | "image"
+    | "pdf"
+    | "file"
+    | "link";
   url: string;
 }
 
