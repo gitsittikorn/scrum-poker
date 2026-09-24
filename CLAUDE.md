@@ -23,7 +23,7 @@
 | `src/voting.ts` | Card rendering, vote actions, participant grouping, results, `pickSpeakers` |
 | `src/chat.ts` | Chat init/destroy, messages, typing indicator, emoji picker, reply |
 | `src/reactions.ts` | Live floating reactions, message reactions, quick reaction popups |
-| `src/members.ts` | Member registry (`members/` node): listener + cache, CRUD, name lookup per role |
+| `src/members.ts` | Member registry (`members/` node): listener + cache (hydrate จาก localStorage ทันทีตอนโหลด + retry/watchdog ถ้า listener ค้าง), CRUD, name lookup per role |
 | `src/firebase.ts` | Firebase SDK init + re-exports |
 | `src/index.html` | SPA: landing page + room page (chat panel, bottom bar, floating reactions) |
 | `src/style.css` | Full CSS: dark/light themes, responsive, animations |

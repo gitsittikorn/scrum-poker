@@ -11,3 +11,6 @@ backend/serviceAccountKey.json
 
 # Firebase deploy cache
 .firebase/
+
+# Claude Code — เครื่อง local เท่านั้น (machine-local permissions)
+.claude/settings.local.json
