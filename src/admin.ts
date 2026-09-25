@@ -224,7 +224,7 @@ function renderMemberColumns(): void {
       .sort(([, a], [, b]) => a.name.localeCompare(b.name, "th"));
 
     const col = document.createElement("div");
-    col.className = "member-col";
+    col.className = `member-col member-col--${code}`;
 
     const header = document.createElement("div");
     header.className = "member-col-header";

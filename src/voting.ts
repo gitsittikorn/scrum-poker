@@ -628,8 +628,8 @@ function renderSaveButton(roomData: RoomData): void {
     if (dev !== null) parts.push(`Dev ${dev}`);
     if (qa !== null) parts.push(`QA ${qa}`);
     btnSaveClickup.textContent = parts.length
-      ? `💾 บันทึก Pre-Groom (${parts.join(" · ")})`
-      : "💾 บันทึก Pre-Groom";
+      ? `🌱 บันทึก Pre-Groom (${parts.join(" · ")})`
+      : "🌱 บันทึก Pre-Groom";
     btnSaveClickup.disabled = false;
   } else {
     // Groom: ค่าเดียวเมื่อทุกคนใน role โหวตเท่ากัน · ✗ = role นั้นยังไม่ตรงกัน

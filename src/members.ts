@@ -114,14 +114,18 @@ export function getMemberNamesByRole(role: MemberRole): string[] {
 }
 
 /** กลุ่มชื่อสำหรับ dropdown ห้อง Wheel — "All" = ทุกคน (dedupe เพราะคนในทีม mk
- *  มี entry ซ้ำอยู่ในคอลัมน์ role ของตัวเองด้วย) */
+ *  มี entry ซ้ำอยู่ในคอลัมน์ role ของตัวเองด้วย; "team" = หมุนเลือกชื่อทีม
+ *  จึงไม่รวม entry "team" ใน "All" — ชื่อทีมไม่ใช่คน) */
 export function getWheelTeamNames(team: string): string[] {
-  if (team === "po" || team === "dev" || team === "qa" || team === "ux" || team === "mk") {
+  if (
+    team === "po" || team === "dev" || team === "qa" ||
+    team === "ux" || team === "mk" || team === "team"
+  ) {
     return getMemberNamesByRole(team);
   }
   const seen = new Set<string>();
   return Object.values(membersCache)
-    .filter((m) => m?.name && typeof m.name === "string" && m.name.trim())
+    .filter((m) => m?.name && m.role !== "team" && typeof m.name === "string" && m.name.trim())
     .map((m) => m.name.trim())
     .filter((n) => {
       const key = n.toLowerCase();

@@ -18,7 +18,6 @@ import {
   btnClickupResolve,
   btnGroomModeGroom,
   btnGroomModePre,
-  btnTaskHistory,
   clickupBanner,
   clickupInputRow,
   clickupLinks,
@@ -32,7 +31,7 @@ import {
 } from "./dom";
 import { showConfirmModal, showToast, showSaveSplash, showWakeNotice } from "./ui";
 import { sendSystemMessage } from "./chat";
-import { formatDateTime, rangeFor, unanimousFor } from "./utils";
+import { formatDateTime, parseRange, rangeFor, unanimousFor } from "./utils";
 import { FEATURES } from "./config";
 import { ADMIN_ROOM } from "./constants";
 import { isPO, state } from "./state";
@@ -345,8 +344,9 @@ export async function handleSetGroomMode(mode: GroomMode): Promise<void> {
   if (!isPO() || !state.currentRoom) return;
   await update(ref(db, `rooms/${state.currentRoom}`), { groomMode: mode });
   const label = mode === "pre" ? "Pre-Groom (คอมเม้นอย่างเดียว)" : "Groom (บันทึก field + คอมเม้น)";
-  showToast(`🎯 สลับเป็นโหมด ${label}`);
-  void sendSystemMessage(`🎯 ห้องนี้สลับเป็นโหมด ${label}`);
+  const icon = mode === "pre" ? "🌱" : "✅";
+  showToast(`${icon} สลับเป็นโหมด ${label}`);
+  void sendSystemMessage(`${icon} ห้องนี้สลับเป็นโหมด ${label}`);
 }
 
 /** Duration ของรอบ groom — "hh:mm" ตั้งแต่ 1 ชม.ขึ้นไป · "xx min" ถ้าไม่ถึงชั่วโมง */
@@ -451,40 +451,108 @@ export async function openTaskHistory(): Promise<void> {
     if (prev !== undefined) superseded.add(prev);
     latestByTask.set(e.taskId, i);
   });
+  // ── แยกตาราง Pre-Groom / Groom — มีโหมดไหนแสดงเฉพาะโหมดนั้น ──
+  // groomMode จดตอนบันทึกสำเร็จ · รายการเก่าก่อนมี field นี้ infer จากชนิดค่า
+  // (มีแต่ช่วง = pre) · แถวที่ยังไม่บันทึก ("—") = task ที่กำลัง groom อยู่ → ตาราง Groom
+  const modeOf = (e: TaskHistoryEntry): "pre" | "groom" =>
+    e.groomMode ?? (e.dev == null && e.qa == null && (e.devRange != null || e.qaRange != null) ? "pre" : "groom");
+  const preIdx: number[] = [];
+  const groomIdx: number[] = [];
+  entries.forEach(([_, e], i) => (modeOf(e) === "pre" ? preIdx : groomIdx).push(i));
+
+  // ยอดรวมแยกตามตาราง — เลขยืนยันเข้าตาราง Groom · ช่วง ("1-3") แยก min/max รวมเป็น Σmin–Σmax เข้าตาราง Pre
   let totalDev = 0;
   let totalQa = 0;
   let devCards = 0;
   let qaCards = 0;
+  let preDevMin = 0;
+  let preDevMax = 0;
+  let preDevCards = 0;
+  let preQaMin = 0;
+  let preQaMax = 0;
+  let preQaCards = 0;
   for (const i of latestByTask.values()) {
     const e = entries[i][1];
-    // รวมเฉพาะเลขโหมด groom — ช่วง pre ("1-3") รวมกันไม่ได้
-    if (e.dev != null) {
-      totalDev += e.dev;
-      devCards++;
-    }
-    if (e.qa != null) {
-      totalQa += e.qa;
-      qaCards++;
+    if (modeOf(e) === "groom") {
+      if (e.dev != null) {
+        totalDev += e.dev;
+        devCards++;
+      }
+      if (e.qa != null) {
+        totalQa += e.qa;
+        qaCards++;
+      }
+    } else {
+      const d = parseRange(e.devRange);
+      if (d) {
+        preDevMin += d.min;
+        preDevMax += d.max;
+        preDevCards++;
+      }
+      const q = parseRange(e.qaRange);
+      if (q) {
+        preQaMin += q.min;
+        preQaMax += q.max;
+        preQaCards++;
+      }
     }
   }
 
   const pointText = (v: number | null | undefined, range: string | null | undefined): string =>
     v != null ? fmt(v) : range ?? "—";
 
-  // push key เรียงตามเวลาอยู่แล้ว → วนตามลำดับ = ASC (เก่า → ใหม่)
-  entries.forEach(([_, entry], i) => {
-    const oldRound = superseded.has(i);
+  // แถวหัวตาราง — บอกความหมายคอลัมน์ (ช่องท้ายแถว = point ของฝั่ง Dev / QA แยกกัน)
+  const buildHeadRow = (): HTMLElement => {
+    const row = document.createElement("div");
+    row.className = "task-history-headrow";
+    const no = document.createElement("span");
+    no.className = "task-history-no";
+    no.textContent = "#";
+    const time = document.createElement("span");
+    time.className = "task-history-time";
+    time.textContent = "เวลา";
+    const name = document.createElement("span");
+    name.className = "task-history-name";
+    name.textContent = "Task";
+    row.append(no, time, name);
+    if (isPO()) {
+      // spacer กว้างเท่าปุ่ม reuse — จัดหัวคอลัมน์หลังจากนี้ให้ตรงแถวข้อมูล (มองไม่เห็น ไม่กดได้)
+      const reuseSpacer = document.createElement("span");
+      reuseSpacer.className = "btn-task-history-reuse task-history-spacer";
+      reuseSpacer.textContent = "นำมา Groom ใหม่";
+      row.appendChild(reuseSpacer);
+    }
+    const duration = document.createElement("span");
+    duration.className = "task-history-duration";
+    duration.textContent = "ใช้เวลา";
+    const dev = document.createElement("span");
+    dev.className = "task-history-point";
+    dev.textContent = "Dev";
+    dev.title = "point ที่บันทึกลง ClickUp ของฝั่ง Dev";
+    const qa = document.createElement("span");
+    qa.className = "task-history-point";
+    qa.textContent = "QA";
+    qa.title = "point ที่บันทึกลง ClickUp ของฝั่ง QA";
+    row.append(duration, dev, qa);
+    return row;
+  };
+
+  /** แถวข้อมูล 1 รอบ — no = ลำดับภายในตารางนั้น (เริ่มนับใหม่ทุกตาราง) */
+  const buildDataRow = (entry: TaskHistoryEntry, no: number, oldRound: boolean): HTMLElement => {
     const row = document.createElement("div");
     row.className = "task-history-row";
 
-    const no = document.createElement("span");
-    no.className = "task-history-no";
-    no.textContent = String(i + 1);
+    const noEl = document.createElement("span");
+    noEl.className = "task-history-no";
+    noEl.textContent = String(no);
 
     const time = document.createElement("span");
     time.className = "task-history-time";
     time.textContent = entry.resolvedAt ? formatDateTime(entry.resolvedAt) : "—";
 
+    // name cell ห่อลิงก์ + badge 🔁 ไว้ในช่องเดียว — แถวที่มี badge ไม่ดันคอลัมน์หลังให้เพี้ยน
+    const nameCell = document.createElement("span");
+    nameCell.className = "task-history-name-cell";
     const link = document.createElement("a");
     link.className = "task-history-name";
     link.href = entry.url;
@@ -492,15 +560,16 @@ export async function openTaskHistory(): Promise<void> {
     link.rel = "noopener noreferrer";
     link.textContent = `${entry.name} ↗`;
     link.title = entry.name; // ดูชื่อเต็มตอนโดนตัดเป็น ...
-
-    row.append(no, time, link);
+    nameCell.appendChild(link);
     if (oldRound) {
       const regroom = document.createElement("span");
       regroom.className = "task-history-regroom";
       regroom.textContent = "🔁";
       regroom.title = "การ์ดนี้ถูกนำมา groom ใหม่ในรอบหลัง ๆ — ค่าของบรรทัดนี้ไม่ถูกนับในยอดรวม";
-      row.appendChild(regroom);
+      nameCell.appendChild(regroom);
     }
+
+    row.append(noEl, time, nameCell);
     if (isPO()) {
       const reuse = document.createElement("button");
       reuse.type = "button";
@@ -525,42 +594,119 @@ export async function openTaskHistory(): Promise<void> {
     qa.textContent = pointText(entry.qa, entry.qaRange);
     qa.title = `QA — ${pointTitle}`;
     row.append(dev, qa);
-    list.appendChild(row);
-  });
+    return row;
+  };
 
-  // แถวรวมท้ายตาราง — sticky ก้นพื้นที่ scroll เห็นตลอด (column ตรงกับแถวข้อมูล)
-  const totalRow = document.createElement("div");
-  totalRow.className = "task-history-row task-history-total";
-  const emptyNo = document.createElement("span");
-  emptyNo.className = "task-history-no";
-  const emptyTime = document.createElement("span");
-  emptyTime.className = "task-history-time";
-  const totalLabel = document.createElement("span");
-  totalLabel.className = "task-history-total-label";
-  totalLabel.textContent = "รวม (นับค่าล่าสุดของแต่ละการ์ด)";
-  totalLabel.title =
-    "การ์ดที่ถูก groom ซ้ำนับเฉพาะค่ารอบล่าสุด · ช่วง pre-groom (เช่น 1-3) ไม่เข้ายอดรวม";
-  totalRow.append(emptyNo, emptyTime, totalLabel);
-  if (isPO()) {
-    // spacer กว้างเท่าปุ่ม reuse — จัดคอลัมน์ Dev/QA ให้ตรงแถวข้อมูล (มองไม่เห็น ไม่กดได้)
-    const reuseSpacer = document.createElement("span");
-    reuseSpacer.className = "btn-task-history-reuse task-history-spacer";
-    reuseSpacer.textContent = "นำมา Groom ใหม่";
-    totalRow.appendChild(reuseSpacer);
+  // แถวรวมท้ายตาราง (column ตรงกับแถวข้อมูล) — wrapper เดียวให้ sticky ทั้งกลุ่ม
+  // ตาราง Groom = เลขยืนยันแล้ว (ขอบ accent) · ตาราง Pre = ช่วง Σmin–Σmax ยังไม่ยืนยัน (ขอบเรียบ)
+  const buildTotalRow = (
+    label: string,
+    title: string,
+    devText: string,
+    devTitle: string,
+    qaText: string,
+    qaTitle: string,
+    extraClass = ""
+  ): HTMLElement => {
+    const row = document.createElement("div");
+    row.className = "task-history-row task-history-total" + (extraClass ? ` ${extraClass}` : "");
+    const emptyNo = document.createElement("span");
+    emptyNo.className = "task-history-no";
+    const emptyTime = document.createElement("span");
+    emptyTime.className = "task-history-time";
+    const labelEl = document.createElement("span");
+    labelEl.className = "task-history-total-label";
+    labelEl.textContent = label;
+    labelEl.title = title;
+    row.append(emptyNo, emptyTime, labelEl);
+    if (isPO()) {
+      // spacer กว้างเท่าปุ่ม reuse — จัดคอลัมน์ Dev/QA ให้ตรงแถวข้อมูล (มองไม่เห็น ไม่กดได้)
+      const reuseSpacer = document.createElement("span");
+      reuseSpacer.className = "btn-task-history-reuse task-history-spacer";
+      reuseSpacer.textContent = "นำมา Groom ใหม่";
+      row.appendChild(reuseSpacer);
+    }
+    const durSpacer = document.createElement("span");
+    durSpacer.className = "task-history-duration";
+    row.appendChild(durSpacer);
+    const devEl = document.createElement("span");
+    devEl.className = "task-history-point";
+    devEl.textContent = devText;
+    devEl.title = devTitle;
+    const qaEl = document.createElement("span");
+    qaEl.className = "task-history-point";
+    qaEl.textContent = qaText;
+    qaEl.title = qaTitle;
+    row.append(devEl, qaEl);
+    return row;
+  };
+  /** ช่วงรวม pre — "Σmin-Σmax" ติดกัน (min==max ทุกใบ → เลขเดียว) */
+  const rangeTotalText = (min: number, max: number): string =>
+    min === max ? fmt(min) : `${fmt(min)}-${fmt(max)}`;
+
+  /** ตาราง 1 โหมด — หัวเรื่อง + หัวคอลัมน์ + แถวข้อมูล (ASC) + ยอดรวม sticky ท้ายตาราง */
+  const buildSection = (mode: "pre" | "groom", idxs: number[], totalRow: HTMLElement): HTMLElement => {
+    const section = document.createElement("div");
+    section.className = `task-history-section ${mode}`;
+
+    const title = document.createElement("div");
+    title.className = "task-history-section-title";
+    const name = document.createElement("span");
+    name.className = "task-history-section-name";
+    name.textContent = mode === "pre" ? "🌱 Pre-Groom" : "✅ Groom";
+    const sub = document.createElement("span");
+    sub.className = "task-history-section-sub";
+    sub.textContent =
+      mode === "pre"
+        ? "point เป็นช่วง min–max ยังไม่ยืนยัน (บันทึกเป็นคอมเม้นอย่างเดียว)"
+        : "point ยืนยันแล้ว — คอลัมน์ Dev / QA คือ point ของแต่ละฝั่ง";
+    title.append(name, sub);
+
+    const totals = document.createElement("div");
+    totals.className = "task-history-totals";
+    totals.appendChild(totalRow);
+
+    section.append(title, buildHeadRow());
+    // push key เรียงตามเวลาอยู่แล้ว → วนตามลำดับ index = ASC (เก่า → ใหม่) ภายในตาราง
+    idxs.forEach((i, pos) => section.appendChild(buildDataRow(entries[i][1], pos + 1, superseded.has(i))));
+    section.appendChild(totals);
+    return section;
+  };
+
+  // แสดงเฉพาะโหมดที่มีรายการ — Pre-Groom ก่อน Groom ตามลำดับการทำงานจริง
+  if (preIdx.length > 0) {
+    list.appendChild(
+      buildSection(
+        "pre",
+        preIdx,
+        buildTotalRow(
+          "รวม Pre-Groom",
+          'รวม min กับ max ของช่วงแยกกัน — "3-7" คือ ต่ำสุด 3 สูงสุด 7 · การ์ดที่ถูกนำมา groom ใหม่นับเฉพาะรอบล่าสุด',
+          preDevCards > 0 ? rangeTotalText(preDevMin, preDevMax) : "—",
+          `ช่วงรวม Dev ของค่าล่าสุด ${preDevCards} การ์ด (${fmt(preDevMin)}-${fmt(preDevMax)})`,
+          preQaCards > 0 ? rangeTotalText(preQaMin, preQaMax) : "—",
+          `ช่วงรวม QA ของค่าล่าสุด ${preQaCards} การ์ด (${fmt(preQaMin)}-${fmt(preQaMax)})`,
+          "pre"
+        )
+      )
+    );
   }
-  const durSpacer = document.createElement("span");
-  durSpacer.className = "task-history-duration";
-  totalRow.appendChild(durSpacer);
-  const totalDevEl = document.createElement("span");
-  totalDevEl.className = "task-history-point";
-  totalDevEl.textContent = devCards > 0 ? fmt(totalDev) : "—";
-  totalDevEl.title = `ผลรวม Dev ของค่าล่าสุด ${devCards} การ์ด`;
-  const totalQaEl = document.createElement("span");
-  totalQaEl.className = "task-history-point";
-  totalQaEl.textContent = qaCards > 0 ? fmt(totalQa) : "—";
-  totalQaEl.title = `ผลรวม QA ของค่าล่าสุด ${qaCards} การ์ด`;
-  totalRow.append(totalDevEl, totalQaEl);
-  list.appendChild(totalRow);
+  if (groomIdx.length > 0) {
+    list.appendChild(
+      buildSection(
+        "groom",
+        groomIdx,
+        buildTotalRow(
+          "รวม Groom",
+          "การ์ดที่ถูกนำมา groom ใหม่นับเฉพาะค่ารอบล่าสุด · ค่า = point ที่บันทึกลง ClickUp",
+          devCards > 0 ? fmt(totalDev) : "—",
+          `ผลรวม Dev ของค่าล่าสุด ${devCards} การ์ด`,
+          qaCards > 0 ? fmt(totalQa) : "—",
+          `ผลรวม QA ของค่าล่าสุด ${qaCards} การ์ด`
+        )
+      )
+    );
+  }
 
   // Footer ล่างขวา — ปุ่มล้างประวัติทั้งหมด (PO เท่านั้น และมีรายการให้ล้าง)
   if (isPO() && entries.length > 0) {
@@ -674,7 +820,7 @@ async function doSaveToClickUp(): Promise<void> {
           dev !== null && { label: "Dev", value: dev },
           qa !== null && { label: "QA", value: qa },
         ].filter(Boolean) as { label: string; value: string }[],
-        "✅ บันทึก Pre-Groom ลง ClickUp แล้ว"
+        "🌱 บันทึก Pre-Groom ลง ClickUp แล้ว"
       );
       void sendSystemMessage(`บันทึก Pre-Groom ลง ClickUp แล้ว → ${task.name} (${parts})`);
       void recordSavedAt(task.historyKey, {
