@@ -31,6 +31,17 @@ export function rangeFor(list: [string, { vote: string | null }][]): string | nu
   return min === max ? String(min) : `${min}-${max}`;
 }
 
+/** ตัวกลับของ rangeFor — แยก string ช่วงกลับเป็น min/max เพื่อรวมยอดใน history
+ *  "1-3" → {min:1, max:3} · "3" → {min:3, max:3} · null/ไม่ใช่เลข → null */
+export function parseRange(range: string | null | undefined): { min: number; max: number } | null {
+  if (!range) return null;
+  const [lo, hi] = range.split("-");
+  const min = parseFloat(lo);
+  if (isNaN(min)) return null;
+  const max = hi === undefined ? min : parseFloat(hi);
+  return { min, max: isNaN(max) ? min : max };
+}
+
 export function formatChatTime(ts: number | null): string {
   if (!ts) return "";
   const d = new Date(ts);

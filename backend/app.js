@@ -141,7 +141,8 @@ const isNum = (v) => v === null || v === undefined || (typeof v === "number" && 
 // Pull links out of the task's MARKDOWN description (fetched with
 // include_markdown_description=true). Supports markdown inline links
 // [display](url) — display can be shortened text — plus bare URLs with or
-// without protocol. Classify the known brands, cap at 6. Only http(s)
+// without protocol. Classify known brands (Figma/Google/Miro/GitHub/ClickUp)
+// and direct files by extension (image/pdf/other), cap at 6. Only http(s)
 // survives — anything javascript:/data: is dropped by construction.
 function extractLinks(rawMarkdown) {
   // markdown ว่าง/ไม่มี = ไม่พบลิงก์ (คืน [] ทันที)
@@ -174,7 +175,9 @@ function extractLinks(rawMarkdown) {
   for (const m of stripped.matchAll(/href=(?:"([^"]+)"|'([^']+)')/g)) add(m[1] ?? m[2]);
   // 5) ลิงก์พิมพ์เปล่าไม่มีโปรโตคอล — www.* หรือโฮสต์ที่รู้จัก (lookbehind กันจับซ้ำใน hostname อื่น)
   for (const m of stripped.matchAll(/www\.[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s)\]"'<>]*)?/gi)) add(m[0]);
-  for (const m of stripped.matchAll(/(?<![\w.])(?:figma\.com|fig\.ma|docs\.google\.com|drive\.google\.com)\/[^\s)\]"'<>]*/gi)) {
+  for (const m of stripped.matchAll(
+    /(?<![\w.])(?:figma\.com|fig\.ma|docs\.google\.com|drive\.google\.com|miro\.com|github\.com|clickup\.com)\/[^\s)\]"'<>]*/gi
+  )) {
     add(m[0]);
   }
 
@@ -190,10 +193,21 @@ function extractLinks(rawMarkdown) {
       continue;
     }
     let type = "link";
+    // ตัด slash ท้าย path ก่อนเช็คนามสกุลไฟล์ (รูป/ไฟล์แนบที่ลิงก์ตรง ๆ)
+    const filePath = path.replace(/\/+$/, "");
     if (/(^|\.)figma\.com$/.test(host) || /(^|\.)fig\.ma$/.test(host)) type = "figma";
     else if (host === "docs.google.com") {
       if (path.startsWith("/spreadsheets")) type = "sheets";
       else if (path.startsWith("/document")) type = "docs";
+      else if (path.startsWith("/presentation")) type = "slides";
+    } else if (host === "drive.google.com" || host === "drive.usercontent.google.com") type = "drive";
+    else if (/(^|\.)miro\.com$/.test(host)) type = "miro";
+    else if (/(^|\.)github\.com$/.test(host)) type = "github";
+    else if (/(^|\.)clickup\.com$/.test(host)) type = "clickup";
+    else if (/\.pdf$/i.test(filePath)) type = "pdf";
+    else if (/\.(png|jpe?g|gif|webp|svg|bmp|ico|avif|heic)$/i.test(filePath)) type = "image";
+    else if (/\.(zip|rar|7z|xlsx?|docx?|pptx?|csv|txt|json|mp4|mov|webm|mp3|wav)$/i.test(filePath)) {
+      type = "file";
     }
     out.push({ type, url: u });
     if (out.length >= 6) break;

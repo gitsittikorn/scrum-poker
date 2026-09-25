@@ -1078,9 +1078,12 @@ export function initWheelManual(): void {
   })();
 }
 
-/** Team dropdown ของห้อง Wheel — All + 4 roles + ทีม Monkey King (ค่าอื่น = ของเก่า) */
+/** Team dropdown ของห้อง Wheel — All + 4 roles + Monkey King + Team หมุนชื่อทีม (ค่าอื่น = ของเก่า) */
 function isValidWheelTeam(team: string): boolean {
-  return team === "All" || team === "po" || team === "dev" || team === "qa" || team === "ux" || team === "mk";
+  return (
+    team === "All" || team === "po" || team === "dev" ||
+    team === "qa" || team === "ux" || team === "mk" || team === "team"
+  );
 }
 
 // Export control functions for app.ts to bind

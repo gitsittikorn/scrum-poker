@@ -18,7 +18,6 @@ import {
   btnClickupResolve,
   btnGroomModeGroom,
   btnGroomModePre,
-  btnTaskHistory,
   clickupBanner,
   clickupInputRow,
   clickupLinks,
@@ -32,7 +31,7 @@ import {
 } from "./dom";
 import { showConfirmModal, showToast, showSaveSplash, showWakeNotice } from "./ui";
 import { sendSystemMessage } from "./chat";
-import { formatDateTime, rangeFor, unanimousFor } from "./utils";
+import { formatDateTime, parseRange, rangeFor, unanimousFor } from "./utils";
 import { FEATURES } from "./config";
 import { ADMIN_ROOM } from "./constants";
 import { isPO, state } from "./state";
@@ -133,6 +132,14 @@ const LINK_LABELS: Record<TaskLink["type"], string> = {
   figma: "Figma",
   sheets: "Google Sheets",
   docs: "Google Docs",
+  slides: "Google Slides",
+  drive: "Google Drive",
+  miro: "Miro",
+  github: "GitHub",
+  clickup: "ClickUp",
+  image: "รูปภาพ",
+  pdf: "ไฟล์ PDF",
+  file: "ไฟล์แนบ",
   link: "ลิงก์",
 };
 
@@ -143,9 +150,28 @@ const LINK_ICONS: Record<TaskLink["type"], string> = {
   sheets: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#0F9D58" d="M5 1h9l5 5v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/><path fill="#57BB8A" d="M14 1l5 5h-4a1 1 0 0 1-1-1V1z"/><path fill="#fff" d="M7 12h10v7H7v-7zm1.5 1.5V15h3v-1.5h-3zm4.5 0V15h3v-1.5h-3zM8.5 16.5V18h3v-1.5h-3zm4.5 0V18h3v-1.5h-3z"/></svg>`,
   // Google Docs — ไฟล์น้ำเงิน + บรรทัดข้อความขาว
   docs: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M5 1h9l5 5v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/><path fill="#A1C2FA" d="M14 1l5 5h-4a1 1 0 0 1-1-1V1z"/><path fill="#fff" d="M7 10h7v1.3H7V10zm0 3.2h10v1.3H7v-1.3zm0 3.5h10V18H7v-1.3z"/></svg>`,
+  // Google Slides — ไฟล์เหลือง + สไลด์หัวข้อ/บรรทัด
+  slides: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#F4B400" d="M5 1h9l5 5v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/><path fill="#FCC948" d="M14 1l5 5h-4a1 1 0 0 1-1-1V1z"/><path fill="#fff" d="M7 11h10v7H7v-7z"/><path fill="#F4B400" d="M8.5 12.4h5v2.2h-5v-2.2zm0 3h7v1.2h-7v-1.2z"/></svg>`,
+  // Google Drive — สามเหลี่ยม 3 สี (สีทางการ)
+  drive: `<svg viewBox="0 0 87.3 78" aria-hidden="true"><path fill="#0066da" d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z"/><path fill="#00ac47" d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0-1.2 4.5h27.5z"/><path fill="#ea4335" d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.5l5.85 11.5z"/><path fill="#00832d" d="m43.65 25 13.75-23.8c-1.35-.8-2.5-1.4-3.75-1.8-1.25-.4-2.6-.6-3.9-.6H37.55c-1.3 0-2.65.25-3.9.7-.5.2-.95.4-1.4.65z"/><path fill="#2684fc" d="m57.15 50H30.15l-13.75 23.8c1.35.8 2.85 1.2 4.4 1.2h44.9c1.55 0 3.05-.4 4.4-1.2z"/><path fill="#ffba00" d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l13.7 23.8h27.45c0-1.55-.4-3.1-1.2-4.5z"/></svg>`,
+  // Miro — พื้นเหลือง + ตัว M ขาว
+  miro: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="4.8" fill="#FFD02F"/><path fill="#fff" d="M5.8 5.2h3.4L12 8.6l2.8-3.4h3.4v13.6h-3.4v-7.7L12 14.6l-2.8-3.5v7.7H5.8V5.2z"/></svg>`,
+  // GitHub — octocat บนวงกลมดำ
+  github: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#181717"/><path fill="#fff" d="M12 3.8a5.9 5.9 0 0 0-1.9 11.5c.3.1.4-.1.4-.3v-1c-1.6.3-1.9-.7-1.9-.7-.3-.7-.6-.8-.6-.8-.5-.4 0-.4 0-.4.6 0 .9.6.9.6.5.9 1.4.6 1.7.5.1-.4.2-.6.4-.8-1.3-.1-2.6-.6-2.6-2.8 0-.6.2-1.1.6-1.5-.1-.4-.2-1 .1-1.6 0 0 .5-.2 1.6.6a5.7 5.7 0 0 1 2.9 0c1.1-.7 1.6-.6 1.6-.6.3.6.2 1.2.1 1.6.4.4.6.9.6 1.5 0 2.2-1.3 2.7-2.6 2.8.2.2.4.6.4 1.1v1.5c0 .2.1.4.4.3A5.9 5.9 0 0 0 12 3.8z"/></svg>`,
+  // ClickUp — chevron ซ้อนสีม่วงแบรนด์
+  clickup: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#7B68EE" d="M2 6.6 12 1l10 5.6v3L12 4 2 9.6z"/><path fill="#7B68EE" opacity=".65" d="M2 17.4 12 23l10-5.6v-3L12 20 2 14.4z"/></svg>`,
+  // รูปภาพ (ลิงก์ไฟล์รูปตรง ๆ) — icon เส้นตาม theme
+  image: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.9-3.9a2 2 0 0 0-2.8 0L6 19.5"/></svg>`,
+  // PDF — ไฟล์แดง + ตัวอักษร PDF
+  pdf: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#D93025" d="M5 1h9l5 5v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/><path fill="#F28B82" d="M14 1l5 5h-4a1 1 0 0 1-1-1V1z"/><text x="12" y="16.6" text-anchor="middle" font-family="Arial, sans-serif" font-size="6" font-weight="700" fill="#fff">PDF</text></svg>`,
+  // ไฟล์แนบอื่น ๆ — กระดาษมีบรรทัด (icon เส้นตาม theme)
+  file: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>`,
   // Generic — โซ่ลิงก์ (สีตาม theme ผ่าน currentColor)
   link: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
 };
+
+/** icon ไม่มีแบรนด์ — ใช้สีโทน muted ตาม theme (เหมือนโซ่ลิงก์ generic) */
+const GENERIC_LINK_TYPES = new Set<TaskLink["type"]>(["link", "image", "file"]);
 
 /** กัน rebuild DOM ทุก room tick — rebuild เฉพาะเมื่อชุดลิงก์เปลี่ยนจริง ๆ */
 let renderedLinksKey = "";
@@ -157,7 +183,7 @@ function renderTaskLinks(links: TaskLink[] | undefined): void {
   clickupLinks.innerHTML = "";
   for (const l of links ?? []) {
     const a = document.createElement("a");
-    a.className = "clickup-link" + (l.type === "link" ? " clickup-link-generic" : "");
+    a.className = "clickup-link" + (GENERIC_LINK_TYPES.has(l.type) ? " clickup-link-generic" : "");
     a.href = l.url;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
@@ -237,12 +263,27 @@ async function applyResolvedTask(task: ResolvedTask): Promise<void> {
   void trimTaskHistory();
 }
 
-/** จดเวลาบันทึก ClickUp สำเร็จลงรายการ history ของรอบนี้ (ไว้คำนวณ duration) */
-async function recordSavedAt(historyKey: string | undefined): Promise<void> {
+/** ผล point ของรอบบันทึก — groom = เลขเดียว, pre = ช่วง "1-3"
+ *  จดลง history เพื่อแสดงคอลัมน์ Dev/QA + รวมยอดในหน้า history */
+interface SavedPoints {
+  mode: GroomMode;
+  dev: number | null;
+  qa: number | null;
+  devRange: string | null;
+  qaRange: string | null;
+}
+
+/** จดเวลา + point ที่บันทึกสำเร็จลงรายการ history ของรอบนี้ (ไว้คำนวณ duration และยอดรวม) */
+async function recordSavedAt(historyKey: string | undefined, points: SavedPoints): Promise<void> {
   if (!state.currentRoom || !historyKey) return;
   try {
     await update(ref(db, `rooms/${state.currentRoom}/taskHistory/${historyKey}`), {
       savedAt: serverTimestamp(),
+      groomMode: points.mode,
+      dev: points.dev,
+      qa: points.qa,
+      devRange: points.devRange,
+      qaRange: points.qaRange,
     });
   } catch (err) {
     console.warn("[clickup] record savedAt failed:", err);
@@ -303,8 +344,9 @@ export async function handleSetGroomMode(mode: GroomMode): Promise<void> {
   if (!isPO() || !state.currentRoom) return;
   await update(ref(db, `rooms/${state.currentRoom}`), { groomMode: mode });
   const label = mode === "pre" ? "Pre-Groom (คอมเม้นอย่างเดียว)" : "Groom (บันทึก field + คอมเม้น)";
-  showToast(`🎯 สลับเป็นโหมด ${label}`);
-  void sendSystemMessage(`🎯 ห้องนี้สลับเป็นโหมด ${label}`);
+  const icon = mode === "pre" ? "🌱" : "✅";
+  showToast(`${icon} สลับเป็นโหมด ${label}`);
+  void sendSystemMessage(`${icon} ห้องนี้สลับเป็นโหมด ${label}`);
 }
 
 /** Duration ของรอบ groom — "hh:mm" ตั้งแต่ 1 ชม.ขึ้นไป · "xx min" ถ้าไม่ถึงชั่วโมง */
@@ -341,7 +383,8 @@ async function handleReuseHistoryTask(entry: TaskHistoryEntry, btn: HTMLButtonEl
   }
 }
 
-/** Modal ประวัติการดึง task — ทุกคนเปิดดูได้ (ปุ่ม reuse เฉพาะ PO) · เรียงเก่า→ใหม่ */
+/** Modal ประวัติการดึง task — ทุกคนเปิดดูได้ (ปุ่ม reuse เฉพาะ PO) · เรียงเก่า→ใหม่
+ *  กรองตาม PO ได้: dropdown ที่ header (เฉพาะ PO ที่เคยบันทึก) หรือคลิกชื่อในคอลัมน์ PO */
 export async function openTaskHistory(): Promise<void> {
   if (!FEATURES.clickup || !state.currentRoom) return;
   document.getElementById("task-history-modal")?.remove();
@@ -394,19 +437,104 @@ export async function openTaskHistory(): Promise<void> {
     list.textContent = "ยังไม่มีประวัติการดึง task ในห้องนี้";
     return;
   }
-  // push key เรียงตามเวลาอยู่แล้ว → วนตามลำดับ = ASC (เก่า → ใหม่)
-  entries.forEach(([_, entry], i) => {
+  // ── ตัวกรองตาม PO (คนกดดึง = resolvedBy) — dropdown เอาเฉพาะชื่อ PO ที่เคยบันทึก (savedAt)
+  //  คลิกชื่อในคอลัมน์ PO ก็กรองได้ · 🔁 และยอดรวมคำนวณใหม่ใน subset ที่กรองทุกครั้ง ──
+  let poFilter: string | null = null;
+  let poSelect: HTMLSelectElement | null = null;
+  const savedPoNames = [
+    ...new Set(entries.filter(([, e]) => e.savedAt != null).map(([, e]) => e.resolvedBy)),
+  ]
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "th"));
+  if (savedPoNames.length > 0) {
+    const sel = document.createElement("select");
+    sel.className = "task-history-filter";
+    sel.title = "กรองรายการตาม PO ที่บันทึกลง ClickUp";
+    const allOpt = document.createElement("option");
+    allOpt.value = "";
+    allOpt.textContent = "ทุก PO";
+    sel.appendChild(allOpt);
+    for (const n of savedPoNames) {
+      const opt = document.createElement("option");
+      opt.value = n;
+      opt.textContent = n;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener("change", () => {
+      poFilter = sel.value || null;
+      renderList();
+    });
+    poSelect = sel;
+    header.insertBefore(sel, closeBtn); // h2 | dropdown กรอง | ✕
+  }
+
+  const hasValues = (e: TaskHistoryEntry): boolean =>
+    e.dev != null || e.qa != null || e.devRange != null || e.qaRange != null;
+  // ── แยกตาราง Pre-Groom / Groom — มีโหมดไหนแสดงเฉพาะโหมดนั้น ──
+  // groomMode จดตอนบันทึกสำเร็จ · รายการเก่าก่อนมี field นี้ infer จากชนิดค่า
+  // (มีแต่ช่วง = pre) · แถวที่ยังไม่บันทึก ("—") = task ที่กำลัง groom อยู่ → ตาราง Groom
+  const modeOf = (e: TaskHistoryEntry): "pre" | "groom" =>
+    e.groomMode ?? (e.dev == null && e.qa == null && (e.devRange != null || e.qaRange != null) ? "pre" : "groom");
+
+  const pointText = (v: number | null | undefined, range: string | null | undefined): string =>
+    v != null ? fmt(v) : range ?? "—";
+
+  // แถวหัวตาราง — บอกความหมายคอลัมน์ (ช่องท้ายแถว = point ของฝั่ง Dev / QA แยกกัน)
+  const buildHeadRow = (): HTMLElement => {
+    const row = document.createElement("div");
+    row.className = "task-history-headrow";
+    const no = document.createElement("span");
+    no.className = "task-history-no";
+    no.textContent = "#";
+    const time = document.createElement("span");
+    time.className = "task-history-time";
+    time.textContent = "เวลา";
+    const name = document.createElement("span");
+    name.className = "task-history-name";
+    name.textContent = "Task";
+    row.append(no, time, name);
+    if (isPO()) {
+      // spacer กว้างเท่าปุ่ม reuse — จัดหัวคอลัมน์หลังจากนี้ให้ตรงแถวข้อมูล (มองไม่เห็น ไม่กดได้)
+      const reuseSpacer = document.createElement("span");
+      reuseSpacer.className = "btn-task-history-reuse task-history-spacer";
+      reuseSpacer.textContent = "นำมา Groom ใหม่";
+      row.appendChild(reuseSpacer);
+    }
+    const duration = document.createElement("span");
+    duration.className = "task-history-duration";
+    duration.textContent = "ใช้เวลา";
+    const dev = document.createElement("span");
+    dev.className = "task-history-point";
+    dev.textContent = "Dev";
+    dev.title = "point ที่บันทึกลง ClickUp ของฝั่ง Dev";
+    const qa = document.createElement("span");
+    qa.className = "task-history-point";
+    qa.textContent = "QA";
+    qa.title = "point ที่บันทึกลง ClickUp ของฝั่ง QA";
+    const po = document.createElement("span");
+    po.className = "task-history-po";
+    po.textContent = "PO";
+    po.title = "คนที่ดึงและบันทึกรอบนี้ — คลิกชื่อในแถวเพื่อกรองรายการของคนนั้น";
+    row.append(duration, dev, qa, po);
+    return row;
+  };
+
+  /** แถวข้อมูล 1 รอบ — no = ลำดับภายในตารางนั้น (เริ่มนับใหม่ทุกตาราง) */
+  const buildDataRow = (entry: TaskHistoryEntry, no: number, oldRound: boolean): HTMLElement => {
     const row = document.createElement("div");
     row.className = "task-history-row";
 
-    const no = document.createElement("span");
-    no.className = "task-history-no";
-    no.textContent = String(i + 1);
+    const noEl = document.createElement("span");
+    noEl.className = "task-history-no";
+    noEl.textContent = String(no);
 
     const time = document.createElement("span");
     time.className = "task-history-time";
     time.textContent = entry.resolvedAt ? formatDateTime(entry.resolvedAt) : "—";
 
+    // name cell ห่อลิงก์ + badge 🔁 ไว้ในช่องเดียว — แถวที่มี badge ไม่ดันคอลัมน์หลังให้เพี้ยน
+    const nameCell = document.createElement("span");
+    nameCell.className = "task-history-name-cell";
     const link = document.createElement("a");
     link.className = "task-history-name";
     link.href = entry.url;
@@ -414,8 +542,16 @@ export async function openTaskHistory(): Promise<void> {
     link.rel = "noopener noreferrer";
     link.textContent = `${entry.name} ↗`;
     link.title = entry.name; // ดูชื่อเต็มตอนโดนตัดเป็น ...
+    nameCell.appendChild(link);
+    if (oldRound) {
+      const regroom = document.createElement("span");
+      regroom.className = "task-history-regroom";
+      regroom.textContent = "🔁";
+      regroom.title = "การ์ดนี้ถูกนำมา groom ใหม่ในรอบหลัง ๆ — ค่าของบรรทัดนี้ไม่ถูกนับในยอดรวม";
+      nameCell.appendChild(regroom);
+    }
 
-    row.append(no, time, link);
+    row.append(noEl, time, nameCell);
     if (isPO()) {
       const reuse = document.createElement("button");
       reuse.type = "button";
@@ -429,8 +565,232 @@ export async function openTaskHistory(): Promise<void> {
     duration.textContent = formatHistoryDuration(entry);
     duration.title = "เวลาตั้งแต่ดึง task จนบันทึกลง ClickUp";
     row.appendChild(duration);
-    list.appendChild(row);
-  });
+
+    const pointTitle = "point ที่บันทึกลง ClickUp ของรอบนี้ (— = ยังไม่บันทึก หรือรายการเก่าก่อนมีการจด)";
+    const dev = document.createElement("span");
+    dev.className = "task-history-point" + (oldRound ? " old" : "");
+    dev.textContent = pointText(entry.dev, entry.devRange);
+    dev.title = `Dev — ${pointTitle}`;
+    const qa = document.createElement("span");
+    qa.className = "task-history-point" + (oldRound ? " old" : "");
+    qa.textContent = pointText(entry.qa, entry.qaRange);
+    qa.title = `QA — ${pointTitle}`;
+    // คอลัมน์ PO — คลิกชื่อเพื่อกรองตารางตามคนนั้น (คลิกซ้ำ = เอาตัวกรองออก)
+    if (entry.resolvedBy) {
+      const poBtn = document.createElement("button");
+      poBtn.type = "button";
+      poBtn.className = "task-history-po" + (poFilter === entry.resolvedBy ? " active" : "");
+      poBtn.textContent = entry.resolvedBy;
+      poBtn.title = `กรองรายการของ ${entry.resolvedBy}`;
+      poBtn.addEventListener("click", () => {
+        poFilter = poFilter === entry.resolvedBy ? null : entry.resolvedBy;
+        if (poSelect) {
+          // ชื่อที่คลิกอาจไม่อยู่ใน dropdown (PO ที่ยังไม่เคยบันทึก) — เพิ่มชั่วคราวไม่งั้น select โชว์ว่าง
+          if (poFilter && ![...poSelect.options].some((o) => o.value === poFilter)) {
+            const opt = document.createElement("option");
+            opt.value = poFilter;
+            opt.textContent = poFilter;
+            poSelect.appendChild(opt);
+          }
+          // เอากรองออก → ลบ option ชั่วคราว คืนกฎ "dropdown = ทุก PO + ที่เคยบันทึกเท่านั้น"
+          if (!poFilter) [...poSelect.options].forEach((o) => {
+            if (o.value && !savedPoNames.includes(o.value)) o.remove();
+          });
+          poSelect.value = poFilter ?? "";
+        }
+        renderList();
+      });
+      row.append(dev, qa, poBtn);
+    } else {
+      const poEmpty = document.createElement("span");
+      poEmpty.className = "task-history-po";
+      poEmpty.textContent = "—";
+      row.append(dev, qa, poEmpty);
+    }
+    return row;
+  };
+
+  // แถวรวมท้ายตาราง (column ตรงกับแถวข้อมูล) — wrapper เดียวให้ sticky ทั้งกลุ่ม
+  // ตาราง Groom = เลขยืนยันแล้ว (ขอบ accent) · ตาราง Pre = ช่วง Σmin–Σmax ยังไม่ยืนยัน (ขอบเรียบ)
+  const buildTotalRow = (
+    label: string,
+    title: string,
+    devText: string,
+    devTitle: string,
+    qaText: string,
+    qaTitle: string,
+    extraClass = ""
+  ): HTMLElement => {
+    const row = document.createElement("div");
+    row.className = "task-history-row task-history-total" + (extraClass ? ` ${extraClass}` : "");
+    const emptyNo = document.createElement("span");
+    emptyNo.className = "task-history-no";
+    const emptyTime = document.createElement("span");
+    emptyTime.className = "task-history-time";
+    const labelEl = document.createElement("span");
+    labelEl.className = "task-history-total-label";
+    labelEl.textContent = label;
+    labelEl.title = title;
+    row.append(emptyNo, emptyTime, labelEl);
+    if (isPO()) {
+      // spacer กว้างเท่าปุ่ม reuse — จัดคอลัมน์ Dev/QA ให้ตรงแถวข้อมูล (มองไม่เห็น ไม่กดได้)
+      const reuseSpacer = document.createElement("span");
+      reuseSpacer.className = "btn-task-history-reuse task-history-spacer";
+      reuseSpacer.textContent = "นำมา Groom ใหม่";
+      row.appendChild(reuseSpacer);
+    }
+    const durSpacer = document.createElement("span");
+    durSpacer.className = "task-history-duration";
+    row.appendChild(durSpacer);
+    const devEl = document.createElement("span");
+    devEl.className = "task-history-point";
+    devEl.textContent = devText;
+    devEl.title = devTitle;
+    const qaEl = document.createElement("span");
+    qaEl.className = "task-history-point";
+    qaEl.textContent = qaText;
+    qaEl.title = qaTitle;
+    const poSpacer = document.createElement("span");
+    poSpacer.className = "task-history-po";
+    row.append(devEl, qaEl, poSpacer);
+    return row;
+  };
+  /** ช่วงรวม pre — "Σmin-Σmax" ติดกัน (min==max ทุกใบ → เลขเดียว) */
+  const rangeTotalText = (min: number, max: number): string =>
+    min === max ? fmt(min) : `${fmt(min)}-${fmt(max)}`;
+
+  /** ตาราง 1 โหมด — หัวเรื่อง + หัวคอลัมน์ + แถวข้อมูล (ASC) + ยอดรวม sticky ท้ายตาราง
+   *  superseded คำนวณตาม subset ที่กรองแล้ว (renderList) → ส่งเข้ามาเพราะต่างกันทุกครั้งที่กรอง */
+  const buildSection = (
+    mode: "pre" | "groom",
+    idxs: number[],
+    totalRow: HTMLElement,
+    superseded: Set<number>
+  ): HTMLElement => {
+    const section = document.createElement("div");
+    section.className = `task-history-section ${mode}`;
+
+    const title = document.createElement("div");
+    title.className = "task-history-section-title";
+    const name = document.createElement("span");
+    name.className = "task-history-section-name";
+    name.textContent = mode === "pre" ? "🌱 Pre-Groom" : "✅ Groom";
+    const sub = document.createElement("span");
+    sub.className = "task-history-section-sub";
+    sub.textContent =
+      mode === "pre"
+        ? "point เป็นช่วง min–max ยังไม่ยืนยัน (บันทึกเป็นคอมเม้นอย่างเดียว)"
+        : "point ยืนยันแล้ว — คอลัมน์ Dev / QA คือ point ของแต่ละฝั่ง";
+    title.append(name, sub);
+
+    const totals = document.createElement("div");
+    totals.className = "task-history-totals";
+    totals.appendChild(totalRow);
+
+    section.append(title, buildHeadRow());
+    // push key เรียงตามเวลาอยู่แล้ว → วนตามลำดับ index = ASC (เก่า → ใหม่) ภายในตาราง
+    idxs.forEach((i, pos) => section.appendChild(buildDataRow(entries[i][1], pos + 1, superseded.has(i))));
+    section.appendChild(totals);
+    return section;
+  };
+
+  /** วาดตารางใหม่ตามตัวกรอง PO — 🔁 และยอดรวมคำนวณใหม่ใน subset ที่กรองทุกครั้ง */
+  const renderList = (): void => {
+    list.textContent = "";
+    // index ของรายการที่โชว์ (ทั้งหมด หรือเฉพาะ PO ที่กรอง) — ทุกการคำนวณด้านล่างใช้ subset นี้
+    const idx = entries.map((_, i) => i).filter((i) => !poFilter || entries[i][1].resolvedBy === poFilter);
+    /** index ของรอบเก่าที่มีรอบใหม่กว่า (การ์ดเดียวกัน) — 🔁 + point จางลง + ไม่นับยอดรวม */
+    const superseded = new Set<number>();
+    /** taskId → index รอบล่าสุดที่มีค่า — ตัวที่ถูกนับในยอดรวม */
+    const latestByTask = new Map<string, number>();
+    idx.forEach((i) => {
+      const e = entries[i][1];
+      if (!hasValues(e)) return;
+      const prev = latestByTask.get(e.taskId);
+      if (prev !== undefined) superseded.add(prev);
+      latestByTask.set(e.taskId, i);
+    });
+    const preIdx = idx.filter((i) => modeOf(entries[i][1]) === "pre");
+    const groomIdx = idx.filter((i) => modeOf(entries[i][1]) === "groom");
+
+    // ยอดรวมแยกตามตาราง — เลขยืนยันเข้าตาราง Groom · ช่วง ("1-3") แยก min/max รวมเป็น Σmin–Σmax เข้าตาราง Pre
+    let totalDev = 0;
+    let totalQa = 0;
+    let devCards = 0;
+    let qaCards = 0;
+    let preDevMin = 0;
+    let preDevMax = 0;
+    let preDevCards = 0;
+    let preQaMin = 0;
+    let preQaMax = 0;
+    let preQaCards = 0;
+    for (const i of latestByTask.values()) {
+      const e = entries[i][1];
+      if (modeOf(e) === "groom") {
+        if (e.dev != null) {
+          totalDev += e.dev;
+          devCards++;
+        }
+        if (e.qa != null) {
+          totalQa += e.qa;
+          qaCards++;
+        }
+      } else {
+        const d = parseRange(e.devRange);
+        if (d) {
+          preDevMin += d.min;
+          preDevMax += d.max;
+          preDevCards++;
+        }
+        const q = parseRange(e.qaRange);
+        if (q) {
+          preQaMin += q.min;
+          preQaMax += q.max;
+          preQaCards++;
+        }
+      }
+    }
+
+    // บอกในแถวรวมว่ากำลังกรองอยู่ — กันหลงว่ายอดนี้ไม่ใช่ของทั้งห้อง
+    const filterTag = poFilter ? ` · กรอง: ${poFilter}` : "";
+    // แสดงเฉพาะโหมดที่มีรายการ — Pre-Groom ก่อน Groom ตามลำดับการทำงานจริง
+    if (preIdx.length > 0) {
+      list.appendChild(
+        buildSection(
+          "pre",
+          preIdx,
+          buildTotalRow(
+            `รวม Pre-Groom${filterTag}`,
+            'รวม min กับ max ของช่วงแยกกัน — "3-7" คือ ต่ำสุด 3 สูงสุด 7 · การ์ดที่ถูกนำมา groom ใหม่นับเฉพาะรอบล่าสุด',
+            preDevCards > 0 ? rangeTotalText(preDevMin, preDevMax) : "—",
+            `ช่วงรวม Dev ของค่าล่าสุด ${preDevCards} การ์ด (${fmt(preDevMin)}-${fmt(preDevMax)})`,
+            preQaCards > 0 ? rangeTotalText(preQaMin, preQaMax) : "—",
+            `ช่วงรวม QA ของค่าล่าสุด ${preQaCards} การ์ด (${fmt(preQaMin)}-${fmt(preQaMax)})`,
+            "pre"
+          ),
+          superseded
+        )
+      );
+    }
+    if (groomIdx.length > 0) {
+      list.appendChild(
+        buildSection(
+          "groom",
+          groomIdx,
+          buildTotalRow(
+            `รวม Groom${filterTag}`,
+            "การ์ดที่ถูกนำมา groom ใหม่นับเฉพาะค่ารอบล่าสุด · ค่า = point ที่บันทึกลง ClickUp",
+            devCards > 0 ? fmt(totalDev) : "—",
+            `ผลรวม Dev ของค่าล่าสุด ${devCards} การ์ด`,
+            qaCards > 0 ? fmt(totalQa) : "—",
+            `ผลรวม QA ของค่าล่าสุด ${qaCards} การ์ด`
+          ),
+          superseded
+        )
+      );
+    }
+  };
+  renderList();
 
   // Footer ล่างขวา — ปุ่มล้างประวัติทั้งหมด (PO เท่านั้น และมีรายการให้ล้าง)
   if (isPO() && entries.length > 0) {
@@ -544,10 +904,16 @@ async function doSaveToClickUp(): Promise<void> {
           dev !== null && { label: "Dev", value: dev },
           qa !== null && { label: "QA", value: qa },
         ].filter(Boolean) as { label: string; value: string }[],
-        "✅ บันทึก Pre-Groom ลง ClickUp แล้ว"
+        "🌱 บันทึก Pre-Groom ลง ClickUp แล้ว"
       );
       void sendSystemMessage(`บันทึก Pre-Groom ลง ClickUp แล้ว → ${task.name} (${parts})`);
-      void recordSavedAt(task.historyKey);
+      void recordSavedAt(task.historyKey, {
+        mode,
+        dev: null,
+        qa: null,
+        devRange: dev,
+        qaRange: qa,
+      });
     } catch (err) {
       showToast(`❌ ${(err as Error).message}`);
     }
@@ -617,9 +983,15 @@ async function doSaveToClickUp(): Promise<void> {
           `บันทึกคะแนนลง ClickUp แล้ว → ${task.name} (${saved.join(" · ")})`
         );
       }
-      // จด duration เฉพาะรอบที่ field สำเร็จครบ (บางส่วนพัง = รอบยังไม่จบ อย่าให้ history หลอกว่าเสร็จ)
+      // จด duration + point เฉพาะรอบที่ field สำเร็จครบ (บางส่วนพัง = รอบยังไม่จบ อย่าให้ history หลอกว่าเสร็จ)
       if (failed.length === 0 && saved.length > 0) {
-        void recordSavedAt(task.historyKey);
+        void recordSavedAt(task.historyKey, {
+          mode: "groom",
+          dev,
+          qa,
+          devRange: null,
+          qaRange: null,
+        });
       }
     } catch (err) {
       showToast(`❌ ${(err as Error).message}`);
