@@ -784,6 +784,49 @@ body {
 .task-history-point.old {
   opacity: 0.45;
 }
+/* คอลัมน์ PO ท้ายแถว — ชื่อคนดึง/บันทึกรอบนั้น ตัด ... ถ้ายาว (hover ดูชื่อเต็ม) */
+.task-history-po {
+  flex: 0 0 88px;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.task-history-headrow .task-history-po {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+/* ชื่อ PO ในแถวข้อมูลเป็นปุ่ม — คลิกกรองตารางตามคนนั้น (คลิกซ้ำ = เอากรองออก) */
+button.task-history-po {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+button.task-history-po:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+button.task-history-po.active {
+  color: var(--accent);
+  font-weight: 700;
+}
+/* dropdown กรองตาม PO ใน header modal — อยู่ซ้ายปุ่มปิด */
+.task-history-filter {
+  margin-left: auto;
+  margin-right: 10px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
 /* ยอดรวมท้ายตารางของแต่ละ section — sticky ก้นพื้นที่ scroll เห็นยอดตลอด
    wrapper พื้นทึบสีเดียวกับ modal กันแถวข้อมูลลอดใต้ช่องว่างระหว่างแถว */
 .task-history-totals {

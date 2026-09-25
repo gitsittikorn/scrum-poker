@@ -383,7 +383,8 @@ async function handleReuseHistoryTask(entry: TaskHistoryEntry, btn: HTMLButtonEl
   }
 }
 
-/** Modal ประวัติการดึง task — ทุกคนเปิดดูได้ (ปุ่ม reuse เฉพาะ PO) · เรียงเก่า→ใหม่ */
+/** Modal ประวัติการดึง task — ทุกคนเปิดดูได้ (ปุ่ม reuse เฉพาะ PO) · เรียงเก่า→ใหม่
+ *  กรองตาม PO ได้: dropdown ที่ header (เฉพาะ PO ที่เคยบันทึก) หรือคลิกชื่อในคอลัมน์ PO */
 export async function openTaskHistory(): Promise<void> {
   if (!FEATURES.clickup || !state.currentRoom) return;
   document.getElementById("task-history-modal")?.remove();
@@ -436,67 +437,44 @@ export async function openTaskHistory(): Promise<void> {
     list.textContent = "ยังไม่มีประวัติการดึง task ในห้องนี้";
     return;
   }
-  // ── คำนวณ "ค่าล่าสุดของแต่ละการ์ด" สำหรับยอดรวม ──
-  // แสดงครบทุกรอบ (groom ซ้ำกี่ครั้ง = กี่บรรทัด เห็น duration แยกรอบ)
-  // แต่ยอดรวมนับเฉพาะรอบล่าสุดที่บันทึกค่าได้ของแต่ละ taskId — รอบเก่าโดน mark 🔁
+  // ── ตัวกรองตาม PO (คนกดดึง = resolvedBy) — dropdown เอาเฉพาะชื่อ PO ที่เคยบันทึก (savedAt)
+  //  คลิกชื่อในคอลัมน์ PO ก็กรองได้ · 🔁 และยอดรวมคำนวณใหม่ใน subset ที่กรองทุกครั้ง ──
+  let poFilter: string | null = null;
+  let poSelect: HTMLSelectElement | null = null;
+  const savedPoNames = [
+    ...new Set(entries.filter(([, e]) => e.savedAt != null).map(([, e]) => e.resolvedBy)),
+  ]
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "th"));
+  if (savedPoNames.length > 0) {
+    const sel = document.createElement("select");
+    sel.className = "task-history-filter";
+    sel.title = "กรองรายการตาม PO ที่บันทึกลง ClickUp";
+    const allOpt = document.createElement("option");
+    allOpt.value = "";
+    allOpt.textContent = "ทุก PO";
+    sel.appendChild(allOpt);
+    for (const n of savedPoNames) {
+      const opt = document.createElement("option");
+      opt.value = n;
+      opt.textContent = n;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener("change", () => {
+      poFilter = sel.value || null;
+      renderList();
+    });
+    poSelect = sel;
+    header.insertBefore(sel, closeBtn); // h2 | dropdown กรอง | ✕
+  }
+
   const hasValues = (e: TaskHistoryEntry): boolean =>
     e.dev != null || e.qa != null || e.devRange != null || e.qaRange != null;
-  /** index ของรอบเก่าที่มีรอบใหม่กว่า (การ์ดเดียวกัน) — 🔁 + point จางลง + ไม่นับยอดรวม */
-  const superseded = new Set<number>();
-  /** taskId → index รอบล่าสุดที่มีค่า — ตัวที่ถูกนับในยอดรวม */
-  const latestByTask = new Map<string, number>();
-  entries.forEach(([_, e], i) => {
-    if (!hasValues(e)) return;
-    const prev = latestByTask.get(e.taskId);
-    if (prev !== undefined) superseded.add(prev);
-    latestByTask.set(e.taskId, i);
-  });
   // ── แยกตาราง Pre-Groom / Groom — มีโหมดไหนแสดงเฉพาะโหมดนั้น ──
   // groomMode จดตอนบันทึกสำเร็จ · รายการเก่าก่อนมี field นี้ infer จากชนิดค่า
   // (มีแต่ช่วง = pre) · แถวที่ยังไม่บันทึก ("—") = task ที่กำลัง groom อยู่ → ตาราง Groom
   const modeOf = (e: TaskHistoryEntry): "pre" | "groom" =>
     e.groomMode ?? (e.dev == null && e.qa == null && (e.devRange != null || e.qaRange != null) ? "pre" : "groom");
-  const preIdx: number[] = [];
-  const groomIdx: number[] = [];
-  entries.forEach(([_, e], i) => (modeOf(e) === "pre" ? preIdx : groomIdx).push(i));
-
-  // ยอดรวมแยกตามตาราง — เลขยืนยันเข้าตาราง Groom · ช่วง ("1-3") แยก min/max รวมเป็น Σmin–Σmax เข้าตาราง Pre
-  let totalDev = 0;
-  let totalQa = 0;
-  let devCards = 0;
-  let qaCards = 0;
-  let preDevMin = 0;
-  let preDevMax = 0;
-  let preDevCards = 0;
-  let preQaMin = 0;
-  let preQaMax = 0;
-  let preQaCards = 0;
-  for (const i of latestByTask.values()) {
-    const e = entries[i][1];
-    if (modeOf(e) === "groom") {
-      if (e.dev != null) {
-        totalDev += e.dev;
-        devCards++;
-      }
-      if (e.qa != null) {
-        totalQa += e.qa;
-        qaCards++;
-      }
-    } else {
-      const d = parseRange(e.devRange);
-      if (d) {
-        preDevMin += d.min;
-        preDevMax += d.max;
-        preDevCards++;
-      }
-      const q = parseRange(e.qaRange);
-      if (q) {
-        preQaMin += q.min;
-        preQaMax += q.max;
-        preQaCards++;
-      }
-    }
-  }
 
   const pointText = (v: number | null | undefined, range: string | null | undefined): string =>
     v != null ? fmt(v) : range ?? "—";
@@ -533,7 +511,11 @@ export async function openTaskHistory(): Promise<void> {
     qa.className = "task-history-point";
     qa.textContent = "QA";
     qa.title = "point ที่บันทึกลง ClickUp ของฝั่ง QA";
-    row.append(duration, dev, qa);
+    const po = document.createElement("span");
+    po.className = "task-history-po";
+    po.textContent = "PO";
+    po.title = "คนที่ดึงและบันทึกรอบนี้ — คลิกชื่อในแถวเพื่อกรองรายการของคนนั้น";
+    row.append(duration, dev, qa, po);
     return row;
   };
 
@@ -593,7 +575,25 @@ export async function openTaskHistory(): Promise<void> {
     qa.className = "task-history-point" + (oldRound ? " old" : "");
     qa.textContent = pointText(entry.qa, entry.qaRange);
     qa.title = `QA — ${pointTitle}`;
-    row.append(dev, qa);
+    // คอลัมน์ PO — คลิกชื่อเพื่อกรองตารางตามคนนั้น (คลิกซ้ำ = เอาตัวกรองออก)
+    if (entry.resolvedBy) {
+      const poBtn = document.createElement("button");
+      poBtn.type = "button";
+      poBtn.className = "task-history-po" + (poFilter === entry.resolvedBy ? " active" : "");
+      poBtn.textContent = entry.resolvedBy;
+      poBtn.title = `กรองรายการของ ${entry.resolvedBy}`;
+      poBtn.addEventListener("click", () => {
+        poFilter = poFilter === entry.resolvedBy ? null : entry.resolvedBy;
+        if (poSelect) poSelect.value = poFilter ?? "";
+        renderList();
+      });
+      row.append(dev, qa, poBtn);
+    } else {
+      const poEmpty = document.createElement("span");
+      poEmpty.className = "task-history-po";
+      poEmpty.textContent = "—";
+      row.append(dev, qa, poEmpty);
+    }
     return row;
   };
 
@@ -637,15 +637,23 @@ export async function openTaskHistory(): Promise<void> {
     qaEl.className = "task-history-point";
     qaEl.textContent = qaText;
     qaEl.title = qaTitle;
-    row.append(devEl, qaEl);
+    const poSpacer = document.createElement("span");
+    poSpacer.className = "task-history-po";
+    row.append(devEl, qaEl, poSpacer);
     return row;
   };
   /** ช่วงรวม pre — "Σmin-Σmax" ติดกัน (min==max ทุกใบ → เลขเดียว) */
   const rangeTotalText = (min: number, max: number): string =>
     min === max ? fmt(min) : `${fmt(min)}-${fmt(max)}`;
 
-  /** ตาราง 1 โหมด — หัวเรื่อง + หัวคอลัมน์ + แถวข้อมูล (ASC) + ยอดรวม sticky ท้ายตาราง */
-  const buildSection = (mode: "pre" | "groom", idxs: number[], totalRow: HTMLElement): HTMLElement => {
+  /** ตาราง 1 โหมด — หัวเรื่อง + หัวคอลัมน์ + แถวข้อมูล (ASC) + ยอดรวม sticky ท้ายตาราง
+   *  superseded คำนวณตาม subset ที่กรองแล้ว (renderList) → ส่งเข้ามาเพราะต่างกันทุกครั้งที่กรอง */
+  const buildSection = (
+    mode: "pre" | "groom",
+    idxs: number[],
+    totalRow: HTMLElement,
+    superseded: Set<number>
+  ): HTMLElement => {
     const section = document.createElement("div");
     section.className = `task-history-section ${mode}`;
 
@@ -673,40 +681,103 @@ export async function openTaskHistory(): Promise<void> {
     return section;
   };
 
-  // แสดงเฉพาะโหมดที่มีรายการ — Pre-Groom ก่อน Groom ตามลำดับการทำงานจริง
-  if (preIdx.length > 0) {
-    list.appendChild(
-      buildSection(
-        "pre",
-        preIdx,
-        buildTotalRow(
-          "รวม Pre-Groom",
-          'รวม min กับ max ของช่วงแยกกัน — "3-7" คือ ต่ำสุด 3 สูงสุด 7 · การ์ดที่ถูกนำมา groom ใหม่นับเฉพาะรอบล่าสุด',
-          preDevCards > 0 ? rangeTotalText(preDevMin, preDevMax) : "—",
-          `ช่วงรวม Dev ของค่าล่าสุด ${preDevCards} การ์ด (${fmt(preDevMin)}-${fmt(preDevMax)})`,
-          preQaCards > 0 ? rangeTotalText(preQaMin, preQaMax) : "—",
-          `ช่วงรวม QA ของค่าล่าสุด ${preQaCards} การ์ด (${fmt(preQaMin)}-${fmt(preQaMax)})`,
-          "pre"
+  /** วาดตารางใหม่ตามตัวกรอง PO — 🔁 และยอดรวมคำนวณใหม่ใน subset ที่กรองทุกครั้ง */
+  const renderList = (): void => {
+    list.textContent = "";
+    // index ของรายการที่โชว์ (ทั้งหมด หรือเฉพาะ PO ที่กรอง) — ทุกการคำนวณด้านล่างใช้ subset นี้
+    const idx = entries.map((_, i) => i).filter((i) => !poFilter || entries[i][1].resolvedBy === poFilter);
+    /** index ของรอบเก่าที่มีรอบใหม่กว่า (การ์ดเดียวกัน) — 🔁 + point จางลง + ไม่นับยอดรวม */
+    const superseded = new Set<number>();
+    /** taskId → index รอบล่าสุดที่มีค่า — ตัวที่ถูกนับในยอดรวม */
+    const latestByTask = new Map<string, number>();
+    idx.forEach((i) => {
+      const e = entries[i][1];
+      if (!hasValues(e)) return;
+      const prev = latestByTask.get(e.taskId);
+      if (prev !== undefined) superseded.add(prev);
+      latestByTask.set(e.taskId, i);
+    });
+    const preIdx = idx.filter((i) => modeOf(entries[i][1]) === "pre");
+    const groomIdx = idx.filter((i) => modeOf(entries[i][1]) === "groom");
+
+    // ยอดรวมแยกตามตาราง — เลขยืนยันเข้าตาราง Groom · ช่วง ("1-3") แยก min/max รวมเป็น Σmin–Σmax เข้าตาราง Pre
+    let totalDev = 0;
+    let totalQa = 0;
+    let devCards = 0;
+    let qaCards = 0;
+    let preDevMin = 0;
+    let preDevMax = 0;
+    let preDevCards = 0;
+    let preQaMin = 0;
+    let preQaMax = 0;
+    let preQaCards = 0;
+    for (const i of latestByTask.values()) {
+      const e = entries[i][1];
+      if (modeOf(e) === "groom") {
+        if (e.dev != null) {
+          totalDev += e.dev;
+          devCards++;
+        }
+        if (e.qa != null) {
+          totalQa += e.qa;
+          qaCards++;
+        }
+      } else {
+        const d = parseRange(e.devRange);
+        if (d) {
+          preDevMin += d.min;
+          preDevMax += d.max;
+          preDevCards++;
+        }
+        const q = parseRange(e.qaRange);
+        if (q) {
+          preQaMin += q.min;
+          preQaMax += q.max;
+          preQaCards++;
+        }
+      }
+    }
+
+    // บอกในแถวรวมว่ากำลังกรองอยู่ — กันหลงว่ายอดนี้ไม่ใช่ของทั้งห้อง
+    const filterTag = poFilter ? ` · กรอง: ${poFilter}` : "";
+    // แสดงเฉพาะโหมดที่มีรายการ — Pre-Groom ก่อน Groom ตามลำดับการทำงานจริง
+    if (preIdx.length > 0) {
+      list.appendChild(
+        buildSection(
+          "pre",
+          preIdx,
+          buildTotalRow(
+            `รวม Pre-Groom${filterTag}`,
+            'รวม min กับ max ของช่วงแยกกัน — "3-7" คือ ต่ำสุด 3 สูงสุด 7 · การ์ดที่ถูกนำมา groom ใหม่นับเฉพาะรอบล่าสุด',
+            preDevCards > 0 ? rangeTotalText(preDevMin, preDevMax) : "—",
+            `ช่วงรวม Dev ของค่าล่าสุด ${preDevCards} การ์ด (${fmt(preDevMin)}-${fmt(preDevMax)})`,
+            preQaCards > 0 ? rangeTotalText(preQaMin, preQaMax) : "—",
+            `ช่วงรวม QA ของค่าล่าสุด ${preQaCards} การ์ด (${fmt(preQaMin)}-${fmt(preQaMax)})`,
+            "pre"
+          ),
+          superseded
         )
-      )
-    );
-  }
-  if (groomIdx.length > 0) {
-    list.appendChild(
-      buildSection(
-        "groom",
-        groomIdx,
-        buildTotalRow(
-          "รวม Groom",
-          "การ์ดที่ถูกนำมา groom ใหม่นับเฉพาะค่ารอบล่าสุด · ค่า = point ที่บันทึกลง ClickUp",
-          devCards > 0 ? fmt(totalDev) : "—",
-          `ผลรวม Dev ของค่าล่าสุด ${devCards} การ์ด`,
-          qaCards > 0 ? fmt(totalQa) : "—",
-          `ผลรวม QA ของค่าล่าสุด ${qaCards} การ์ด`
+      );
+    }
+    if (groomIdx.length > 0) {
+      list.appendChild(
+        buildSection(
+          "groom",
+          groomIdx,
+          buildTotalRow(
+            `รวม Groom${filterTag}`,
+            "การ์ดที่ถูกนำมา groom ใหม่นับเฉพาะค่ารอบล่าสุด · ค่า = point ที่บันทึกลง ClickUp",
+            devCards > 0 ? fmt(totalDev) : "—",
+            `ผลรวม Dev ของค่าล่าสุด ${devCards} การ์ด`,
+            qaCards > 0 ? fmt(totalQa) : "—",
+            `ผลรวม QA ของค่าล่าสุด ${qaCards} การ์ด`
+          ),
+          superseded
         )
-      )
-    );
-  }
+      );
+    }
+  };
+  renderList();
 
   // Footer ล่างขวา — ปุ่มล้างประวัติทั้งหมด (PO เท่านั้น และมีรายการให้ล้าง)
   if (isPO() && entries.length > 0) {
