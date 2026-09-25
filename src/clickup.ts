@@ -584,7 +584,20 @@ export async function openTaskHistory(): Promise<void> {
       poBtn.title = `กรองรายการของ ${entry.resolvedBy}`;
       poBtn.addEventListener("click", () => {
         poFilter = poFilter === entry.resolvedBy ? null : entry.resolvedBy;
-        if (poSelect) poSelect.value = poFilter ?? "";
+        if (poSelect) {
+          // ชื่อที่คลิกอาจไม่อยู่ใน dropdown (PO ที่ยังไม่เคยบันทึก) — เพิ่มชั่วคราวไม่งั้น select โชว์ว่าง
+          if (poFilter && ![...poSelect.options].some((o) => o.value === poFilter)) {
+            const opt = document.createElement("option");
+            opt.value = poFilter;
+            opt.textContent = poFilter;
+            poSelect.appendChild(opt);
+          }
+          // เอากรองออก → ลบ option ชั่วคราว คืนกฎ "dropdown = ทุก PO + ที่เคยบันทึกเท่านั้น"
+          if (!poFilter) [...poSelect.options].forEach((o) => {
+            if (o.value && !savedPoNames.includes(o.value)) o.remove();
+          });
+          poSelect.value = poFilter ?? "";
+        }
         renderList();
       });
       row.append(dev, qa, poBtn);
