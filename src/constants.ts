@@ -29,7 +29,7 @@ export const APP_VERSION = "2026-09-09-v2";
 
 /** ห้องที่บังคับเลือก "ชื่อสำหรับระบุตัวตนใน ClickUp" ตอน join
  *  (Wheel/TQM1/TQM2/admin ใช้ฟอร์มเดิม — ไม่ต้องเลือก) */
-export const REAL_NAME_ROOMS = ["Kitsune", "Phoenix", "UXUI", "Cold", "ColdJiab"];
+export const REAL_NAME_ROOMS = ["Kitsune", "Phoenix", "UXUI", "Cold", "ColdJiab", "Raiju"];
 
 /** ลำดับคอลัมน์ใน super admin tab Member — เรียงตามตัวอักษร a-z ของ label
  *  (Dev, Monkey King, PO, QA, Team, UX/UI) โดย Dev ถูกยกไปแถวล่างด้วย CSS

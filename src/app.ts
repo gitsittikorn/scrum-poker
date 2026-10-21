@@ -34,6 +34,7 @@ import {
   chatMessages,
   emojiPicker,
   roomBanner,
+  roomBannerImg,
   btnBarSound,
   soundPickerBar,
   muteOthersSound,
@@ -70,8 +71,14 @@ import { initQaTool, initQaStandalone, isQaStandaloneUrl } from "./qaTool";
 import { initMembersListener, onMembersChanged, getMemberNamesByRole } from "./members";
 import type { MemberRole } from "./types";
 
+/** Banner รูปประจำห้องที่หน้าแรก — แสดงตอนเลือกห้องใน dropdown (ห้องไม่อยู่ในลิสต์ = ไม่แสดง) */
+const ROOM_BANNERS: Record<string, string> = {
+  Kitsune: "/images/kitsune.webp",
+  Raiju: "/images/Raiju.webp",
+};
+
 /** เติม dropdown "ชื่อสำหรับระบุตัวตนใน ClickUp" ตาม role ที่เลือก
- *  โชว์เฉพาะห้องที่ต้องใช้ชื่อจริง (Kitsune/Phoenix/UXUI/Cold/ColdJiab) และ role ≠ admin —
+ *  โชว์เฉพาะห้องที่ต้องใช้ชื่อจริง (REAL_NAME_ROOMS) และ role ≠ admin —
  *  TQM1/TQM2/Wheel/admin ไม่เห็นช่องนี้เลย (ลิสต์ชื่อกรองตาม role ที่เลือก)
  *  เรียกตอนเปลี่ยนห้อง/เปลี่ยน role และตอน member list อัปเดตจาก Firebase */
 function refreshRealNameOptions(): void {
@@ -468,9 +475,13 @@ function bindEvents(): void {
   });
 
   roomSelect.addEventListener("change", () => {
-    const show = roomSelect.value === "Kitsune";
-    roomBanner.classList.toggle("hidden", !show);
-    if (show) spawnFirework(roomBanner);
+    const banner = ROOM_BANNERS[roomSelect.value];
+    if (banner) {
+      roomBannerImg.src = banner;
+      roomBannerImg.alt = roomSelect.value;
+    }
+    roomBanner.classList.toggle("hidden", !banner);
+    if (banner) spawnFirework(roomBanner);
   });
 
   setupBeforeUnload();
