@@ -24,8 +24,8 @@ export const SUPER_ADMIN_NAME = "admin889";
 /** ห้อง super admin console (ไม่ใช่ห้อง poker) — ไม่แสดงฟีเจอร์ ClickUp */
 export const ADMIN_ROOM = "admin";
 
-/** Bump = เคลียร์ localStorage room → ทุกคนกลับไปหน้าแรกกรอกใหม่ (รอบนี้บังคับเลือก realName) */
-export const APP_VERSION = "2026-09-09-v2";
+/** Bump = เคลียร์ localStorage room → ทุกคนกลับไปหน้าแรกกรอกใหม่ (รอบนี้เพิ่มห้อง Raiju + banner scroll) */
+export const APP_VERSION = "2026-10-21-v1";
 
 /** ห้องที่บังคับเลือก "ชื่อสำหรับระบุตัวตนใน ClickUp" ตอน join
  *  (Wheel/TQM1/TQM2/admin ใช้ฟอร์มเดิม — ไม่ต้องเลือก) */
