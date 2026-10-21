@@ -23,6 +23,7 @@ const MANAGED_ROOMS = [
   { code: "UXUI", label: "🎨 UX/UI" },
   { code: "Cold", label: "❄️ ห้องเย็น" },
   { code: "ColdJiab", label: "🧊 ห้องเย็นเจี๊ยบ" },
+  { code: "Raiju", label: "⚡ Raiju" },
   { code: "TQM1", label: "🏢 TQM 1" },
   { code: "TQM2", label: "🏢 TQM 2" },
 ];

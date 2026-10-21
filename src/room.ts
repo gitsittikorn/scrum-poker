@@ -94,7 +94,7 @@ export async function handleJoinRoom(): Promise<void> {
     return;
   }
 
-  // ห้อง poker หลัก 5 ห้อง บังคับเลือกชื่อจริงจาก member list ก่อนเข้า
+  // ห้อง poker squad (REAL_NAME_ROOMS) บังคับเลือกชื่อจริงจาก member list ก่อนเข้า
   // (Wheel/TQM1/TQM2/admin ใช้ฟอร์มเดิม — เลือกไว้ก็เก็บให้ แต่ไม่บังคับ)
   let realName: string | null = realnameSelect.value.trim() || null;
   if (REAL_NAME_ROOMS.includes(roomCode) && roleSelect.value !== "admin") {

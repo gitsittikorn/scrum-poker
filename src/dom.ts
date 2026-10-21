@@ -38,6 +38,7 @@ export const settingsInput = $("settings-auto-unlock") as HTMLInputElement;
 export const btnSettingsSave = $("btn-settings-save") as HTMLButtonElement;
 export const btnSettingsClose = $("btn-settings-close") as HTMLButtonElement;
 export const roomBanner = $("room-banner");
+export const roomBannerImg = $("room-banner-img") as HTMLImageElement;
 export const chatPanel = $("chat-panel");
 export const chatMessages = $("chat-messages");
 export const chatInput = $("chat-input") as HTMLInputElement;

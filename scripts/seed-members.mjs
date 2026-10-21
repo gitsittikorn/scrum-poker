@@ -22,7 +22,7 @@ const SEED = [
   { name: "Yam", role: "po" },
   { name: "Nuji", role: "po" },
   { name: "Meaw", role: "po" },
-  { name: "Tein", role: "dev" },
+  { name: "Tien", role: "dev" },
   { name: "Toon", role: "dev" },
   { name: "Pun", role: "dev" },
   { name: "Por", role: "dev" },
@@ -42,13 +42,18 @@ const SEED = [
   { name: "May", role: "qa" },
   { name: "Pond", role: "qa" },
   // ทีม Monkey King — grouping สำหรับห้อง Wheel (คนเดียวกันกับในคอลัมน์ role ของตัวเอง)
+  // หมายเหตุ: mirror สถานะจริงใน DB (4 คน) — Meaw/Nuji/Yam ไม่ได้อยู่ใน bucket นี้
+  // ถ้าจะเพิ่ม แก้ลิสต์นี้แล้วรันใหม่ หรือเพิ่มผ่าน admin UI
   { name: "Cing", role: "mk" },
-  { name: "Meaw", role: "mk" },
   { name: "Max", role: "mk" },
   { name: "Prince", role: "mk" },
-  { name: "Nuji", role: "mk" },
-  { name: "Yam", role: "mk" },
   { name: "Poom", role: "mk" },
+  // ชื่อทีมสำหรับหมุนเลือกทีมในห้อง Wheel (dropdown 🏷️ Team) — เพิ่ม Raiju 2026-10-21
+  { name: "Kitsune", role: "team" },
+  { name: "Phoenix", role: "team" },
+  { name: "UX/UI", role: "team" },
+  { name: "Monkey King", role: "team" },
+  { name: "Raiju", role: "team" },
 ];
 
 const app = initializeApp(firebaseConfig);
