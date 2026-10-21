@@ -481,7 +481,13 @@ function bindEvents(): void {
       roomBannerImg.alt = roomSelect.value;
     }
     roomBanner.classList.toggle("hidden", !banner);
-    if (banner) spawnFirework(roomBanner);
+    if (banner) {
+      spawnFirework(roomBanner);
+      // เลื่อนหน้าลงมาโชว์ banner — รอรูปโหลดก่อน ไม่งั้นกล่องสูง 0px แล้ว scroll ไปผิดจุด
+      const scrollToBanner = () => roomBanner.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (roomBannerImg.complete && roomBannerImg.naturalWidth > 0) scrollToBanner();
+      else roomBannerImg.addEventListener("load", scrollToBanner, { once: true });
+    }
   });
 
   setupBeforeUnload();
