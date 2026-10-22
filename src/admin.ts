@@ -156,14 +156,14 @@ function renderRoomTabs(): void {
   // QA Tool tab — data conversion page
   const qaBtn = document.createElement("button");
   qaBtn.className = "super-admin-room-tab";
-  qaBtn.textContent = "🧪 QA Tool";
+  qaBtn.textContent = "🧪 Encrypt Order Tracking";
   qaBtn.dataset.room = QA_TOOL_TAB;
   qaBtn.addEventListener("click", () => selectQaTool());
   superAdminRoomTabs.appendChild(qaBtn);
   // Coupon UAT tab — คูปองส่วนลด TA
   const couponBtn = document.createElement("button");
   couponBtn.className = "super-admin-room-tab";
-  couponBtn.textContent = "🎫 Coupon UAT";
+  couponBtn.textContent = "🎫 Coupon";
   couponBtn.dataset.room = COUPON_UAT_TAB;
   couponBtn.addEventListener("click", () => selectCouponUat());
   superAdminRoomTabs.appendChild(couponBtn);
