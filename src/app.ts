@@ -68,6 +68,7 @@ import { state } from "./state";
 import { FEATURES } from "./config";
 import { SUPER_ADMIN_NAME, DEFAULT_POKER_CARDS, REAL_NAME_ROOMS } from "./constants";
 import { initQaTool, initQaStandalone, isQaStandaloneUrl } from "./qaTool";
+import { initCouponUat, initCouponStandalone, isCouponStandaloneUrl } from "./couponUat";
 import { initMembersListener, onMembersChanged, getMemberNamesByRole } from "./members";
 import type { MemberRole } from "./types";
 
@@ -110,6 +111,13 @@ function init(): void {
     initQaStandalone();
     return;
   }
+  // Standalone Coupon UAT page (?coupon=1) — same pattern as QA Tool
+  if (isCouponStandaloneUrl()) {
+    loadTheme();
+    initCouponUat();
+    initCouponStandalone();
+    return;
+  }
   checkVersion();
   loadUsername();
   loadTheme();
@@ -127,6 +135,7 @@ function init(): void {
   }
   if (FEATURES.sound) renderSoundPicker();
   initQaTool(); // bind QA tool buttons once (shown via the admin-room QA tab)
+  initCouponUat(); // bind Coupon UAT page once (shown via the admin-room Coupon tab)
   bindEvents();
   applyFeatureFlags();
   registerSoundShortcuts();

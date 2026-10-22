@@ -1,0 +1,25 @@
+กรุณาอ่านไฟล์ต่อไปนี้จาก Workspace:
+
+1. references/requirement.txt
+2. references/coupon-uat.xlsx
+
+ไฟล์ Excel เป็น Binary File ไม่ใช่ Text File
+
+ห้ามใช้คำสั่งอ่านไฟล์ข้อความโดยตรงกับ .xlsx
+
+หากไม่สามารถอ่าน Excel ได้ ให้ใช้ Python และ openpyxl
+หรือไลบรารีที่เหมาะสมในการอ่าน Workbook
+
+ให้ตรวจสอบ:
+- Sheet Names
+- Headers
+- Cell Values
+- Formulas
+- Data Validation
+- Test Cases
+
+ห้ามแก้ไข Excel ต้นฉบับ
+
+หลังจากอ่านไฟล์สำเร็จ
+ให้สรุป Business Rules และ Formula Mapping
+ก่อนเริ่มพัฒนา Web Application

@@ -99,6 +99,9 @@ export const superAdminToggles = $("super-admin-toggles");
 // QA Tool page (?qa=1 standalone or admin-room QA tab)
 export const qaToolPage = $("qa-tool-page");
 
+// Coupon UAT page (?coupon=1 standalone or admin-room Coupon tab)
+export const couponUatPage = $("coupon-uat-page");
+
 // Super admin tab Member — จัดการรายชื่อสมาชิกถาวร
 export const memberManagePage = $("member-manage-page");
 export const memberColumns = $("member-columns");

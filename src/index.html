@@ -203,6 +203,97 @@
         </div>
       </div>
 
+      <!-- Coupon UAT — คูปองส่วนลด TA (admin tab / ?coupon=1 standalone) -->
+      <div id="coupon-uat-page" class="qa-tool-page hidden">
+        <div class="qa-tool-header">
+          <span class="super-admin-title">🎫 Coupon UAT — คูปองส่วนลด TA</span>
+          <a id="coupon-back-link" class="qa-back-link hidden" href="./">← กลับหน้าหลัก</a>
+        </div>
+
+        <div class="coupon-subtabs">
+          <button id="coupon-tab-calc" class="coupon-subtab active">🧮 เครื่องคำนวณ</button>
+          <button id="coupon-tab-tests" class="coupon-subtab">🧪 Test Cases (24)</button>
+        </div>
+
+        <!-- แท็บเครื่องคำนวณ -->
+        <div id="coupon-calc-pane" class="qa-tool-card">
+          <div class="coupon-field-grid">
+            <label class="coupon-field">
+              <span>ประเภทส่วนลด</span>
+              <select id="coupon-type">
+                <option value="Fix Amount">Fix Amount (บาท)</option>
+                <option value="Percentage">Percentage (%)</option>
+              </select>
+            </label>
+            <label class="coupon-field">
+              <span>Subsidize (ผู้รับผิดชอบ)</span>
+              <select id="coupon-subsidize">
+                <option value="Insurer">Insurer</option>
+                <option value="TQM">TQM</option>
+                <option value="BOTH">BOTH</option>
+              </select>
+            </label>
+            <label class="coupon-field">
+              <span>จำนวนคน</span>
+              <select id="coupon-people">
+                <option value="1">1 คน</option>
+                <option value="2">2 คน</option>
+              </select>
+            </label>
+            <label class="coupon-field">
+              <span>ฐานคำนวณส่วนลด</span>
+              <select id="coupon-vatbasis">
+                <option value="Exclude VAT">Exclude VAT</option>
+                <option value="Include VAT">Include VAT</option>
+              </select>
+            </label>
+            <label class="coupon-field">
+              <span>ส่วนลดรวมทั้งรายการ <em id="coupon-discount-hint" class="coupon-hint-inline">(บาท)</em></span>
+              <input id="coupon-discount" type="number" min="0" step="0.01" placeholder="เช่น 50" />
+            </label>
+            <label class="coupon-field">
+              <span>Insurer ลดรวม (เฉพาะ BOTH)</span>
+              <input id="coupon-insurer" type="number" min="0" step="0.01" placeholder="บาท หรือ %" disabled />
+            </label>
+            <label class="coupon-field">
+              <span>Min Purchase (บาท)</span>
+              <input id="coupon-min" type="number" min="0" step="0.01" placeholder="ไม่จำกัด" />
+            </label>
+            <label class="coupon-field">
+              <span>Max Discount (เฉพาะ %)</span>
+              <input id="coupon-max" type="number" min="0" step="0.01" placeholder="ไม่จำกัด" disabled />
+            </label>
+          </div>
+
+          <div class="coupon-persons">
+            <fieldset class="coupon-person">
+              <legend>คนที่ 1</legend>
+              <label class="coupon-field"><span>เบี้ย</span><input id="coupon-p1-premium" type="number" min="0" step="0.01" placeholder="0.00" /></label>
+              <label class="coupon-field"><span>VAT</span><input id="coupon-p1-vat" type="number" min="0" step="0.01" placeholder="0.00" /></label>
+              <label class="coupon-field"><span>Duty</span><input id="coupon-p1-duty" type="number" min="0" step="0.01" placeholder="0.00" /></label>
+            </fieldset>
+            <fieldset class="coupon-person" id="coupon-person-2">
+              <legend>คนที่ 2</legend>
+              <label class="coupon-field"><span>เบี้ย</span><input id="coupon-p2-premium" type="number" min="0" step="0.01" placeholder="0.00" /></label>
+              <label class="coupon-field"><span>VAT</span><input id="coupon-p2-vat" type="number" min="0" step="0.01" placeholder="0.00" /></label>
+              <label class="coupon-field"><span>Duty</span><input id="coupon-p2-duty" type="number" min="0" step="0.01" placeholder="0.00" /></label>
+            </fieldset>
+          </div>
+
+          <div id="coupon-result"></div>
+        </div>
+
+        <!-- แท็บ Test Cases -->
+        <div id="coupon-tests-pane" class="qa-tool-card hidden">
+          <div class="coupon-tests-toolbar">
+            <button id="btn-coupon-run-tests" class="btn btn-primary">▶ รัน Test Cases ทั้งหมด</button>
+            <span id="coupon-tests-summary"></span>
+          </div>
+          <div id="coupon-tests-table"></div>
+          <small class="form-hint">Expected = ค่าที่ Excel "UAT คูปองส่วนลด TA(BOTH).xlsx" คำนวณไว้จริง · เทียบทุกฟิลด์ L–AQ (tolerance ±0.005)</small>
+        </div>
+      </div>
+
       <main class="room-content">
         <!-- Voting Status -->
         <div id="voting-status" class="voting-status">
