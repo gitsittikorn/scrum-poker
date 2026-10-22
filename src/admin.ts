@@ -7,12 +7,14 @@ import {
   superAdminRoomName,
   superAdminToggles,
   qaToolPage,
+  couponUatPage,
   memberManagePage,
   memberColumns,
 } from "./dom";
 import { showToast } from "./ui";
 import { AUTO_UNLOCK_SECONDS } from "./config";
 import { restoreQaToolHome } from "./qaTool";
+import { restoreCouponUatHome } from "./couponUat";
 import { MEMBER_ROLES } from "./constants";
 import { onMembersChanged, getAllMembers, addMember, updateMemberName, deleteMember } from "./members";
 
@@ -61,6 +63,8 @@ const FEATURE_ICONS: Record<keyof FeaturePermissions, string> = {
 let selectedRoom: string | null = null;
 /** Sentinel room code for the QA Tool tab (data conversion page, not a real room) */
 const QA_TOOL_TAB = "__qa-tool__";
+/** Sentinel room code for the Coupon UAT tab (คูปองส่วนลด TA, not a real room) */
+const COUPON_UAT_TAB = "__coupon-uat__";
 /** Sentinel room code for the Member tab (จัดการรายชื่อสมาชิกถาวร) */
 const MEMBER_TAB = "__member__";
 /** true เมื่อ tab Member กำลังแสดงอยู่ — กัน re-render ตอนอยู่ tab อื่น */
@@ -92,6 +96,7 @@ export function initSuperAdminPanel(): void {
   superAdminPanel.classList.remove("hidden");
   renderRoomTabs();
   restoreQaToolHome(); // QA tool page back in its home spot (in case of standalone mode)
+  restoreCouponUatHome(); // Coupon UAT page back in its home spot likewise
   // Default to first room
   if (MANAGED_ROOMS.length > 0) {
     selectRoom(MANAGED_ROOMS[0].code);
@@ -105,6 +110,8 @@ export function destroySuperAdminPanel(): void {
   superAdminPermissions.classList.add("hidden");
   qaToolPage.classList.add("hidden");
   qaToolPage.classList.remove("qa-wide");
+  couponUatPage.classList.add("hidden");
+  couponUatPage.classList.remove("qa-wide");
   memberManagePage.classList.add("hidden");
   superAdminRoomTabs.innerHTML = "";
   superAdminToggles.innerHTML = "";
@@ -153,6 +160,31 @@ function renderRoomTabs(): void {
   qaBtn.dataset.room = QA_TOOL_TAB;
   qaBtn.addEventListener("click", () => selectQaTool());
   superAdminRoomTabs.appendChild(qaBtn);
+  // Coupon UAT tab — คูปองส่วนลด TA
+  const couponBtn = document.createElement("button");
+  couponBtn.className = "super-admin-room-tab";
+  couponBtn.textContent = "🎫 Coupon UAT";
+  couponBtn.dataset.room = COUPON_UAT_TAB;
+  couponBtn.addEventListener("click", () => selectCouponUat());
+  superAdminRoomTabs.appendChild(couponBtn);
+}
+
+/** Show the Coupon UAT page — hides room permissions and detaches room listeners */
+function selectCouponUat(): void {
+  selectedRoom = null;
+  detachRoomListeners();
+  superAdminRoomTabs.querySelectorAll(".super-admin-room-tab").forEach((btn) => {
+    const el = btn as HTMLButtonElement;
+    el.classList.toggle("active", el.dataset.room === COUPON_UAT_TAB);
+  });
+  superAdminPermissions.classList.add("hidden");
+  qaToolPage.classList.add("hidden");
+  couponUatPage.classList.remove("hidden");
+  memberManagePage.classList.add("hidden");
+  memberTabActive = false;
+  // Widen panel + page for the coupon tables
+  superAdminPanel.classList.add("qa-wide");
+  couponUatPage.classList.add("qa-wide");
 }
 
 /** Show the QA Tool page — hides room permissions and detaches room listeners */
@@ -165,6 +197,7 @@ function selectQaTool(): void {
   });
   superAdminPermissions.classList.add("hidden");
   qaToolPage.classList.remove("hidden");
+  couponUatPage.classList.add("hidden");
   memberManagePage.classList.add("hidden");
   memberTabActive = false;
   // Widen panel + tool page for the long tool rows
@@ -182,6 +215,8 @@ function selectMemberTab(): void {
   });
   superAdminPermissions.classList.add("hidden");
   qaToolPage.classList.add("hidden");
+  couponUatPage.classList.add("hidden");
+  couponUatPage.classList.remove("qa-wide");
   memberManagePage.classList.remove("hidden");
   superAdminPanel.classList.remove("qa-wide");
   qaToolPage.classList.remove("qa-wide");
@@ -341,6 +376,8 @@ function selectRoom(roomCode: string): void {
   superAdminRoomName.textContent = room ? room.label : roomCode;
   superAdminPermissions.classList.remove("hidden");
   qaToolPage.classList.add("hidden");
+  couponUatPage.classList.add("hidden");
+  couponUatPage.classList.remove("qa-wide");
   memberManagePage.classList.add("hidden");
   memberTabActive = false;
   superAdminPanel.classList.remove("qa-wide");

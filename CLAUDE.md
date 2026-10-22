@@ -24,6 +24,9 @@
 | `src/chat.ts` | Chat init/destroy, messages, typing indicator, emoji picker, reply |
 | `src/reactions.ts` | Live floating reactions, message reactions, quick reaction popups |
 | `src/members.ts` | Member registry (`members/` node): listener + cache (hydrate จาก localStorage ทันทีตอนโหลด + retry/watchdog ถ้า listener ค้าง), CRUD, name lookup per role |
+| `src/couponCalc.ts` | คูปองส่วนลด TA — engine คำนวณ + validation 17 ข้อ (pure module พอร์ตสูตร Excel coupon-uat/references, ไม่แตะ DOM/Firebase) |
+| `src/couponTestdata.ts` | Test Cases 24 เคส + expected values จากไฟล์ Excel "UAT คูปองส่วนลด TA(BOTH).xlsx" |
+| `src/couponUat.ts` | หน้า Coupon UAT: เครื่องคำนวณ + test runner — tab ใน Super Admin Panel + standalone `?coupon=1` (มิเรอร์ pattern qaTool.ts) |
 | `src/firebase.ts` | Firebase SDK init + re-exports |
 | `src/index.html` | SPA: landing page + room page (chat panel, bottom bar, floating reactions) |
 | `src/style.css` | Full CSS: dark/light themes, responsive, animations |
@@ -42,6 +45,8 @@ dom.ts ← ui.ts, auth.ts, room.ts, voting.ts, chat.ts, reactions.ts, app.ts
 firebase.ts ← ui.ts, auth.ts, room.ts, voting.ts, chat.ts, reactions.ts
 utils.ts ← ui.ts, room.ts, voting.ts, chat.ts, reactions.ts
 members.ts ← admin.ts, app.ts, room.ts, wheel.ts
+couponCalc.ts ← couponTestdata.ts, couponUat.ts (pure — ไม่พึ่งโมดูลอื่น)
+couponUat.ts ← admin.ts, app.ts
 reactions.ts ← chat.ts
 chat.ts ← room.ts, voting.ts, app.ts
 voting.ts ← room.ts
