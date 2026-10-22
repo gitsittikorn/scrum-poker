@@ -2004,7 +2004,8 @@ button.task-history-po.active {
 .coupon-table-detail td:nth-child(3) {
   text-align: right;
 }
-.coupon-table-detail td:nth-child(4) {
+.coupon-table-detail td:nth-child(4),
+.coupon-table-detail th:nth-child(4) {
   text-align: center;
 }
 .coupon-row-fail td {
@@ -2021,6 +2022,26 @@ button.task-history-po.active {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+/* หัวตาราง Test Cases — grid เดียวกับแถวเคส (Coupon Condition คลุม product + condition) */
+.coupon-tests-head {
+  display: grid;
+  grid-template-columns: 64px 56px minmax(140px, 1.2fr) minmax(180px, 2fr) 110px;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-top: 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+}
+.coupon-tests-head .coupon-tests-head-cond {
+  grid-column: 3 / 5;
+}
+.coupon-tests-head span:last-child {
+  text-align: center;
 }
 .coupon-tests-summary {
   font-size: 0.9rem;
@@ -2104,6 +2125,12 @@ button.task-history-po.active {
   }
   .coupon-test .t-config {
     display: none;
+  }
+  .coupon-tests-head {
+    grid-template-columns: 56px 44px 1fr 90px;
+  }
+  .coupon-tests-head .coupon-tests-head-cond {
+    grid-column: auto;
   }
   .coupon-person .coupon-field-grid {
     grid-template-columns: 1fr;
@@ -2229,10 +2256,15 @@ button.task-history-po.active {
 .coupon-mapping-table td {
   text-align: left;
 }
+/* ตาราง mapping ใช้ .coupon-table-detail ร่วมกับตาราง test — ยกเลิกการจัดขวา/กลางของ detail ให้ชิดซ้ายทั้งแถวตรงกับหัวตาราง */
+.coupon-table.coupon-mapping-table td:nth-child(2),
+.coupon-table.coupon-mapping-table td:nth-child(3),
+.coupon-table.coupon-mapping-table td:nth-child(4) {
+  text-align: left;
+}
 .coupon-mapping-table td:first-child {
-  font-family: monospace;
+  font-weight: 700;
   white-space: nowrap;
-  color: var(--accent);
 }
 
 /* ===== Admin Only Badge ===== */

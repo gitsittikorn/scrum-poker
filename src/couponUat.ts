@@ -336,7 +336,7 @@ function runTests(): void {
 
     const summaryRow = document.createElement("summary");
     for (const [cls, text] of [
-      ["t-id", `เคส ${tc.id}`],
+      ["t-id", tc.id],
       ["t-camp", String(tc.campaign)],
       ["t-prod", tc.product],
       ["t-config", configSummary(tc)],
