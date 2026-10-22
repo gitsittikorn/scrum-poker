@@ -1816,20 +1816,33 @@ button.task-history-po.active {
   color: var(--accent);
   background: var(--bg-input);
 }
+/* จอกว้างขึ้นเฉพาะ coupon — ตัวเลข/ตารางเยอะ (standalone + tab admin) */
+#coupon-uat-page.qa-standalone,
+#coupon-uat-page.qa-wide {
+  max-width: 1180px;
+}
 .coupon-field-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
 }
 .coupon-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
+/* จองความสูง 2 บรรทัดไว้เสมอ — label ยาวครอบ 2 บรรทัดก็ไม่ทำให้ช่องกรอกเยื้องกัน */
 .coupon-field > span {
+  display: block;
   font-size: 0.75rem;
   font-weight: 700;
+  line-height: 1.3;
   color: var(--text-muted);
+  min-height: 2.7em;
+}
+/* คน 1 / คน 2 — label สั้นทั้งแถว ไม่ต้องจองพื้นที่ 2 บรรทัด */
+.coupon-person .coupon-field > span {
+  min-height: 0;
 }
 .coupon-hint-inline {
   font-style: normal;
@@ -1838,10 +1851,10 @@ button.task-history-po.active {
 .coupon-field input,
 .coupon-field select {
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 10px;
   border: 2px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   background: var(--bg-input);
   color: var(--text-primary);
   outline: none;
@@ -1928,7 +1941,7 @@ button.task-history-po.active {
   color: var(--text-muted);
 }
 .coupon-card-value {
-  font-size: 1.05rem;
+  font-size: 1.18rem;
   font-weight: 800;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
@@ -1940,14 +1953,34 @@ button.task-history-po.active {
 .coupon-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   font-variant-numeric: tabular-nums;
 }
 .coupon-table th,
 .coupon-table td {
-  padding: 7px 8px;
+  padding: 9px 10px;
   border-bottom: 1px solid var(--border);
   text-align: right;
+}
+/* อ่านตัวเลขง่าย — แถวสลับสีอ่อน + ไฮไลต์ตอนชี้ */
+.coupon-table tbody tr:nth-child(even) {
+  background: rgba(127, 127, 127, 0.07);
+}
+.coupon-table tbody tr:hover {
+  background: rgba(127, 127, 127, 0.14);
+}
+.coupon-table-db td:last-child {
+  font-weight: 800;
+}
+.coupon-calc-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+.coupon-section-title {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--accent);
 }
 .coupon-table th:first-child,
 .coupon-table td:first-child {
@@ -1971,7 +2004,8 @@ button.task-history-po.active {
 .coupon-table-detail td:nth-child(3) {
   text-align: right;
 }
-.coupon-table-detail td:nth-child(4) {
+.coupon-table-detail td:nth-child(4),
+.coupon-table-detail th:nth-child(4) {
   text-align: center;
 }
 .coupon-row-fail td {
@@ -1988,6 +2022,26 @@ button.task-history-po.active {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+/* หัวตาราง Test Cases — grid เดียวกับแถวเคส (Coupon Condition คลุม product + condition) */
+.coupon-tests-head {
+  display: grid;
+  grid-template-columns: 64px 56px minmax(140px, 1.2fr) minmax(180px, 2fr) 110px;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-top: 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+}
+.coupon-tests-head .coupon-tests-head-cond {
+  grid-column: 3 / 5;
+}
+.coupon-tests-head span:last-child {
+  text-align: center;
 }
 .coupon-tests-summary {
   font-size: 0.9rem;
@@ -2072,6 +2126,12 @@ button.task-history-po.active {
   .coupon-test .t-config {
     display: none;
   }
+  .coupon-tests-head {
+    grid-template-columns: 56px 44px 1fr 90px;
+  }
+  .coupon-tests-head .coupon-tests-head-cond {
+    grid-column: auto;
+  }
   .coupon-person .coupon-field-grid {
     grid-template-columns: 1fr;
   }
@@ -2100,7 +2160,11 @@ button.task-history-po.active {
   opacity: 0.45;
 }
 .coupon-field-note {
-  font-size: 0.68rem;
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  line-height: 1.4;
   color: var(--text-muted);
 }
 
@@ -2192,10 +2256,15 @@ button.task-history-po.active {
 .coupon-mapping-table td {
   text-align: left;
 }
+/* ตาราง mapping ใช้ .coupon-table-detail ร่วมกับตาราง test — ยกเลิกการจัดขวา/กลางของ detail ให้ชิดซ้ายทั้งแถวตรงกับหัวตาราง */
+.coupon-table.coupon-mapping-table td:nth-child(2),
+.coupon-table.coupon-mapping-table td:nth-child(3),
+.coupon-table.coupon-mapping-table td:nth-child(4) {
+  text-align: left;
+}
 .coupon-mapping-table td:first-child {
-  font-family: monospace;
+  font-weight: 700;
   white-space: nowrap;
-  color: var(--accent);
 }
 
 /* ===== Admin Only Badge ===== */

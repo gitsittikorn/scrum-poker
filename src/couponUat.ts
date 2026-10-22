@@ -6,6 +6,7 @@ import { calculateCoupon, validateCoupon } from "./couponCalc";
 import type { CouponInput, CouponResult } from "./couponCalc";
 import { COUPON_TEST_CASES } from "./couponTestdata";
 import type { CouponExpected, CouponTestCase } from "./couponTestdata";
+import { showToast } from "./ui";
 
 /** ผลต่างของ test case หนึ่งเคส */
 interface FieldCheck {
@@ -117,16 +118,12 @@ function recalc(): void {
   // การ์ดยอดหลัก
   const cards = document.createElement("div");
   cards.className = "coupon-cards";
-  const card = (label: string, value: number, sub?: string, tipText?: string): void => {
+  const card = (label: string, value: number, sub?: string): void => {
     const el = document.createElement("div");
     el.className = "coupon-card";
     const l = document.createElement("div");
     l.className = "coupon-card-label";
     l.textContent = label;
-    if (tipText) {
-      l.classList.add("coupon-tip");
-      l.dataset.tip = tipText;
-    }
     const v = document.createElement("div");
     v.className = "coupon-card-value";
     v.textContent = money(value);
@@ -140,21 +137,21 @@ function recalc(): void {
     }
     cards.appendChild(el);
   };
-  card("ส่วนลดรวมหลัง Min/Max", res.discountAfter, "L", "หลังเช็ค Min Purchase และจำกัดด้วย Max Discount (Excel: L)");
-  card("Insurer ลดรวม", res.sumInsurer, "M/AK", "ส่วนลดที่ Insurer รับผิดชอบทั้งรายการ (Excel: M → รวม AK)");
-  card("TQM ลดรวม", res.sumTqm, "AJ", "ลดรวม − Insurer ลด ของทุกคน (Excel: AJ)");
-  card("TQM รับชำระจริง", res.tqmReceiveTotal, "AN", "ยอดเต็ม − Insurer ลด ไม่หักส่วนลด TQM — ใช้ทำ Sale Order (Excel: AN)");
-  card("ลูกค้าจ่ายสุทธิ", res.customerNetTotal, "AQ", "ยอดเต็ม − ส่วนลดทั้งสองฝ่าย (Excel: AQ)");
+  card("ส่วนลดรวมหลัง Min/Max", res.discountAfter, "หลังเช็ค Min และจำกัดด้วย Max");
+  card("Insurer ลดรวม", res.sumInsurer, "ส่วนที่ Insurer รับผิดชอบ");
+  card("TQM ลดรวม", res.sumTqm, "ลดรวม − Insurer ลด");
+  card("TQM รับชำระจริง", res.tqmReceiveTotal, "ยอดเต็ม − Insurer ลด (Sale Order)");
+  card("ลูกค้าจ่ายสุทธิ", res.customerNetTotal, "ยอดเต็ม − ส่วนลดทั้งสองฝ่าย");
 
   // ตารางต่อคน + แถวรวม
   const table = document.createElement("table");
   table.className = "coupon-table";
   table.innerHTML =
     "<thead><tr><th></th>" +
-    `<th>${tip("ยอดเต็ม", "เบี้ย + VAT + Duty (Excel: Q/Z)")}</th>` +
-    `<th>${tip("ฐานลด", "Fix Amount และ % Exclude VAT = เบี้ย · % Include VAT = ยอดเต็ม (Excel: R/AA)")}</th>` +
+    `<th>${tip("ยอดเต็ม", "เบี้ย + VAT + Duty ของคนนี้")}</th>` +
+    `<th>${tip("ฐานลด", "Fix Amount และ % Exclude VAT = เบี้ย · % Include VAT = ยอดเต็ม")}</th>` +
     "<th>TQM ลด</th><th>Insurer ลด</th><th>ลดรวม</th><th>จ่ายสุทธิ</th>" +
-    `<th>${tip("TQM รับจริง", "ยอดเต็ม − Insurer ลด ไม่หักส่วนลด TQM (Excel: AO/AP)")}</th>` +
+    `<th>${tip("TQM รับจริง", "ยอดเต็ม − Insurer ลด ไม่หักส่วนลด TQM")}</th>` +
     "</tr></thead>";
   const tbody = document.createElement("tbody");
   const two = input.people === 2;
@@ -201,10 +198,52 @@ function recalc(): void {
   tbody.appendChild(total);
   table.appendChild(tbody);
 
+  // ตารางแยกตามผู้รับผิดชอบ — ครบทุกค่าที่ใช้ตรวจที่ Front Office
+  // คนเดียว: คอลัมน์คนที่ 2 = 0
+  const dbTitle = document.createElement("div");
+  dbTitle.className = "coupon-section-title";
+  dbTitle.textContent = "แยกตามผู้รับผิดชอบ — ค่าสำหรับตรวจที่ Front Office";
+  const dbTable = document.createElement("table");
+  dbTable.className = "coupon-table coupon-table-db";
+  dbTable.innerHTML = "<thead><tr><th>รายการ</th><th>คนที่ 1</th><th>คนที่ 2</th><th>รวม 1+2</th></tr></thead>";
+  const dbBody = document.createElement("tbody");
+  const prem1 = input.persons[0].premium ?? 0;
+  const vat1 = input.persons[0].vat ?? 0;
+  const duty1 = input.persons[0].duty ?? 0;
+  const prem2 = two ? input.persons[1].premium ?? 0 : 0;
+  const vat2 = two ? input.persons[1].vat ?? 0 : 0;
+  const duty2 = two ? input.persons[1].duty ?? 0 : 0;
+  const dbRows: Array<[string, number, number, number]> = [
+    ["TQM ลด", res.persons[0].tqm, res.persons[1].tqm, res.sumTqm],
+    ["Insurer ลด", res.persons[0].insurer, res.persons[1].insurer, res.sumInsurer],
+    ["ลดรวม", res.persons[0].discount, res.persons[1].discount, res.sumDiscount],
+    ["จ่ายสุทธิ", res.persons[0].net, res.persons[1].net, res.customerNetTotal],
+    ["TQM รับชำระจริง", res.tqmReceive[0], res.tqmReceive[1], res.tqmReceiveTotal],
+    ["เบี้ย", prem1, prem2, res.sumPremium],
+    ["VAT", vat1, vat2, res.sumVat],
+    ["Duty", duty1, duty2, res.sumDuty],
+    ["ยอดเต็ม (เบี้ย+VAT+Duty)", res.persons[0].full, res.persons[1].full, res.sumAll],
+  ];
+  for (const [label, v1, v2, sum] of dbRows) {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.textContent = label;
+    tr.appendChild(th);
+    for (const v of [v1, v2, sum]) {
+      const td = document.createElement("td");
+      td.textContent = money(v);
+      tr.appendChild(td);
+    }
+    dbBody.appendChild(tr);
+  }
+  dbTable.appendChild(dbBody);
+
   box.innerHTML = "";
   box.appendChild(statusRow);
   box.appendChild(cards);
   box.appendChild(table);
+  box.appendChild(dbTitle);
+  box.appendChild(dbTable);
 }
 
 function hintRow(text: string): HTMLElement {
@@ -223,8 +262,8 @@ const tip = (label: string, text: string): string =>
 /** รวมทุกฟิลด์ที่เทียบเป็นรายการ (label + actual + expected) */
 function buildChecks(res: CouponResult, exp: CouponExpected): FieldCheck[] {
   const checks: Array<[string, number, number | undefined]> = [
-    ["L ส่วนลดรวมหลัง Min/Max", res.discountAfter, exp.discountAfter],
-    ["M Insurer รวมหลังปรับสัดส่วน", res.insurerAfter, exp.insurerAfter],
+    ["ส่วนลดรวมหลัง Min/Max", res.discountAfter, exp.discountAfter],
+    ["Insurer ลดรวมหลังปรับสัดส่วน", res.insurerAfter, exp.insurerAfter],
   ];
   const personLabels = ["ยอดเต็ม", "ฐานลด", "TQM ลด", "Insurer ลด", "ลดรวม", "จ่ายสุทธิ"] as const;
   const personKeys = ["full", "base", "tqm", "insurer", "discount", "net"] as const;
@@ -239,17 +278,17 @@ function buildChecks(res: CouponResult, exp: CouponExpected): FieldCheck[] {
     }
   }
   checks.push(
-    ["AF เบี้ยรวมทุกคน", res.sumPremium, exp.sumPremium],
-    ["AG VAT รวมทุกคน", res.sumVat, exp.sumVat],
-    ["AH Duty รวมทุกคน", res.sumDuty, exp.sumDuty],
-    ["AI เบี้ย+VAT+Duty รวมทุกคน", res.sumAll, exp.sumAll],
-    ["AJ TQM ลดรวมทุกคน", res.sumTqm, exp.sumTqm],
-    ["AK Insurer ลดรวมทุกคน", res.sumInsurer, exp.sumInsurer],
-    ["AL ส่วนลดรวมทุกคน", res.sumDiscount, exp.sumDiscount],
-    ["AO TQM รับชำระจริงคนที่ 1", res.tqmReceive[0], exp.tqmReceive?.[0]],
-    ["AP TQM รับชำระจริงคนที่ 2", res.tqmReceive[1], exp.tqmReceive?.[1]],
-    ["AN TQM รับชำระจริงรวม", res.tqmReceiveTotal, exp.tqmReceiveTotal],
-    ["AQ ลูกค้าจ่ายสุทธิรวมทุกคน", res.customerNetTotal, exp.customerNetTotal]
+    ["เบี้ยรวมทุกคน", res.sumPremium, exp.sumPremium],
+    ["VAT รวมทุกคน", res.sumVat, exp.sumVat],
+    ["Duty รวมทุกคน", res.sumDuty, exp.sumDuty],
+    ["เบี้ย+VAT+Duty รวมทุกคน", res.sumAll, exp.sumAll],
+    ["TQM ลดรวมทุกคน", res.sumTqm, exp.sumTqm],
+    ["Insurer ลดรวมทุกคน", res.sumInsurer, exp.sumInsurer],
+    ["ส่วนลดรวมทุกคน", res.sumDiscount, exp.sumDiscount],
+    ["TQM รับชำระจริงคนที่ 1", res.tqmReceive[0], exp.tqmReceive?.[0]],
+    ["TQM รับชำระจริงคนที่ 2", res.tqmReceive[1], exp.tqmReceive?.[1]],
+    ["TQM รับชำระจริงรวม", res.tqmReceiveTotal, exp.tqmReceiveTotal],
+    ["ลูกค้าจ่ายสุทธิรวมทุกคน", res.customerNetTotal, exp.customerNetTotal]
   );
   return checks
     .filter(([, , expected]) => expected !== undefined)
@@ -297,7 +336,7 @@ function runTests(): void {
 
     const summaryRow = document.createElement("summary");
     for (const [cls, text] of [
-      ["t-id", `เคส ${tc.id}`],
+      ["t-id", tc.id],
       ["t-camp", String(tc.campaign)],
       ["t-prod", tc.product],
       ["t-config", configSummary(tc)],
@@ -397,6 +436,30 @@ export function initCouponUat(): void {
   for (const pane of SUBTAB_PANES) {
     byId(`coupon-tab-${pane}`).addEventListener("click", () => switchSubtab(pane));
   }
+
+  // ล้างข้อมูล — รีเซ็ตฟอร์มกลับค่า default ทั้งหมด
+  byId("btn-coupon-clear").addEventListener("click", () => {
+    byId<HTMLSelectElement>("coupon-type").value = "Fix Amount";
+    byId<HTMLSelectElement>("coupon-subsidize").value = "Insurer";
+    byId<HTMLSelectElement>("coupon-people").value = "1";
+    byId<HTMLSelectElement>("coupon-vatbasis").value = "Exclude VAT";
+    const numericIds = [
+      "coupon-discount",
+      "coupon-insurer",
+      "coupon-min",
+      "coupon-max",
+      "coupon-p1-premium",
+      "coupon-p1-vat",
+      "coupon-p1-duty",
+      "coupon-p2-premium",
+      "coupon-p2-vat",
+      "coupon-p2-duty",
+    ];
+    for (const id of numericIds) byId<HTMLInputElement>(id).value = "";
+    applyFieldRules();
+    recalc();
+    showToast("🧹 ล้างข้อมูลแล้ว");
+  });
 
   byId("btn-coupon-run-tests").addEventListener("click", runTests);
 

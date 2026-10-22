@@ -156,7 +156,7 @@
 
       <div id="qa-tool-page" class="qa-tool-page hidden">
         <div class="qa-tool-header">
-          <span class="super-admin-title">🧪 QA Tool</span>
+          <span class="super-admin-title">🧪 Encrypt Order Tracking</span>
           <a id="qa-back-link" class="qa-back-link hidden" href="./">← กลับหน้าหลัก</a>
         </div>
         <div class="qa-tool-card">
@@ -206,18 +206,21 @@
       <!-- Coupon UAT — คูปองส่วนลด TA (admin tab / ?coupon=1 standalone) -->
       <div id="coupon-uat-page" class="qa-tool-page hidden">
         <div class="qa-tool-header">
-          <span class="super-admin-title">🎫 Coupon UAT — คูปองส่วนลด TA</span>
+          <span class="super-admin-title">🎫 Coupon</span>
           <a id="coupon-back-link" class="qa-back-link hidden" href="./">← กลับหน้าหลัก</a>
         </div>
 
         <div class="coupon-subtabs">
           <button id="coupon-tab-calc" class="coupon-subtab active">🧮 เครื่องคำนวณ</button>
-          <button id="coupon-tab-tests" class="coupon-subtab">🧪 Test Cases (24)</button>
+          <button id="coupon-tab-tests" class="coupon-subtab">🧪 Test Cases (22)</button>
           <button id="coupon-tab-formula" class="coupon-subtab">📘 สูตรคำนวณ</button>
         </div>
 
         <!-- แท็บเครื่องคำนวณ -->
         <div id="coupon-calc-pane" class="qa-tool-card">
+          <div class="coupon-calc-toolbar">
+            <button id="btn-coupon-clear" class="btn btn-secondary" type="button">🧹 ล้างข้อมูล</button>
+          </div>
           <div class="coupon-field-grid">
             <label class="coupon-field">
               <span>ประเภทส่วนลด</span>
@@ -304,109 +307,107 @@
             <button id="btn-coupon-run-tests" class="btn btn-primary">▶ รัน Test Cases ทั้งหมด</button>
             <span id="coupon-tests-summary"></span>
           </div>
+          <div class="coupon-tests-head">
+            <span>Test Case ID</span>
+            <span>Campaign ID</span>
+            <span class="coupon-tests-head-cond">Coupon Condition</span>
+            <span>Result</span>
+          </div>
           <div id="coupon-tests-table"></div>
-          <small class="form-hint">Expected = ค่าที่ Excel "UAT คูปองส่วนลด TA(BOTH).xlsx" คำนวณไว้จริง · เทียบทุกฟิลด์ L–AQ (tolerance ±0.005)</small>
+          <small class="form-hint">Expected = ค่าที่ไฟล์ Excel ต้นทางคำนวณไว้จริง · เทียบทุกฟิลด์ผลลัพธ์ (tolerance ±0.005)</small>
         </div>
 
         <!-- แท็บสูตรคำนวณ — อ่านตามลำดับ 1→7 (ตัวอักษรในวงเล็บ = คอลัมน์ Excel ต้นทาง) -->
         <div id="coupon-formula-pane" class="qa-tool-card coupon-formula-pane hidden">
           <div class="coupon-formula-intro">
-            อ่านตามลำดับการคำนวณจริง 0 → 7 · ตัวอักษรในวงเล็บคือคอลัมน์ Excel ที่เก็บค่านั้น
-            (ดู "แผนที่ฟิลด์" ด้านล่างเพื่อสืบที่มา–ที่ไปทุกค่า)
+            อ่านตามลำดับการคำนวณจริง 0 → 7 · อ้างอิงเฉพาะชื่อช่องในหน้านี้ —
+            ดูว่าแต่ละค่ามาจากฟิลด์ไหนครบทุกค่าได้ที่ตาราง "ค่าแต่ละค่ามาจากฟิลด์ไหน" ด้านล่าง
           </div>
 
           <h4>0 · นิยามพื้นฐาน</h4>
           <ul class="coupon-formula-list">
-            <li><b>ยอดเต็ม</b> (Q/Z) = เบี้ย + VAT + Duty — นับต่อคน</li>
-            <li><b>ฐานลด</b> (R/AA) = จุดตั้งต้นคิดส่วนลด ต่อคน → Fix Amount หรือ % Exclude VAT = <b>เบี้ยเท่านั้น</b> · % Include VAT = <b>ยอดเต็ม</b></li>
-            <li><b>ฐานรวม</b> = ฐานลดของทุกคนรวมกัน — เช็ค Min Purchase และคิด % จากค่านี้เสมอ</li>
+            <li><b>ยอดเต็ม</b> = ช่อง "เบี้ย + VAT + Duty" ของคนนั้น — นับต่อคน</li>
+            <li><b>ฐานลด</b> = จุดตั้งต้นคิดส่วนลดต่อคน → ประเภท "Fix Amount" หรือ % + ฐาน "Exclude VAT" = <b>เบี้ยเท่านั้น</b> · % + "Include VAT" = <b>ยอดเต็ม</b></li>
+            <li><b>ฐานรวม</b> = ฐานลดของทุกคนรวมกัน — เช็ค "Min Purchase" และคิด % จากค่านี้เสมอ</li>
           </ul>
 
-          <h4>1 · เช็ค Min Purchase (J)</h4>
-          <div class="coupon-formula-code">ถ้า ฐานรวม &lt; Min Purchase → ส่วนลดทั้งหมด = 0 (ยังต้องจ่าย VAT/Duty ตามปกติ)</div>
-          <div class="coupon-flow">ที่มา: ฐานรวม, J → ที่ไป: ตัดสินว่าคำนวณส่วนลดต่อหรือไม่</div>
+          <h4>1 · เช็ค Min Purchase</h4>
+          <div class="coupon-formula-code">ถ้า ฐานรวม &lt; ช่อง "Min Purchase" → ส่วนลดทั้งหมด = 0 (ยังต้องจ่าย VAT/Duty ตามปกติ)</div>
+          <div class="coupon-flow">ที่มา: ฐานรวม + ช่อง Min Purchase → ที่ไป: ตัดสินว่าคำนวณส่วนลดต่อหรือไม่</div>
 
-          <h4>2 · ส่วนลดรวมหลัง Min/Max — L</h4>
+          <h4>2 · ส่วนลดรวมหลัง Min/Max</h4>
           <div class="coupon-formula-code">
-            Fix Amount: L = MIN(ส่วนลดที่กรอก H, เบี้ยรวมทุกคน) — ลดได้ไม่เกินเบี้ย ไม่กัด VAT/Duty<br>
-            Percentage: ดิบ = ฐานรวม × H ÷ 100 → L = MIN(ดิบ, Max Discount K)<br>
+            Fix Amount: ส่วนลดรวม = MIN(ช่อง "ส่วนลดรวมทั้งรายการ", เบี้ยรวมทุกคน) — ลดได้ไม่เกินเบี้ย ไม่กัด VAT/Duty<br>
+            Percentage: ดิบ = ฐานรวม × ช่อง "ส่วนลดรวมทั้งรายการ" ÷ 100 → ส่วนลดรวม = MIN(ดิบ, ช่อง "Max Discount")<br>
             (จำกัดด้วย Max เฉพาะ % — Fix Amount ไม่ใช้ Max Discount)
           </div>
-          <div class="coupon-flow">ที่มา: H, ฐานรวม, J, K → ที่ไป: แจกให้ทั้งรายการ (ขั้น 4) และคิดสัดส่วน Insurer (ขั้น 3)</div>
+          <div class="coupon-flow">ที่มา: ช่องส่วนลดรวม + Min Purchase + Max Discount + ฐานรวม → ที่ไป: แจกทั้งรายการ (ขั้น 4) และคิดสัดส่วน Insurer (ขั้น 3)</div>
 
-          <h4>3 · Insurer ลดรวม — M</h4>
+          <h4>3 · Insurer ลดรวม</h4>
           <div class="coupon-formula-code">
-            Subsidize = Insurer → M = L (ประกันรับทั้งหมด)<br>
-            Subsidize = TQM → M = 0 (TQM รับทั้งหมด)<br>
-            Subsidize = BOTH → M = L × MIN(I_side, H_side) ÷ H_side<br>
-            &nbsp;&nbsp;H_side / I_side = ส่วนลดดิบจาก H / I บนฐานรวม (คิดก่อนหัก Max!)<br>
-            &nbsp;&nbsp;⇒ แม้ L โดน Max บีบ สัดส่วน Insurer : TQM ก็คงเดิม
+            Subsidize = Insurer → Insurer ลดรวม = ส่วนลดรวมทั้งหมด (ประกันรับหมด)<br>
+            Subsidize = TQM → Insurer ลดรวม = 0 (TQM รับหมด)<br>
+            Subsidize = BOTH → Insurer ลดรวม = ส่วนลดรวม × (ส่วนดิบของช่อง "Insurer ลด" ÷ ส่วนดิบของช่อง "ส่วนลดรวม")<br>
+            &nbsp;&nbsp;"ส่วนดิบ" = คำนวณจากฐานรวม ก่อนหัก Max Discount<br>
+            &nbsp;&nbsp;⇒ แม้ส่วนลดรวมโดน Max บีบ สัดส่วน Insurer : TQM ก็ยังคงเดิม
           </div>
-          <div class="coupon-flow">ที่มา: L, Subsidize, I, ฐานรวม → ที่ไป: แบ่งต่อคน (ขั้น 4) และ TQM รับชำระจริง (ขั้น 6)</div>
+          <div class="coupon-flow">ที่มา: dropdown Subsidize + ช่อง Insurer ลด + ส่วนลดรวม + ฐานรวม → ที่ไป: แบ่งต่อคน (ขั้น 4) และ TQM รับชำระจริง (ขั้น 6)</div>
 
-          <h4>4 · แบ่งส่วนต่อคน — S / T / U / V (+ คน 2: AB–AE)</h4>
+          <h4>4 · แบ่งส่วนต่อคน</h4>
           <div class="coupon-formula-code">
-            สัดส่วนคน i = ฐานลดคน i ÷ ฐานรวม<br>
-            คนที่ 1: ลดรวม (U) = ROUND(L × สัดส่วน, 2) · Insurer ลด (T) = ROUND(M × สัดส่วน, 2)<br>
-            คนที่ 2: ลดรวม (AD) = L − U · Insurer ลด (AC) = M − T — ใช้ "ส่วนต่าง" เพื่อให้รวมเป๊ะไม่มีเศษจากการปัด<br>
-            TQM ลด (S) = ลดรวม − Insurer ลด · จ่ายสุทธิ (V) = ยอดเต็ม − ลดรวม
+            สัดส่วนของคนหนึ่ง = ฐานลดคนนั้น ÷ ฐานรวม<br>
+            คนที่ 1: ลดรวม = ปัด 2 ตำแหน่ง (ส่วนลดรวม × สัดส่วน) · Insurer ลด = ปัด 2 ตำแหน่ง (Insurer ลดรวม × สัดส่วน)<br>
+            คนที่ 2: ได้ "ส่วนต่าง" ที่เหลือ — รวมกันเป๊ะ ไม่มีเศษหายจากการปัด<br>
+            TQM ลด = ลดรวม − Insurer ลด · จ่ายสุทธิ = ยอดเต็ม − ลดรวม
           </div>
-          <div class="coupon-flow">ที่มา: L, M, ฐานลดรายคน → ที่ไป: ตารางผลรายคน + ผลรวม (ขั้น 5)</div>
+          <div class="coupon-flow">ที่มา: ส่วนลดรวม + Insurer ลดรวม + ฐานลดรายคน → ที่ไป: ตารางผลรายคน + ผลรวม (ขั้น 5)</div>
 
-          <h4>5 · ผลรวมทุกคน — AF–AL</h4>
-          <div class="coupon-formula-code">เบี้ยรวม (AF) · VAT รวม (AG) · Duty รวม (AH) · เบี้ย+VAT+Duty (AI) · TQM ลดรวม (AJ) · Insurer ลดรวม (AK) · ส่วนลดรวม (AL)</div>
-          <div class="coupon-flow">ที่มา: ผลรายคนจากขั้น 4 → ที่ไป: การ์ดสรุปบนหน้าเครื่องคำนวณ</div>
+          <h4>5 · ผลรวมทุกคน</h4>
+          <div class="coupon-formula-code">เบี้ยรวม · VAT รวม · Duty รวม · เบี้ย+VAT+Duty · TQM ลดรวม · Insurer ลดรวม · ส่วนลดรวม — บวกจากทุกคนตรงๆ</div>
+          <div class="coupon-flow">ที่มา: ผลรายคนจากขั้น 4 → ที่ไป: แถว "รวม" ของตาราง + ตาราง Front Office</div>
 
-          <h4>6 · TQM รับชำระจริง (Sale Order) — AN / AO / AP ⚠️ เข้าใจผิดบ่อยสุด</h4>
+          <h4>6 · TQM รับชำระจริง (Sale Order) ⚠️ เข้าใจผิดบ่อยสุด</h4>
           <div class="coupon-formula-code">
-            TQM รับจริง = ยอดเต็ม − Insurer ลด &nbsp;(AO = Q − T · AP = Z − AC · AN = รวมทั้งสองคน)<br>
+            TQM รับจริง (ต่อคนและรวม) = ยอดเต็ม − Insurer ลด<br>
             ไม่หักส่วนลด TQM! เพราะ TQM อุดหนุนลูกค้าจากส่วนแบ่งของตัวเอง
             เงินที่ลูกค้าโอนเข้ามาจึงยังเต็ม — เอาไว้ทำ Sale Order
           </div>
-          <div class="coupon-flow">ที่มา: ยอดเต็ม, Insurer ลดรายคน → ที่ไป: ยอดรับจริงของ TQM (ต่างจาก AQ)</div>
+          <div class="coupon-flow">ที่มา: ยอดเต็ม + Insurer ลดรายคน → ที่ไป: ยอดรับจริงของ TQM (ต่างจากลูกค้าจ่ายสุทธิ)</div>
 
-          <h4>7 · ลูกค้าจ่ายสุทธิรวม — AQ</h4>
-          <div class="coupon-formula-code">AQ = Σ(ยอดเต็ม − ลดรวม) ของทุกคน = ยอดเต็ม − ส่วนลดทั้งสองฝ่าย</div>
-          <div class="coupon-flow">ที่มา: V / AE → ที่ไป: ราคาที่แสดงลูกค้า (UI)</div>
+          <h4>7 · ลูกค้าจ่ายสุทธิรวม</h4>
+          <div class="coupon-formula-code">ลูกค้าจ่ายสุทธิรวม = รวม (ยอดเต็ม − ลดรวม) ของทุกคน = ยอดเต็ม − ส่วนลดทั้งสองฝ่าย</div>
+          <div class="coupon-flow">ที่มา: จ่ายสุทธิรายคน → ที่ไป: ราคาที่แสดงลูกค้า (UI)</div>
 
-          <h4>ตัวอย่างเต็ม — เคส 12b (BOTH ชน Max Discount)</h4>
+          <h4>ตัวอย่างเต็ม — เคส 22 (BOTH ชน Max Discount)</h4>
           <div class="coupon-formula-example">
-            <b>อินพุต:</b> Percentage 20% · Insurer 5% · BOTH · 2 คน · Exclude VAT · คน 1: เบี้ย 220 + VAT 0 + Duty 20 · คน 2: เบี้ย 340 + VAT 0 + Duty 20 · Min 200 · Max 50<br>
+            <b>อินพุต:</b> ประเภท Percentage 20 · Insurer ลด 5 · Subsidize BOTH · 2 คน · ฐาน Exclude VAT · คน 1: เบี้ย 220 + VAT 0 + Duty 20 · คน 2: เบี้ย 340 + VAT 0 + Duty 20 · Min Purchase 200 · Max Discount 50<br>
             <b>ขั้น 0:</b> ยอดเต็ม 240 / 360 · ฐานลด 220 / 340 (Exclude → เบี้ยเท่านั้น) · ฐานรวม = 560<br>
             <b>ขั้น 1:</b> 560 ≥ Min 200 ✓ คำนวณต่อ<br>
-            <b>ขั้น 2:</b> ดิบ = 560 × 20% = 112 → L = MIN(112, Max 50) = <b>50</b><br>
-            <b>ขั้น 3:</b> H_side = 112 · I_side = 560 × 5% = 28 → M = 50 × 28 ÷ 112 = <b>12.50</b> ⇒ Insurer 12.50 / TQM 37.50<br>
-            <b>ขั้น 4:</b> คน 1: ลดรวม = ROUND(50 × 220/560) = 19.64 · Insurer = ROUND(12.5 × 220/560) = 4.91 · TQM = 14.73 · จ่าย 240 − 19.64 = <b>220.36</b><br>
-            &nbsp;&nbsp;คน 2: ลดรวม = 50 − 19.64 = 30.36 · Insurer = 12.5 − 4.91 = 7.59 · TQM = 22.77 · จ่าย 360 − 30.36 = <b>329.64</b><br>
+            <b>ขั้น 2:</b> ดิบ = 560 × 20% = 112 → ส่วนลดรวม = MIN(112, Max 50) = <b>50</b><br>
+            <b>ขั้น 3:</b> ส่วนดิบของส่วนลดรวม = 112 · ส่วนดิบของ Insurer ลด = 560 × 5% = 28 → Insurer ลดรวม = 50 × 28 ÷ 112 = <b>12.50</b> ⇒ Insurer 12.50 / TQM 37.50<br>
+            <b>ขั้น 4:</b> คน 1: ลดรวม = ปัด(50 × 220/560) = 19.64 · Insurer ลด = ปัด(12.5 × 220/560) = 4.91 · TQM ลด = 14.73 · จ่ายสุทธิ 240 − 19.64 = <b>220.36</b><br>
+            &nbsp;&nbsp;คน 2: ลดรวม = 50 − 19.64 = 30.36 · Insurer ลด = 12.5 − 4.91 = 7.59 · TQM ลด = 22.77 · จ่ายสุทธิ 360 − 30.36 = <b>329.64</b><br>
             <b>ขั้น 5:</b> ส่วนลดรวม 50 · Insurer ลดรวม 12.50 · TQM ลดรวม 37.50<br>
             <b>ขั้น 6:</b> TQM รับชำระจริง = (240 − 4.91) + (360 − 7.59) = <b>587.50</b><br>
             <b>ขั้น 7:</b> ลูกค้าจ่ายสุทธิ = 220.36 + 329.64 = <b>550.00</b>
           </div>
 
-          <h4>แผนที่ฟิลด์ — Excel ↔ หน้านี้ (สืบที่มา–ที่ไป)</h4>
+          <h4>ค่าแต่ละค่ามาจากฟิลด์ไหน — สรุปที่มาทุกค่าในหน้านี้</h4>
           <table class="coupon-table coupon-table-detail coupon-mapping-table">
-            <thead><tr><th>Excel</th><th>แสดงที่หน้านี้</th><th>ชนิด</th><th>ที่มา / สูตร</th></tr></thead>
+            <thead><tr><th>ค่าที่แสดง</th><th>มาจากฟิลด์ไหน</th><th>สรุปสูตร</th></tr></thead>
             <tbody>
-              <tr><td>D</td><td>dropdown ประเภทส่วนลด</td><td>กรอก</td><td>Fix Amount / Percentage</td></tr>
-              <tr><td>E</td><td>dropdown Subsidize</td><td>กรอก</td><td>Insurer / TQM / BOTH</td></tr>
-              <tr><td>F</td><td>dropdown จำนวนคน</td><td>กรอก</td><td>1 / 2</td></tr>
-              <tr><td>G</td><td>dropdown ฐานคำนวณส่วนลด</td><td>กรอก</td><td>Exclude / Include VAT</td></tr>
-              <tr><td>H</td><td>ช่อง ส่วนลดรวมทั้งรายการ</td><td>กรอก</td><td>Fix: บาท · %: ตัวเลข (20 = 20%)</td></tr>
-              <tr><td>I</td><td>ช่อง Insurer ลดรวม</td><td>กรอก</td><td>เปิดเฉพาะ BOTH — หน่วยตามประเภท D</td></tr>
-              <tr><td>J / K</td><td>ช่อง Min Purchase / Max Discount</td><td>กรอก</td><td>K เป็นบาท ใช้เฉพาะ %</td></tr>
-              <tr><td>N–P / W–Y</td><td>เบี้ย · VAT · Duty ของคน 1 / คน 2</td><td>กรอก</td><td>ต่อคน</td></tr>
-              <tr><td>L</td><td>การ์ด "ส่วนลดรวมหลัง Min/Max"</td><td>ผลลัพธ์</td><td>ขั้น 2</td></tr>
-              <tr><td>M</td><td>การ์ด "Insurer ลดรวม"</td><td>ผลลัพธ์</td><td>ขั้น 3</td></tr>
-              <tr><td>Q / Z</td><td>คอลัมน์ ยอดเต็ม</td><td>ผลลัพธ์</td><td>เบี้ย + VAT + Duty</td></tr>
-              <tr><td>R / AA</td><td>คอลัมน์ ฐานลด</td><td>ผลลัพธ์</td><td>ตามประเภท D และฐาน G</td></tr>
-              <tr><td>S / AB</td><td>คอลัมน์ TQM ลด</td><td>ผลลัพธ์</td><td>ลดรวม − Insurer ลด</td></tr>
-              <tr><td>T / AC</td><td>คอลัมน์ Insurer ลด</td><td>ผลลัพธ์</td><td>M × สัดส่วนฐานคนนั้น</td></tr>
-              <tr><td>U / AD</td><td>คอลัมน์ ลดรวม</td><td>ผลลัพธ์</td><td>L × สัดส่วนฐานคนนั้น</td></tr>
-              <tr><td>V / AE</td><td>คอลัมน์ จ่ายสุทธิ</td><td>ผลลัพธ์</td><td>ยอดเต็ม − ลดรวม</td></tr>
-              <tr><td>AF–AL</td><td>แถว "รวม" + การ์ดสรุป</td><td>ผลลัพธ์</td><td>บวกทุกคน</td></tr>
-              <tr><td>AO / AP / AN</td><td>การ์ด + คอลัมน์ TQM รับชำระจริง</td><td>ผลลัพธ์</td><td>ยอดเต็ม − Insurer ลด (ไม่หัก TQM)</td></tr>
-              <tr><td>AQ</td><td>การ์ด "ลูกค้าจ่ายสุทธิ"</td><td>ผลลัพธ์</td><td>ยอดเต็ม − ส่วนลดทั้งสองฝ่าย</td></tr>
-              <tr><td>AM / AR / AS</td><td>ป้ายสถานะ ✓ ผ่าน / ข้อความเตือน</td><td>ตรวจ</td><td>กติกา 17 ข้อ (เหมือนสูตร Excel ทุกข้อ)</td></tr>
+              <tr><td>ยอดเต็ม (ต่อคน)</td><td>ช่อง เบี้ย + VAT + Duty ของคนนั้น</td><td>บวกกันทั้งสามช่อง</td></tr>
+              <tr><td>ฐานลด (ต่อคน)</td><td>dropdown ประเภทส่วนลด + ฐานคำนวณ + ช่องเบี้ย/ยอดเต็ม</td><td>Fix หรือ % Exclude → เบี้ย · % Include → ยอดเต็ม</td></tr>
+              <tr><td>ฐานรวม</td><td>ฐานลดคน 1 + คน 2</td><td>บวกกัน</td></tr>
+              <tr><td>ส่วนลดรวมหลัง Min/Max</td><td>ช่อง ส่วนลดรวมทั้งรายการ + Min Purchase + Max Discount + ฐานรวม</td><td>ขั้น 2</td></tr>
+              <tr><td>Insurer ลดรวม</td><td>dropdown Subsidize + ช่อง Insurer ลด + ส่วนลดรวมหลัง Min/Max + ฐานรวม</td><td>ขั้น 3</td></tr>
+              <tr><td>ลดรวม / Insurer ลด ต่อคน</td><td>ส่วนลดรวม + Insurer ลดรวม + ฐานลดรายคน</td><td>คูณสัดส่วนฐานลด (ขั้น 4)</td></tr>
+              <tr><td>TQM ลด ต่อคน</td><td>ลดรวม − Insurer ลด ของคนนั้น</td><td>ขั้น 4</td></tr>
+              <tr><td>จ่ายสุทธิ ต่อคน</td><td>ยอดเต็ม − ลดรวม ของคนนั้น</td><td>ขั้น 4</td></tr>
+              <tr><td>แถว "รวม" ของตาราง</td><td>ผลรายคนทุกคน</td><td>บวกตรงๆ (ขั้น 5)</td></tr>
+              <tr><td>TQM รับชำระจริง (ต่อคน + รวม)</td><td>ยอดเต็ม − Insurer ลด</td><td>ไม่หักส่วนลด TQM (ขั้น 6)</td></tr>
+              <tr><td>ลูกค้าจ่ายสุทธิรวม</td><td>จ่ายสุทธิรายคน</td><td>รวมทุกคน (ขั้น 7)</td></tr>
+              <tr><td>ป้าย ✓ ผ่าน / ข้อความเตือน</td><td>ทุกช่องกรอก</td><td>ตรวจกติกา 17 ข้ออัตโนมัติ</td></tr>
             </tbody>
           </table>
 
@@ -414,10 +415,10 @@
           <ul class="coupon-formula-list">
             <li>Fix Amount ลดได้ไม่เกินเบี้ยรวม — VAT/Duty ยังต้องจ่ายครบ (และบังคับฐาน Exclude VAT, ไม่ใช้ Max Discount)</li>
             <li>ส่วนลด % กรอก 20 หมายถึง 20% (ไม่ใช่ 0.20) และห้ามเกิน 100</li>
-            <li>Insurer ลด (I) ใช้หน่วยเดียวกับประเภทส่วนลด: Fix = บาท / % = ตัวเลขเปอร์เซ็นต์ และห้ามเกินส่วนลดรวม H</li>
+            <li>Insurer ลด ใช้หน่วยเดียวกับประเภทส่วนลด: Fix = บาท / % = ตัวเลขเปอร์เซ็นต์ และห้ามเกินส่วนลดรวม</li>
             <li>Max Discount เป็นเงินบาท ไม่ใช่เปอร์เซ็นต์</li>
             <li>คนที่ 2 ได้เงินจาก "ส่วนต่าง" หลังปัดคนที่ 1 → ผลรวมตรงเป๊ะไม่มีเศษหาย</li>
-            <li>ส่วนลดติดลบไม่ได้ · PRB Add-on ไม่ร่วมลด (ตามคู่มือ Excel)</li>
+            <li>ส่วนลดติดลบไม่ได้ · PRB Add-on ไม่ร่วมลด</li>
           </ul>
         </div>
       </div>

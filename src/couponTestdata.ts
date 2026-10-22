@@ -1,7 +1,7 @@
-/* Test Cases คูปองส่วนลด TA — 24 เคสจากชีต "Coupon UAT" ของ Excel
+/* Test Cases คูปองส่วนลด TA — 22 เคสจากชีต "Coupon UAT" ของ Excel (ฉบับอัปเดต 2026-10-22)
  * ค่า expected = cached values ที่ Excel คำนวณไว้จริง (extract ตรงจากไฟล์ .xlsx)
- * เคสซ้ำเลข Excel (12, 19) คือชุด Min Purchase / Max Discount เพิ่มเติม — ใส่ suffix ระบุ
- * หมายเหตุ: เคส 19b Excel เขียน campaign "travel 2 คน" แต่กรอกจำนวนคน = 1 (เบี้ย 900) — ยึดค่า F=1 ตามไฟล์ */
+ * เลขเคส 1–22 รันต่อเนื่องตาม Excel ล่าสุด (เดิมแถว 31 ใช้เลขซ้ำ 12 / แถว 36-37 ถูกลบออก)
+ * ชื่อ campaign ยึดตามคอลัมน์ C เดิม โดยรวมบรรทัดใหม่เป็นบรรทัดเดียว */
 
 import type { CouponInput, CouponPersonResult } from "./couponCalc";
 
@@ -78,22 +78,22 @@ export const COUPON_TEST_CASES: CouponTestCase[] = [
     expected: { discountAfter: 20, insurerAfter: 0, persons: [{ full: 240, base: 220, tqm: 10, insurer: 0, discount: 10, net: 230 }, { full: 240, base: 220, tqm: 10, insurer: 0, discount: 10, net: 230 }], sumPremium: 440, sumVat: 0, sumDuty: 40, sumAll: 480, sumTqm: 20, sumInsurer: 0, sumDiscount: 20, tqmReceive: [240, 240], tqmReceiveTotal: 480, customerNetTotal: 460 },
   },
   {
-    id: "9", row: 14, campaign: 318, product: "travel 2 คน ตปท รายเทียว Japan MSIG (คนละแผน)",
+    id: "9", row: 14, campaign: 318, product: "travel 2 คน ตปท รายเทียว Japan MSIG คนละแผน",
     input: { discountType: "Fix Amount", subsidize: "BOTH", people: 2, vatBasis: "Exclude VAT", discountTotal: 30, insurerDiscount: 10, minPurchase: null, maxDiscount: null, persons: [p(220, 0, 20), p(340, 0, 20)] },
     expected: { discountAfter: 30, insurerAfter: 10, persons: [{ full: 240, base: 220, tqm: 7.86, insurer: 3.93, discount: 11.79, net: 228.21 }, { full: 360, base: 340, tqm: 12.14, insurer: 6.07, discount: 18.21, net: 341.79 }], sumPremium: 560, sumVat: 0, sumDuty: 40, sumAll: 600, sumTqm: 20, sumInsurer: 10, sumDiscount: 30, tqmReceive: [236.07, 353.93], tqmReceiveTotal: 590, customerNetTotal: 570 },
   },
   {
-    id: "10", row: 15, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG (คนละแผน)",
+    id: "10", row: 15, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG คนละแผน",
     input: { discountType: "Percentage", subsidize: "Insurer", people: 2, vatBasis: "Exclude VAT", discountTotal: 15, insurerDiscount: null, minPurchase: null, maxDiscount: null, persons: [p(220, 0, 20), p(340, 0, 20)] },
     expected: { discountAfter: 84, insurerAfter: 84, persons: [{ full: 240, base: 220, tqm: 0, insurer: 33, discount: 33, net: 207 }, { full: 360, base: 340, tqm: 0, insurer: 51, discount: 51, net: 309 }], sumPremium: 560, sumVat: 0, sumDuty: 40, sumAll: 600, sumTqm: 0, sumInsurer: 84, sumDiscount: 84, tqmReceive: [207, 309], tqmReceiveTotal: 516, customerNetTotal: 516 },
   },
   {
-    id: "11", row: 16, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG (คนละแผน)",
+    id: "11", row: 16, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG คนละแผน",
     input: { discountType: "Percentage", subsidize: "TQM", people: 2, vatBasis: "Include VAT", discountTotal: 25, insurerDiscount: null, minPurchase: null, maxDiscount: null, persons: [p(220, 0, 20), p(340, 0, 20)] },
     expected: { discountAfter: 150, insurerAfter: 0, persons: [{ full: 240, base: 240, tqm: 60, insurer: 0, discount: 60, net: 180 }, { full: 360, base: 360, tqm: 90, insurer: 0, discount: 90, net: 270 }], sumPremium: 560, sumVat: 0, sumDuty: 40, sumAll: 600, sumTqm: 150, sumInsurer: 0, sumDiscount: 150, tqmReceive: [240, 360], tqmReceiveTotal: 600, customerNetTotal: 450 },
   },
   {
-    id: "12", row: 17, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG (คนละแผน)",
+    id: "12", row: 17, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG คนละแผน",
     input: { discountType: "Percentage", subsidize: "BOTH", people: 2, vatBasis: "Exclude VAT", discountTotal: 35, insurerDiscount: 10, minPurchase: null, maxDiscount: null, persons: [p(220, 0, 20), p(340, 0, 20)] },
     expected: { discountAfter: 196, insurerAfter: 56, persons: [{ full: 240, base: 220, tqm: 55, insurer: 22, discount: 77, net: 163 }, { full: 360, base: 340, tqm: 85, insurer: 34, discount: 119, net: 241 }], sumPremium: 560, sumVat: 0, sumDuty: 40, sumAll: 600, sumTqm: 140, sumInsurer: 56, sumDiscount: 196, tqmReceive: [218, 326], tqmReceiveTotal: 544, customerNetTotal: 404 },
   },
@@ -129,33 +129,23 @@ export const COUPON_TEST_CASES: CouponTestCase[] = [
     expected: { discountAfter: 599.7, insurerAfter: 199.9, persons: [{ full: 1999, base: 1999, tqm: 399.8, insurer: 199.9, discount: 599.7, net: 1399.3 }, {}], sumPremium: 1968.2, sumVat: 10.3, sumDuty: 20.5, sumAll: 1999, sumTqm: 399.8, sumInsurer: 199.9, sumDiscount: 599.7, tqmReceive: [1799.1, 0], tqmReceiveTotal: 1799.1, customerNetTotal: 1399.3 },
   },
   {
-    id: "19", row: 28, campaign: 318, product: "travel 2 คน ตปท รายเทียว Japan MSIG (คนละแผน 3981636)", note: "Min Purchase ผ่าน (ฐาน 560 ≥ 200)",
+    id: "19", row: 28, campaign: 318, product: "travel 2 คน ตปท รายเทียว Japan MSIG คนละแผน 3981636", note: "Min Purchase ผ่าน (ฐาน 560 ≥ 200)",
     input: { discountType: "Fix Amount", subsidize: "BOTH", people: 2, vatBasis: "Exclude VAT", discountTotal: 30, insurerDiscount: 10, minPurchase: 200, maxDiscount: null, persons: [p(220, 0, 20), p(340, 0, 20)] },
     expected: { discountAfter: 30, insurerAfter: 10, persons: [{ full: 240, base: 220, tqm: 7.86, insurer: 3.93, discount: 11.79, net: 228.21 }, { full: 360, base: 340, tqm: 12.14, insurer: 6.07, discount: 18.21, net: 341.79 }], sumPremium: 560, sumVat: 0, sumDuty: 40, sumAll: 600, sumTqm: 20, sumInsurer: 10, sumDiscount: 30, tqmReceive: [236.07, 353.93], tqmReceiveTotal: 590, customerNetTotal: 570 },
   },
   {
-    id: "20", row: 29, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG (คนละแผน 3981635)", note: "Max Discount 50 < 15% ของ 560 (84)",
+    id: "20", row: 29, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG คนละแผน 3981635", note: "Max Discount 50 < 15% ของ 560 (84)",
     input: { discountType: "Percentage", subsidize: "Insurer", people: 2, vatBasis: "Exclude VAT", discountTotal: 15, insurerDiscount: null, minPurchase: 200, maxDiscount: 50, persons: [p(220, 0, 20), p(340, 0, 20)] },
     expected: { discountAfter: 50, insurerAfter: 50, persons: [{ full: 240, base: 220, tqm: 0, insurer: 19.64, discount: 19.64, net: 220.36 }, { full: 360, base: 340, tqm: 0, insurer: 30.36, discount: 30.36, net: 329.64 }], sumPremium: 560, sumVat: 0, sumDuty: 40, sumAll: 600, sumTqm: 0, sumInsurer: 50, sumDiscount: 50, tqmReceive: [220.36, 329.64], tqmReceiveTotal: 550, customerNetTotal: 550 },
   },
   {
-    id: "21", row: 30, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG (คนละแผน 3981634)", note: "Max Discount 50 < 25% ของ 600 (150) ฐาน Include",
+    id: "21", row: 30, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG คนละแผน 3981634", note: "Max Discount 50 < 25% ของ 600 (150) ฐาน Include",
     input: { discountType: "Percentage", subsidize: "TQM", people: 2, vatBasis: "Include VAT", discountTotal: 25, insurerDiscount: null, minPurchase: 200, maxDiscount: 50, persons: [p(220, 0, 20), p(340, 0, 20)] },
     expected: { discountAfter: 50, insurerAfter: 0, persons: [{ full: 240, base: 240, tqm: 20, insurer: 0, discount: 20, net: 220 }, { full: 360, base: 360, tqm: 30, insurer: 0, discount: 30, net: 330 }], sumPremium: 560, sumVat: 0, sumDuty: 40, sumAll: 600, sumTqm: 50, sumInsurer: 0, sumDiscount: 50, tqmReceive: [240, 360], tqmReceiveTotal: 600, customerNetTotal: 550 },
   },
   {
-    id: "12b", row: 31, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG (คนละแผน)", note: "BOTH ชน Max — สัดส่วน Insurer คิดจากค่าดิบ 28/112",
+    id: "22", row: 31, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG คนละแผน", note: "BOTH ชน Max — สัดส่วน Insurer คิดจากค่าดิบ 28/112",
     input: { discountType: "Percentage", subsidize: "BOTH", people: 2, vatBasis: "Exclude VAT", discountTotal: 20, insurerDiscount: 5, minPurchase: 200, maxDiscount: 50, persons: [p(220, 0, 20), p(340, 0, 20)] },
     expected: { discountAfter: 50, insurerAfter: 12.5, persons: [{ full: 240, base: 220, tqm: 14.73, insurer: 4.91, discount: 19.64, net: 220.36 }, { full: 360, base: 340, tqm: 22.77, insurer: 7.59, discount: 30.36, net: 329.64 }], sumPremium: 560, sumVat: 0, sumDuty: 40, sumAll: 600, sumTqm: 37.5, sumInsurer: 12.5, sumDiscount: 50, tqmReceive: [235.09, 352.41], tqmReceiveTotal: 587.5, customerNetTotal: 550 },
-  },
-  {
-    id: "19b", row: 36, campaign: 318, product: "travel ตปท รายเทียว Japan MSIG (3981636)", note: "Excel กรอก 1 คน เบี้ย 900 + Min Purchase 800 ผ่าน",
-    input: { discountType: "Fix Amount", subsidize: "BOTH", people: 1, vatBasis: "Exclude VAT", discountTotal: 100, insurerDiscount: 100, minPurchase: 800, maxDiscount: null, persons: [p(900, 70, 30), noOne] },
-    expected: { discountAfter: 100, insurerAfter: 100, persons: [{ full: 1000, base: 900, tqm: 0, insurer: 100, discount: 100, net: 900 }, {}], sumPremium: 900, sumVat: 70, sumDuty: 30, sumAll: 1000, sumTqm: 0, sumInsurer: 100, sumDiscount: 100, tqmReceive: [900, 0], tqmReceiveTotal: 900, customerNetTotal: 900 },
-  },
-  {
-    id: "12c", row: 37, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG (แผนเดียวกัน)", note: "% 100 + Insurer 100 — Insurer รับทั้งหมด เหลือแค่ VAT/Duty",
-    input: { discountType: "Percentage", subsidize: "BOTH", people: 2, vatBasis: "Exclude VAT", discountTotal: 100, insurerDiscount: 100, minPurchase: null, maxDiscount: null, persons: [p(220, 0, 20), p(220, 0, 20)] },
-    expected: { discountAfter: 440, insurerAfter: 440, persons: [{ full: 240, base: 220, tqm: 0, insurer: 220, discount: 220, net: 20 }, { full: 240, base: 220, tqm: 0, insurer: 220, discount: 220, net: 20 }], sumPremium: 440, sumVat: 0, sumDuty: 40, sumAll: 480, sumTqm: 0, sumInsurer: 440, sumDiscount: 440, tqmReceive: [20, 20], tqmReceiveTotal: 40, customerNetTotal: 40 },
   },
 ];
