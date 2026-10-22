@@ -65,7 +65,6 @@ function applyFieldRules(): void {
   const vatEl = byId<HTMLSelectElement>("coupon-vatbasis");
   const maxEl = byId<HTMLInputElement>("coupon-max");
   const insEl = byId<HTMLInputElement>("coupon-insurer");
-  const hintEl = byId("coupon-discount-hint");
 
   const isFix = type === "Fix Amount";
   if (isFix) vatEl.value = "Exclude VAT"; // กติกา: Fix Amount ฐานเบี้ยเท่านั้น
@@ -74,7 +73,10 @@ function applyFieldRules(): void {
   if (isFix) maxEl.value = ""; // Fix Amount ไม่ใช้ Max Discount
   insEl.disabled = subs !== "BOTH";
   if (subs !== "BOTH") insEl.value = "";
-  hintEl.textContent = isFix ? "(บาท)" : "(% — กรอก 20 หมายถึง 20%)";
+  // หน่วยช่องส่วนลดสลับตามประเภท — แสดงในช่องเลย ไม่ต้องอธิบายเพิ่ม
+  const unit = isFix ? "บาท" : "%";
+  byId("coupon-discount-suffix").textContent = unit;
+  byId("coupon-insurer-suffix").textContent = unit;
 
   byId("coupon-person-2").classList.toggle("coupon-person-hidden", people !== "2");
 }
@@ -115,12 +117,16 @@ function recalc(): void {
   // การ์ดยอดหลัก
   const cards = document.createElement("div");
   cards.className = "coupon-cards";
-  const card = (label: string, value: number, sub?: string): void => {
+  const card = (label: string, value: number, sub?: string, tipText?: string): void => {
     const el = document.createElement("div");
     el.className = "coupon-card";
     const l = document.createElement("div");
     l.className = "coupon-card-label";
     l.textContent = label;
+    if (tipText) {
+      l.classList.add("coupon-tip");
+      l.dataset.tip = tipText;
+    }
     const v = document.createElement("div");
     v.className = "coupon-card-value";
     v.textContent = money(value);
@@ -134,17 +140,22 @@ function recalc(): void {
     }
     cards.appendChild(el);
   };
-  card("ส่วนลดรวมหลัง Min/Max", res.discountAfter, "L");
-  card("Insurer ลดรวม", res.sumInsurer, "M/AK");
-  card("TQM ลดรวม", res.sumTqm, "AJ");
-  card("TQM รับชำระจริง", res.tqmReceiveTotal, "AN — ยอดเต็ม − Insurer ลด");
-  card("ลูกค้าจ่ายสุทธิ", res.customerNetTotal, "AQ");
+  card("ส่วนลดรวมหลัง Min/Max", res.discountAfter, "L", "หลังเช็ค Min Purchase และจำกัดด้วย Max Discount (Excel: L)");
+  card("Insurer ลดรวม", res.sumInsurer, "M/AK", "ส่วนลดที่ Insurer รับผิดชอบทั้งรายการ (Excel: M → รวม AK)");
+  card("TQM ลดรวม", res.sumTqm, "AJ", "ลดรวม − Insurer ลด ของทุกคน (Excel: AJ)");
+  card("TQM รับชำระจริง", res.tqmReceiveTotal, "AN", "ยอดเต็ม − Insurer ลด ไม่หักส่วนลด TQM — ใช้ทำ Sale Order (Excel: AN)");
+  card("ลูกค้าจ่ายสุทธิ", res.customerNetTotal, "AQ", "ยอดเต็ม − ส่วนลดทั้งสองฝ่าย (Excel: AQ)");
 
   // ตารางต่อคน + แถวรวม
   const table = document.createElement("table");
   table.className = "coupon-table";
   table.innerHTML =
-    "<thead><tr><th></th><th>ยอดเต็ม</th><th>ฐานลด</th><th>TQM ลด</th><th>Insurer ลด</th><th>ลดรวม</th><th>จ่ายสุทธิ</th><th>TQM รับจริง</th></tr></thead>";
+    "<thead><tr><th></th>" +
+    `<th>${tip("ยอดเต็ม", "เบี้ย + VAT + Duty (Excel: Q/Z)")}</th>` +
+    `<th>${tip("ฐานลด", "Fix Amount และ % Exclude VAT = เบี้ย · % Include VAT = ยอดเต็ม (Excel: R/AA)")}</th>` +
+    "<th>TQM ลด</th><th>Insurer ลด</th><th>ลดรวม</th><th>จ่ายสุทธิ</th>" +
+    `<th>${tip("TQM รับจริง", "ยอดเต็ม − Insurer ลด ไม่หักส่วนลด TQM (Excel: AO/AP)")}</th>` +
+    "</tr></thead>";
   const tbody = document.createElement("tbody");
   const two = input.people === 2;
   const rows: Array<[string, CouponResult["persons"][number], number]> = [
@@ -202,6 +213,10 @@ function hintRow(text: string): HTMLElement {
   el.textContent = text;
   return el;
 }
+
+/** span พร้อม tooltip (hover ดูคำอธิบาย) — ใช้ในหัวตาราง/การ์ด */
+const tip = (label: string, text: string): string =>
+  `<span class="coupon-tip" data-tip="${text}">${label}</span>`;
 
 /* ── Test runner ─────────────────────────────────────────────────────────── */
 
@@ -378,11 +393,10 @@ export function initCouponUat(): void {
     });
   }
 
-  // Sub-tab เครื่องคำนวณ / Test Cases
-  const calcTab = byId("coupon-tab-calc");
-  const testsTab = byId("coupon-tab-tests");
-  calcTab.addEventListener("click", () => switchSubtab(true));
-  testsTab.addEventListener("click", () => switchSubtab(false));
+  // Sub-tab เครื่องคำนวณ / Test Cases / สูตรคำนวณ
+  for (const pane of SUBTAB_PANES) {
+    byId(`coupon-tab-${pane}`).addEventListener("click", () => switchSubtab(pane));
+  }
 
   byId("btn-coupon-run-tests").addEventListener("click", runTests);
 
@@ -391,11 +405,14 @@ export function initCouponUat(): void {
   bound = true;
 }
 
-function switchSubtab(showCalc: boolean): void {
-  byId("coupon-tab-calc").classList.toggle("active", showCalc);
-  byId("coupon-tab-tests").classList.toggle("active", !showCalc);
-  byId("coupon-calc-pane").classList.toggle("hidden", !showCalc);
-  byId("coupon-tests-pane").classList.toggle("hidden", showCalc);
+/** Sub-tab ทั้งหมด — id ปุ่ม = coupon-tab-{pane} / id pane = coupon-{pane}-pane */
+const SUBTAB_PANES = ["calc", "tests", "formula"] as const;
+
+function switchSubtab(pane: (typeof SUBTAB_PANES)[number]): void {
+  for (const p of SUBTAB_PANES) {
+    byId(`coupon-tab-${p}`).classList.toggle("active", p === pane);
+    byId(`coupon-${p}-pane`).classList.toggle("hidden", p !== pane);
+  }
 }
 
 /* ── Standalone mode (?coupon=1) — mirror รูปแบบ qaTool.ts ─────────────── */
