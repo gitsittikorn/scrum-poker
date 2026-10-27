@@ -1869,6 +1869,12 @@ button.task-history-po.active {
   opacity: 0.45;
   cursor: not-allowed;
 }
+/* ฟิลด์ที่ยังไม่กรอก/ผิดกติกา — ขอบแดง คู่กับ tooltip เหตุผลและรายการ .coupon-messages */
+.coupon-field input.coupon-err,
+.coupon-field select.coupon-err {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px rgba(210, 73, 60, 0.2);
+}
 .coupon-persons {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -2046,6 +2052,9 @@ button.task-history-po.active {
 .coupon-tests-summary {
   font-size: 0.9rem;
   font-weight: 800;
+}
+.coupon-tests-summary.running {
+  color: var(--accent);
 }
 .coupon-tests-summary.all-pass {
   color: #2ea043;

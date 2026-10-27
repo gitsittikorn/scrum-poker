@@ -1,5 +1,6 @@
-/* Test Cases คูปองส่วนลด TA — 22 เคสจากชีต "Coupon UAT" ของ Excel (ฉบับอัปเดต 2026-10-22)
+/* Test Cases คูปองส่วนลด TA — 25 เคส (22 เคสจากชีต "Coupon UAT" ฉบับ 2026-10-22 + 3 เคส 23-25 ที่เพิ่มในแถว 32-34 ของ Excel)
  * ค่า expected = cached values ที่ Excel คำนวณไว้จริง (extract ตรงจากไฟล์ .xlsx)
+ *   เคส 23-25: เพิ่มพร้อมแก้สูตร Min Purchase 2026-10-27 — expected คำนวณตามสูตรใหม่ (Excel recalc ตอนเปิดไฟล์จะได้ค่าเดียวกัน)
  * เลขเคส 1–22 รันต่อเนื่องตาม Excel ล่าสุด (เดิมแถว 31 ใช้เลขซ้ำ 12 / แถว 36-37 ถูกลบออก)
  * ชื่อ campaign ยึดตามคอลัมน์ C เดิม โดยรวมบรรทัดใหม่เป็นบรรทัดเดียว */
 
@@ -129,7 +130,7 @@ export const COUPON_TEST_CASES: CouponTestCase[] = [
     expected: { discountAfter: 599.7, insurerAfter: 199.9, persons: [{ full: 1999, base: 1999, tqm: 399.8, insurer: 199.9, discount: 599.7, net: 1399.3 }, {}], sumPremium: 1968.2, sumVat: 10.3, sumDuty: 20.5, sumAll: 1999, sumTqm: 399.8, sumInsurer: 199.9, sumDiscount: 599.7, tqmReceive: [1799.1, 0], tqmReceiveTotal: 1799.1, customerNetTotal: 1399.3 },
   },
   {
-    id: "19", row: 28, campaign: 318, product: "travel 2 คน ตปท รายเทียว Japan MSIG คนละแผน 3981636", note: "Min Purchase ผ่าน (ฐาน 560 ≥ 200)",
+    id: "19", row: 28, campaign: 318, product: "travel 2 คน ตปท รายเทียว Japan MSIG คนละแผน 3981636", note: "Min Purchase ผ่าน (Fix เช็คจากยอดเต็ม 600 ≥ 200)",
     input: { discountType: "Fix Amount", subsidize: "BOTH", people: 2, vatBasis: "Exclude VAT", discountTotal: 30, insurerDiscount: 10, minPurchase: 200, maxDiscount: null, persons: [p(220, 0, 20), p(340, 0, 20)] },
     expected: { discountAfter: 30, insurerAfter: 10, persons: [{ full: 240, base: 220, tqm: 7.86, insurer: 3.93, discount: 11.79, net: 228.21 }, { full: 360, base: 340, tqm: 12.14, insurer: 6.07, discount: 18.21, net: 341.79 }], sumPremium: 560, sumVat: 0, sumDuty: 40, sumAll: 600, sumTqm: 20, sumInsurer: 10, sumDiscount: 30, tqmReceive: [236.07, 353.93], tqmReceiveTotal: 590, customerNetTotal: 570 },
   },
@@ -147,5 +148,20 @@ export const COUPON_TEST_CASES: CouponTestCase[] = [
     id: "22", row: 31, campaign: 319, product: "travel 2 คน ตปท รายเทียว Japan MSIG คนละแผน", note: "BOTH ชน Max — สัดส่วน Insurer คิดจากค่าดิบ 28/112",
     input: { discountType: "Percentage", subsidize: "BOTH", people: 2, vatBasis: "Exclude VAT", discountTotal: 20, insurerDiscount: 5, minPurchase: 200, maxDiscount: 50, persons: [p(220, 0, 20), p(340, 0, 20)] },
     expected: { discountAfter: 50, insurerAfter: 12.5, persons: [{ full: 240, base: 220, tqm: 14.73, insurer: 4.91, discount: 19.64, net: 220.36 }, { full: 360, base: 340, tqm: 22.77, insurer: 7.59, discount: 30.36, net: 329.64 }], sumPremium: 560, sumVat: 0, sumDuty: 40, sumAll: 600, sumTqm: 37.5, sumInsurer: 12.5, sumDiscount: 50, tqmReceive: [235.09, 352.41], tqmReceiveTotal: 587.5, customerNetTotal: 550 },
+  },
+  {
+    id: "23", row: 32, campaign: 318, product: "Min Purchase ตัวอย่าง A: Fix Amount ได้รับส่วนลด (เบี้ย 80 + VAT 10 + Duty 10 = 100 ≥ Min 100)", note: "Fix Amount เช็ค Min จากยอดเต็ม ไม่ใช่เบี้ย",
+    input: { discountType: "Fix Amount", subsidize: "TQM", people: 1, vatBasis: "Exclude VAT", discountTotal: 20, insurerDiscount: null, minPurchase: 100, maxDiscount: null, persons: [p(80, 10, 10), noOne] },
+    expected: { discountAfter: 20, insurerAfter: 0, persons: [{ full: 100, base: 80, tqm: 20, insurer: 0, discount: 20, net: 80 }, {}], sumPremium: 80, sumVat: 10, sumDuty: 10, sumAll: 100, sumTqm: 20, sumInsurer: 0, sumDiscount: 20, tqmReceive: [100, 0], tqmReceiveTotal: 100, customerNetTotal: 80 },
+  },
+  {
+    id: "24", row: 33, campaign: 319, product: "Min Purchase ตัวอย่าง B: Percentage Include VAT ได้รับส่วนลด (ยอดเต็ม 100 ≥ Min 100)", note: "% Include VAT เช็ค Min จากยอดเต็ม — ขอบเป๊ะ",
+    input: { discountType: "Percentage", subsidize: "Insurer", people: 1, vatBasis: "Include VAT", discountTotal: 10, insurerDiscount: null, minPurchase: 100, maxDiscount: null, persons: [p(80, 10, 10), noOne] },
+    expected: { discountAfter: 10, insurerAfter: 10, persons: [{ full: 100, base: 100, tqm: 0, insurer: 10, discount: 10, net: 90 }, {}], sumPremium: 80, sumVat: 10, sumDuty: 10, sumAll: 100, sumTqm: 0, sumInsurer: 10, sumDiscount: 10, tqmReceive: [90, 0], tqmReceiveTotal: 90, customerNetTotal: 90 },
+  },
+  {
+    id: "25", row: 34, campaign: 319, product: "Min Purchase ตัวอย่าง C: Percentage Exclude VAT ไม่ได้รับส่วนลด (เบี้ย 80 < Min 100)", note: "% Exclude VAT เช็ค Min จากเบี้ย — ส่วนลดเป็น 0",
+    input: { discountType: "Percentage", subsidize: "TQM", people: 1, vatBasis: "Exclude VAT", discountTotal: 20, insurerDiscount: null, minPurchase: 100, maxDiscount: null, persons: [p(80, 10, 10), noOne] },
+    expected: { discountAfter: 0, insurerAfter: 0, persons: [{ full: 100, base: 80, tqm: 0, insurer: 0, discount: 0, net: 100 }, {}], sumPremium: 80, sumVat: 10, sumDuty: 10, sumAll: 100, sumTqm: 0, sumInsurer: 0, sumDiscount: 0, tqmReceive: [100, 0], tqmReceiveTotal: 100, customerNetTotal: 100 },
   },
 ];

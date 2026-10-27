@@ -266,12 +266,12 @@
               </div>
             </label>
             <label class="coupon-field">
-              <span class="coupon-tip" data-tip="เทียบกับฐานคำนวณรวม ไม่ใช่ยอดจ่าย — ต่ำกว่านี้ส่วนลดเป็น 0 ทั้งหมด">Min Purchase</span>
+              <span class="coupon-tip" data-tip="ต่ำกว่าเกณฑ์นี้ส่วนลดเป็น 0 ทั้งหมด — ตัวที่ใช้ตรวจขึ้นกับประเภทส่วนลด (ดูคำอธิบายใต้ช่อง)">Min Purchase</span>
               <div class="coupon-input-wrap">
                 <input id="coupon-min" type="number" min="0" step="0.01" placeholder="ไม่จำกัด" />
                 <span class="coupon-input-suffix">บาท</span>
               </div>
-              <small class="coupon-field-note">ยอดซื้อขั้นต่ำ — ต่ำกว่านี้ส่วนลด = 0</small>
+              <small class="coupon-field-note" id="coupon-min-note">ตัวที่ใช้ตรวจ: Fix Amount / % Include VAT = เบี้ย+VAT+Duty · % Exclude VAT = เบี้ยเท่านั้น</small>
             </label>
             <label class="coupon-field">
               <span>Max Discount — ส่วนลดสูงสุด</span>
@@ -327,13 +327,17 @@
           <h4>0 · นิยามพื้นฐาน</h4>
           <ul class="coupon-formula-list">
             <li><b>ยอดเต็ม</b> = ช่อง "เบี้ย + VAT + Duty" ของคนนั้น — นับต่อคน</li>
+            <li><b>ยอดเต็มรวม</b> = ยอดเต็มของทุกคนรวมกัน</li>
             <li><b>ฐานลด</b> = จุดตั้งต้นคิดส่วนลดต่อคน → ประเภท "Fix Amount" หรือ % + ฐาน "Exclude VAT" = <b>เบี้ยเท่านั้น</b> · % + "Include VAT" = <b>ยอดเต็ม</b></li>
-            <li><b>ฐานรวม</b> = ฐานลดของทุกคนรวมกัน — เช็ค "Min Purchase" และคิด % จากค่านี้เสมอ</li>
+            <li><b>ฐานรวม</b> = ฐานลดของทุกคนรวมกัน — ใช้คิด % เสมอ · ส่วนเช็ค Min Purchase ใช้ตัวไหนดูขั้น 1</li>
           </ul>
 
           <h4>1 · เช็ค Min Purchase</h4>
-          <div class="coupon-formula-code">ถ้า ฐานรวม &lt; ช่อง "Min Purchase" → ส่วนลดทั้งหมด = 0 (ยังต้องจ่าย VAT/Duty ตามปกติ)</div>
-          <div class="coupon-flow">ที่มา: ฐานรวม + ช่อง Min Purchase → ที่ไป: ตัดสินว่าคำนวณส่วนลดต่อหรือไม่</div>
+          <div class="coupon-formula-code">
+            ตัวที่ใช้เทียบ: ประเภท "Fix Amount" หรือ % + ฐาน "Include VAT" = <b>ยอดเต็มรวม (เบี้ย + VAT + Duty ทุกคน)</b> · % + "Exclude VAT" = <b>ฐานรวม (เบี้ยทุกคน)</b><br>
+            ถ้า ตัวที่ใช้เทียบ &lt; ช่อง "Min Purchase" → ส่วนลดทั้งหมด = 0 (ยังต้องจ่าย VAT/Duty ตามปกติ)
+          </div>
+          <div class="coupon-flow">ที่มา: ตัวที่ใช้เทียบ + ช่อง Min Purchase → ที่ไป: ตัดสินว่าคำนวณส่วนลดต่อหรือไม่</div>
 
           <h4>2 · ส่วนลดรวมหลัง Min/Max</h4>
           <div class="coupon-formula-code">
@@ -382,7 +386,7 @@
           <div class="coupon-formula-example">
             <b>อินพุต:</b> ประเภท Percentage 20 · Insurer ลด 5 · Subsidize BOTH · 2 คน · ฐาน Exclude VAT · คน 1: เบี้ย 220 + VAT 0 + Duty 20 · คน 2: เบี้ย 340 + VAT 0 + Duty 20 · Min Purchase 200 · Max Discount 50<br>
             <b>ขั้น 0:</b> ยอดเต็ม 240 / 360 · ฐานลด 220 / 340 (Exclude → เบี้ยเท่านั้น) · ฐานรวม = 560<br>
-            <b>ขั้น 1:</b> 560 ≥ Min 200 ✓ คำนวณต่อ<br>
+            <b>ขั้น 1:</b> % + Exclude VAT → เทียบด้วยฐานรวม (เบี้ย) 560 ≥ Min 200 ✓ คำนวณต่อ<br>
             <b>ขั้น 2:</b> ดิบ = 560 × 20% = 112 → ส่วนลดรวม = MIN(112, Max 50) = <b>50</b><br>
             <b>ขั้น 3:</b> ส่วนดิบของส่วนลดรวม = 112 · ส่วนดิบของ Insurer ลด = 560 × 5% = 28 → Insurer ลดรวม = 50 × 28 ÷ 112 = <b>12.50</b> ⇒ Insurer 12.50 / TQM 37.50<br>
             <b>ขั้น 4:</b> คน 1: ลดรวม = ปัด(50 × 220/560) = 19.64 · Insurer ลด = ปัด(12.5 × 220/560) = 4.91 · TQM ลด = 14.73 · จ่ายสุทธิ 240 − 19.64 = <b>220.36</b><br>

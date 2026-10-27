@@ -3,7 +3,9 @@
  *   L  = ส่วนลดรวมหลัง Min/Max      M  = Insurer รวมหลังปรับสัดส่วน
  *   Q..V / Z..AE = ผลต่อคน          AF..AL = ผลรวมทุกคน
  *   AN..AQ = TQM รับชำระจริง (Sale Order) + ลูกค้าจ่ายสุทธิ
- * สูตรอ้างอิงแถวที่ถูกต้อง (M/T อ้าง AA ฐานลดคน 2 — แถวว่าง 25-27 ใน Excel อ้าง AC ผิด ไม่ใช้) */
+ * สูตรอ้างอิงแถวที่ถูกต้อง (M/T อ้าง AA ฐานลดคน 2 — แถวว่าง 25-27 ใน Excel อ้าง AC ผิด ไม่ใช้)
+ * Min Purchase (J): Fix Amount / % Include VAT เช็คกับยอดเต็ม (เบี้ย+VAT+Duty) — % Exclude VAT เช็คกับเบี้ย
+ *   (แก้ตามสเปค 2026-10-27 — พร้อมแก้สูตร Excel ใน coupon-uat/references ให้ตรงกัน) */
 
 export type DiscountType = "Fix Amount" | "Percentage";
 export type Subsidize = "Insurer" | "TQM" | "BOTH";
@@ -94,8 +96,11 @@ export function calculateCoupon(input: CouponInput): CouponResult {
       : Math.min(Math.max(0, (baseSum * rate) / 100), Math.max(0, baseSum));
 
   // L — ผ่าน Min Purchase ก่อน แล้ว % จึงถูกจำกัดด้วย Max Discount (Fix ไม่มี Max)
+  // ฐานเช็ค Min Purchase: Fix Amount / % Include VAT = ยอดเต็ม (เบี้ย+VAT+Duty) / % Exclude VAT = เบี้ย
+  const fullSum = full1 + full2;
+  const minBase = input.discountType === "Fix Amount" ? fullSum : baseSum;
   const hSide = rawSide(input.discountTotal ?? 0);
-  const minOk = input.minPurchase == null || baseSum >= input.minPurchase;
+  const minOk = input.minPurchase == null || minBase >= input.minPurchase;
   const capMax = input.discountType === "Percentage" && input.maxDiscount != null;
   const discountAfter = !minOk ? 0 : capMax ? Math.min(hSide, Math.max(0, input.maxDiscount ?? 0)) : hSide;
 
