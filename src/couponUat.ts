@@ -592,6 +592,9 @@ export function initCouponUat(): void {
 
   byId("btn-coupon-run-tests").addEventListener("click", () => void runTests());
 
+  // จำนวนเคสบนปุ่ม tab ดึงจากข้อมูลจริง — ไม่ hardcode ให้เหลือของเก่าตอนเพิ่มเคส
+  byId("coupon-tab-tests").textContent = `🧪 Test Cases (${COUPON_TEST_CASES.length})`;
+
   void runTests(false); // รันไว้เลยตั้งแต่เปิดหน้า (เงียบๆ) — กดปุ่มเพื่อรันซ้ำพร้อม feedback
   recalc();
   bound = true;
