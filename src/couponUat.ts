@@ -1,9 +1,9 @@
-/* Coupon UAT — คูปองส่วนลด TA: เครื่องคำนวณ + รัน Test Cases 24 เคส
+/* Coupon UAT — คูปองส่วนลด TA: เครื่องคำนวณ + รัน Test Cases ทั้งหมดจาก couponTestdata.ts
  * ทางเข้า 2 แบบเหมือน QA Tool: (1) tab ใน Super Admin Panel (ห้อง admin)
  * (2) standalone ?coupon=1 — ไม่ต้อง login ไม่ต้องแตะ Firebase */
 
-import { calculateCoupon, validateCoupon } from "./couponCalc";
-import type { CouponInput, CouponResult } from "./couponCalc";
+import { calculateCoupon, validateCoupon, MSG_REQUIRED } from "./couponCalc";
+import type { CouponInput, CouponResult, CouponValidation } from "./couponCalc";
 import { COUPON_TEST_CASES } from "./couponTestdata";
 import type { CouponExpected, CouponTestCase } from "./couponTestdata";
 import { showToast } from "./ui";
@@ -21,6 +21,24 @@ let bound = false;
 
 /** ทนความคลาดเคลื่อนทศนิยม (ค่า Excel ปัด 2 ตำแหน่ง / float artifact) */
 const TOL = 0.005;
+
+/** ทุกฟิลด์กรอกของฟอร์ม — ใช้ bind event + ล้าง/ใส่ highlight ขอบแดง */
+const FIELD_IDS = [
+  "coupon-type",
+  "coupon-subsidize",
+  "coupon-people",
+  "coupon-vatbasis",
+  "coupon-discount",
+  "coupon-insurer",
+  "coupon-min",
+  "coupon-max",
+  "coupon-p1-premium",
+  "coupon-p1-vat",
+  "coupon-p1-duty",
+  "coupon-p2-premium",
+  "coupon-p2-vat",
+  "coupon-p2-duty",
+] as const;
 
 const money = (x: number): string =>
   new Intl.NumberFormat("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 3 }).format(x);
@@ -82,11 +100,95 @@ function applyFieldRules(): void {
   byId("coupon-person-2").classList.toggle("coupon-person-hidden", people !== "2");
 }
 
-/** คำนวณ + วาดผลใหม่ทุกครั้งที่แก้ฟอร์ม */
-function recalc(): void {
+/** อธิบายใต้ช่อง Min Purchase ว่าเกณฑ์คิดจากอะไร (ตามประเภทส่วนลด) + ยอดปัจจุบัน */
+function updateMinNote(input: CouponInput): void {
+  const note = byId("coupon-min-note");
+  const useFull =
+    input.discountType === "Fix Amount" ||
+    (input.discountType === "Percentage" && input.vatBasis === "Include VAT");
+  if (input.discountType == null || input.vatBasis == null) {
+    note.textContent = "ตัวที่ใช้ตรวจ: Fix Amount / % Include VAT = เบี้ย+VAT+Duty · % Exclude VAT = เบี้ยเท่านั้น";
+    return;
+  }
+  const full = (p: CouponInput["persons"][number]): number => (p.premium ?? 0) + (p.vat ?? 0) + (p.duty ?? 0);
+  const basis = useFull
+    ? full(input.persons[0]) + (input.people === 2 ? full(input.persons[1]) : 0)
+    : (input.persons[0].premium ?? 0) + (input.people === 2 ? input.persons[1].premium ?? 0 : 0);
+  const desc = useFull ? "ยอดเต็ม เบี้ย + VAT + Duty" : "เบี้ยเท่านั้น (ไม่รวม VAT/Duty)";
+  note.textContent = `ตรวจกับ ${desc} รวมทุกคน${basis > 0 ? ` = ${money(basis)}` : ""} — ต่ำกว่านี้ส่วนลด = 0`;
+}
+
+/** Highlight ขอบแดงฟิลด์ที่ยังไม่กรอก/ผิดกติกา + tooltip บอกเหตุผล
+ * คืน labels = ชื่อฟิลด์ที่ยังไม่กรอก (แสดงในข้อความ) / firstId = ฟิลด์แรงบนสุดที่ยังไม่กรอก (ใช้ scroll) */
+function highlightErrors(input: CouponInput, validation: CouponValidation): { labels: string[]; firstId: string | null } {
+  for (const id of FIELD_IDS) {
+    const el = byId<HTMLElement>(id);
+    el.classList.remove("coupon-err");
+    el.removeAttribute("title");
+  }
+  const marked: string[] = [];
+  const mark = (id: string, reason: string): void => {
+    const el = byId<HTMLElement>(id);
+    el.classList.add("coupon-err");
+    el.title = reason;
+    if (!marked.includes(id)) marked.push(id);
+  };
+  const labels: string[] = [];
+
+  // ข้อมูลจำเป็นไม่ครบ (rule 1) — ชี้ทีละช่องที่ว่าง
+  if (validation.messages.includes(MSG_REQUIRED)) {
+    if (input.discountType == null) { mark("coupon-type", MSG_REQUIRED); labels.push("ประเภทส่วนลด"); }
+    if (input.subsidize == null) { mark("coupon-subsidize", MSG_REQUIRED); labels.push("ผู้รับผิดชอบส่วนลด"); }
+    if (input.vatBasis == null) { mark("coupon-vatbasis", MSG_REQUIRED); labels.push("ฐานคำนวณส่วนลด"); }
+    if (input.discountTotal == null) { mark("coupon-discount", MSG_REQUIRED); labels.push("ส่วนลดรวมทั้งรายการ"); }
+    for (const pi of [1, 2] as const) {
+      if (pi === 2 && input.people !== 2) continue;
+      const p = input.persons[pi - 1];
+      for (const [field, label] of [
+        ["premium", "เบี้ย"],
+        ["vat", "VAT"],
+        ["duty", "Duty"],
+      ] as const) {
+        if (p[field] == null) {
+          mark(`coupon-p${pi}-${field}`, MSG_REQUIRED);
+          labels.push(`${label} คนที่ ${pi}`);
+        }
+      }
+    }
+  }
+  // BOTH ไม่กรอก Insurer ลด (rule 11)
+  if (validation.messages.includes("กรุณากรอก Insurer ลดให้ถูกต้อง")) mark("coupon-insurer", "กรุณากรอก Insurer ลดให้ถูกต้อง");
+  // ค่าติดลบ/ไม่ใช่ตัวเลข (rule 7, 9, 15, 16)
+  if (validation.messages.includes("ส่วนลดรวมห้ามติดลบและต้องเป็นตัวเลข")) mark("coupon-discount", "ส่วนลดรวมห้ามติดลบและต้องเป็นตัวเลข");
+  if (validation.messages.includes("Min Purchase ต้องเป็นตัวเลขไม่ติดลบ")) mark("coupon-min", "Min Purchase ต้องเป็นตัวเลขไม่ติดลบ");
+  if (validation.messages.includes("Max Discount ต้องเป็นตัวเลขไม่ติดลบ")) mark("coupon-max", "Max Discount ต้องเป็นตัวเลขไม่ติดลบ");
+  if (validation.messages.includes("เบี้ย VAT Duty ห้ามติดลบ")) {
+    for (const pi of [1, 2] as const) {
+      if (pi === 2 && input.people !== 2) continue;
+      const p = input.persons[pi - 1];
+      for (const field of ["premium", "vat", "duty"] as const) {
+        const v = p[field];
+        if (v != null && v < 0) mark(`coupon-p${pi}-${field}`, "เบี้ย VAT Duty ห้ามติดลบ");
+      }
+    }
+  }
+  // ฟิลด์แรกที่ยังไม่กรอกเรียงตามลำดับในหน้า (FIELD_IDS = ลำดับ DOM บน→ล่าง)
+  const firstId = FIELD_IDS.find((id) => marked.includes(id)) ?? null;
+  return { labels, firstId };
+}
+
+/** คำนวณ + วาดผลใหม่ทุกครั้งที่แก้ฟอร์ม
+ * scrollToMissing = true เมื่อผู้ใช้ commit ค่า (change/ล้างข้อมูล) — เลื่อนหน้าไปหาฟิลด์แรกที่ยังไม่กรอก
+ * (ตอนพิมพ์ input ปกติไม่เลื่อน จะได้ไม่ดึงหน้าขณะกรอก) */
+function recalc(scrollToMissing = false): void {
   const input = readInput();
   const validation = validateCoupon(input);
   const box = byId("coupon-result");
+  updateMinNote(input);
+  const { labels: missing, firstId } = highlightErrors(input, validation);
+  if (scrollToMissing && firstId) {
+    byId<HTMLElement>(firstId).scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 
   if (validation.status === "") {
     box.innerHTML = "";
@@ -104,12 +206,18 @@ function recalc(): void {
   badge.className = `coupon-status-badge ${ok ? "ok" : "bad"}`;
   badge.textContent = ok ? "✓ ผ่าน" : validation.display;
   statusRow.appendChild(badge);
-  if (validation.messages.length > 0) {
+  if (validation.messages.length > 0 || missing.length > 0) {
     const list = document.createElement("ul");
     list.className = "coupon-messages";
     for (const m of validation.messages) {
       const li = document.createElement("li");
       li.textContent = m;
+      list.appendChild(li);
+    }
+    // รวมชื่อฟิลด์ที่ยังไม่กรอกไว้ในข้อความเดียว — คู่กับขอบแดงบนฟอร์ม
+    if (missing.length > 0) {
+      const li = document.createElement("li");
+      li.textContent = `ยังไม่กรอก: ${missing.join(" · ")}`;
       list.appendChild(li);
     }
     statusRow.appendChild(list);
@@ -316,12 +424,8 @@ function configSummary(tc: CouponTestCase): string {
   return parts.join(" · ");
 }
 
-/** รันทั้ง 24 เคสแล้ววาดตาราง + สรุป */
-function runTests(): void {
-  const holder = byId("coupon-tests-table");
-  const summary = byId("coupon-tests-summary");
-  holder.innerHTML = "";
-
+/** สร้างตารางผลทุกเคสลง holder — คืนจำนวนเคสที่ผ่าน */
+function buildTestsTable(holder: HTMLElement): number {
   let passCount = 0;
   for (const tc of COUPON_TEST_CASES) {
     const res = calculateCoupon(tc.input);
@@ -395,10 +499,51 @@ function runTests(): void {
 
     holder.appendChild(details);
   }
+  return passCount;
+}
+
+/** รันทุกเคสแล้ววาดตาราง + สรุป — feedback (กดปุ่มเอง) แสดงสถานะ กำลังรัน → รันเสร็จ/ผิดพลาด
+ * auto-run ตอนเปิดหน้าใช้ feedback=false เงียบๆ ไม่ toast ไม่หน่วงเวลา */
+async function runTests(feedback = true): Promise<void> {
+  const holder = byId("coupon-tests-table");
+  const summary = byId("coupon-tests-summary");
+  const btn = byId<HTMLButtonElement>("btn-coupon-run-tests");
+  const btnLabel = btn.textContent ?? "";
+
+  if (feedback) {
+    btn.disabled = true;
+    btn.textContent = "⏳ กำลังรัน…";
+    summary.textContent = `กำลังรัน ${COUPON_TEST_CASES.length} เคส…`;
+    summary.className = "coupon-tests-summary running";
+    await new Promise((r) => setTimeout(r, 250)); // คำนวณเสร็จไวมาก — หน่วงเล็กน้อยให้เห็นสถานะ "กำลังรัน" ก่อนผลออก
+  }
+
+  let passCount = 0;
+  try {
+    holder.innerHTML = "";
+    passCount = buildTestsTable(holder);
+  } catch (err) {
+    summary.textContent = `✗ เกิดข้อผิดพลาดระหว่างรัน: ${err instanceof Error ? err.message : String(err)}`;
+    summary.className = "coupon-tests-summary has-fail";
+    if (feedback) showToast("❌ รัน Test Cases ผิดพลาด");
+    return;
+  } finally {
+    if (feedback) {
+      btn.disabled = false;
+      btn.textContent = btnLabel;
+    }
+  }
 
   const all = COUPON_TEST_CASES.length;
-  summary.textContent = `ผ่าน ${passCount}/${all} เคส`;
-  summary.className = `coupon-tests-summary ${passCount === all ? "all-pass" : "has-fail"}`;
+  const allPass = passCount === all;
+  summary.textContent = allPass
+    ? `✓ รันเสร็จ — ผ่านทั้งหมด ${passCount}/${all} เคส`
+    : `✗ รันเสร็จ — ผ่าน ${passCount}/${all} เคส (ตก ${all - passCount})`;
+  summary.className = `coupon-tests-summary ${allPass ? "all-pass" : "has-fail"}`;
+  if (feedback) {
+    showToast(allPass ? `✅ รันเสร็จ ผ่าน ${passCount}/${all} เคส` : `❌ รันเสร็จ ตก ${all - passCount} เคส`);
+    summary.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 }
 
 /* ── Init + standalone (?coupon=1) ───────────────────────────────────────── */
@@ -408,27 +553,11 @@ export function initCouponUat(): void {
   if (bound) return;
 
   applyFieldRules();
-  const fieldIds = [
-    "coupon-type",
-    "coupon-subsidize",
-    "coupon-people",
-    "coupon-vatbasis",
-    "coupon-discount",
-    "coupon-insurer",
-    "coupon-min",
-    "coupon-max",
-    "coupon-p1-premium",
-    "coupon-p1-vat",
-    "coupon-p1-duty",
-    "coupon-p2-premium",
-    "coupon-p2-vat",
-    "coupon-p2-duty",
-  ];
-  for (const id of fieldIds) {
-    byId<HTMLElement>(id).addEventListener("input", recalc);
+  for (const id of FIELD_IDS) {
+    byId<HTMLElement>(id).addEventListener("input", () => recalc());
     byId<HTMLElement>(id).addEventListener("change", () => {
       applyFieldRules();
-      recalc();
+      recalc(true);
     });
   }
 
@@ -457,13 +586,13 @@ export function initCouponUat(): void {
     ];
     for (const id of numericIds) byId<HTMLInputElement>(id).value = "";
     applyFieldRules();
-    recalc();
+    recalc(true);
     showToast("🧹 ล้างข้อมูลแล้ว");
   });
 
-  byId("btn-coupon-run-tests").addEventListener("click", runTests);
+  byId("btn-coupon-run-tests").addEventListener("click", () => void runTests());
 
-  runTests(); // รันไว้เลยตั้งแต่เปิดหน้า — กดปุ่มเพื่อรันซ้ำ
+  void runTests(false); // รันไว้เลยตั้งแต่เปิดหน้า (เงียบๆ) — กดปุ่มเพื่อรันซ้ำพร้อม feedback
   recalc();
   bound = true;
 }

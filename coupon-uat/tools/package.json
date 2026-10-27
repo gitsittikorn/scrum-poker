@@ -1,0 +1,14 @@
+{
+  "name": "coupon-uat-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "เครื่องมือตรวจ/แก้ไฟล์ Excel UAT คูปองส่วนลด TA (references/) — ใช้ Node ล้วน ไม่แตะโปรเจกต์หลัก",
+  "scripts": {
+    "inspect": "node inspect.js",
+    "verify": "node verify.js"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.0.0",
+    "jszip": "^3.10.1"
+  }
+}
