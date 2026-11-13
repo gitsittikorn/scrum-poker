@@ -608,6 +608,126 @@ body {
   transform: translateY(-1px);
 }
 
+/* ===== No Need Task / No Need Test — checkbox ข้างปุ่ม History (req 13-14, 16) ===== */
+/* ครอบ checkbox ทั้งสอง — โชว์เฉพาะ admin ของห้อง (PO + deputy) คุมที่ renderTaskBanner */
+.no-need-toggles {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* req 19 — 1 toggle = label (checkbox) + ไอคอน ⓘ tooltip คู่กัน */
+.no-need-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.no-need-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition);
+}
+
+.no-need-label:hover {
+  color: var(--text-primary);
+}
+
+.no-need-toggle input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ติ๊กแล้วเน้นสี accent / disable (ยังไม่ดึง task) จางลง + กดไม่ได้
+ * จางเฉพาะ label — ไอคอน ⓘ ยังใช้งาน/อ่าน tooltip ได้ปกติแม้ checkbox disabled (req 19 ข้อ 8) */
+.no-need-toggle:has(input:checked) .no-need-label {
+  color: var(--accent);
+}
+
+.no-need-toggle:has(input:disabled) .no-need-label {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.no-need-toggle:has(input:disabled) input[type="checkbox"] {
+  cursor: not-allowed;
+}
+
+/* ===== Info tooltip (ⓘ) — req 19 =====
+ * ปุ่มกลมเล็กข้าง label: hover โชว์บน desktop · แตะ toggle บน mobile (.open จาก JS)
+ * · Tab โฟกัสโชว์ (:focus-visible) แล้วปิดด้วย Esc */
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+  transition: color var(--transition), border-color var(--transition);
+}
+
+.info-tip:hover,
+.info-tip:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.info-tip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ฟองข้อความ — absolute ใต้ไอคอน ชิดขอบขวาของไอคอน (toggles อยู่ท้ายแถว
+ * กางซ้ายเข้าในจอ กันล้นขอบ) · จำกัดความกว้างตาม viewport กันถูกตัด (req 19 ข้อ 4) */
+.info-tip-bubble {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 200;
+  width: max-content;
+  max-width: min(300px, 85vw);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.55;
+  white-space: normal;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none; /* ฟองไม่บล็อกคลิก element ข้างหลัง */
+}
+
+.info-tip:hover .info-tip-bubble,
+.info-tip:focus-visible .info-tip-bubble,
+.info-tip.open .info-tip-bubble {
+  display: block;
+}
+
 /* ===== Task History Modal — รายการเรียงเก่า → ใหม่ ===== */
 /* specificity สอง class ชนะ .modal-content (max-width 380px) ที่อยู่ท้ายไฟล์เสมอ */
 .modal-content.task-history-content {

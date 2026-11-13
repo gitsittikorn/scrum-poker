@@ -120,6 +120,22 @@
           </div>
           <span id="groom-mode-badge" class="groom-mode-badge hidden" title="ห้องนี้อยู่โหมด Pre-Groom (lead)">🌱 Pre-Groom</span>
           <button type="button" id="btn-task-history" class="btn btn-task-history" title="ประวัติการดึง task ของห้องนี้">🕘 History</button>
+          <!-- No Need Task/Test — เห็นเฉพาะ admin ของห้อง (PO + deputy) ควบคุมการโชว์ที่ renderTaskBanner -->
+          <!-- req 19 — ไอคอน ⓘ เปิด tooltip อธิบาย: hover (desktop) / แตะ (mobile) / Tab focus + Esc (keyboard) -->
+          <span id="no-need-toggles" class="no-need-toggles hidden">
+            <span class="no-need-toggle">
+              <label class="no-need-label">
+                <input type="checkbox" id="no-need-task"> No Need Task
+              </label>
+              <button type="button" class="info-tip" aria-expanded="false" aria-label="ดูคำอธิบาย No Need Task">ⓘ<span class="info-tip-bubble" role="tooltip">ใช้สำหรับการโหวตประเมิน Point โดยไม่จำเป็นต้องดึง Task จาก ClickUp ระบบจะซ่อนการแจ้งเตือนให้ดึง Task และสามารถดำเนินการโหวตได้ตามปกติ โดยไม่มีการบันทึก Point ไปยัง ClickUp Task</span></button>
+            </span>
+            <span class="no-need-toggle">
+              <label class="no-need-label">
+                <input type="checkbox" id="no-need-test" disabled> No Need Test
+              </label>
+              <button type="button" class="info-tip" aria-expanded="false" aria-label="ดูคำอธิบาย No Need Test">ⓘ<span class="info-tip-bubble" role="tooltip">ใช้สำหรับ Task ที่ไม่จำเป็นต้องให้ QA ทดสอบ เมื่อบันทึก Point ระบบจะเพิ่ม Tag 'no need test' ใน ClickUp โดยไม่อัปเดต QA Point ใน Custom Field และระบุ 'QA: no need test' ใน Comment แทนคะแนน QA</span></button>
+            </span>
+          </span>
         </div>
         <div id="clickup-task-row" class="clickup-task-row hidden">
           <a id="clickup-task-display" class="clickup-task" target="_blank" rel="noopener noreferrer">

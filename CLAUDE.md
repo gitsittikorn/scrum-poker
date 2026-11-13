@@ -47,6 +47,7 @@
 - Setup: `pnpm install` ที่ root ครั้งเดียว — backend เป็น workspace package (ดู `pnpm-workspace.yaml` → `packages: [backend]`)
 - คัดลอก `backend/.env.example` → `backend/.env` แล้วใส่ `CLICKUP_API_TOKEN` (ไม่มี token = backend รันได้แต่ route ClickUp ทุกตัวพัง)
 - `node backend/clickup-smoke.js` — E2E ดึง task จริง (ต้องมี dev server + backend + token; browser หาอัตโนมัติจาก ms-playwright)
+- `cd backend && npm test` — backend integration tests (node:test + mock ClickUp API บน 127.0.0.1 ผ่าน `CLICKUP_API_BASE` — ไม่ยิง ClickUp จริง)
 
 ## Module Dependencies
 ```

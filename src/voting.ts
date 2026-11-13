@@ -25,7 +25,7 @@ import { escapeHtml, hasConfiguredCards, rangeFor, unanimousFor } from "./utils"
 import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
 import { playSound } from "./sounds";
-import { renderTaskBanner, isSaveInFlight, onSaveStateChange, updateTaskRequiredReminder } from "./clickup";
+import { renderTaskBanner, isSaveInFlight, onSaveStateChange, updateTaskRequiredReminder, isNoNeedTestChecked } from "./clickup";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
@@ -611,7 +611,9 @@ function detectJoinLeave(users: Record<string, User>): void {
 let lastRoomData: RoomData | null = null;
 
 /** ปุ่มบันทึก ClickUp (PO เท่านั้น — หลัง reveal และมี task ปัจจุบัน)
- *  แยกจาก updateUI เพื่อเรียกซ้ำได้ทันทีเมื่อสถานะบันทึกเปลี่ยน (onSaveStateChange) */
+ *  แยกจาก updateUI เพื่อเรียกซ้ำได้ทันทีเมื่อสถานะบันทึกเปลี่ยน (onSaveStateChange)
+ *  req 14 — No Need Test: QA ถูกตัดออกจากรอบบันทึก (ไม่บังคับ unanimous)
+ *  label แสดง "QA no need test" แทนค่า/✗ ของ QA */
 function renderSaveButton(roomData: RoomData): void {
   const showSaveBtn =
     isPO() &&
@@ -627,6 +629,7 @@ function renderSaveButton(roomData: RoomData): void {
     btnSaveClickup.textContent = "…กำลังบันทึก";
     return;
   }
+  const noNeedTest = isNoNeedTestChecked();
   const groomMode = roomData.groomMode ?? "groom";
   const notLeft = Object.entries(roomData.users ?? {}).filter(([, u]) => !u.left);
   const devList = notLeft.filter(([, u]) => u.role === "dev");
@@ -635,9 +638,10 @@ function renderSaveButton(roomData: RoomData): void {
   if (groomMode === "pre") {
     // Pre-Groom: label แสดงช่วง min-max ที่จะคอมเม้นลงการ์ด
     const dev = rangeFor(devList);
-    const qa = rangeFor(qaList);
+    const qa = noNeedTest ? null : rangeFor(qaList);
     if (dev !== null) parts.push(`Dev ${dev}`);
-    if (qa !== null) parts.push(`QA ${qa}`);
+    if (noNeedTest) parts.push("QA no need test");
+    else if (qa !== null) parts.push(`QA ${qa}`);
     btnSaveClickup.textContent = parts.length
       ? `🌱 บันทึก Pre-Groom (${parts.join(" · ")})`
       : "🌱 บันทึก Pre-Groom";
@@ -645,22 +649,30 @@ function renderSaveButton(roomData: RoomData): void {
   } else {
     // Groom: ค่าเดียวเมื่อทุกคนใน role โหวตเท่ากัน · ✗ = role นั้นยังไม่ตรงกัน
     const dev = unanimousFor(devList);
-    const qa = unanimousFor(qaList);
+    const qa = noNeedTest ? null : unanimousFor(qaList);
     if (dev !== null) parts.push(`Dev ${dev}`);
     else if (devList.length > 0) parts.push("Dev ✗");
-    if (qa !== null) parts.push(`QA ${qa}`);
+    if (noNeedTest) parts.push("QA no need test");
+    else if (qa !== null) parts.push(`QA ${qa}`);
     else if (qaList.length > 0) parts.push("QA ✗");
     btnSaveClickup.textContent = parts.length
       ? `💾 บันทึก ClickUp (${parts.join(" · ")})`
       : "💾 บันทึก ClickUp";
     // ปุ่มกดไม่ได้จนกว่าทุก role ที่มีสมาชิกจะโหวตเท่ากันครบ (และมีค่าให้บันทึกอย่างน้อย 1 role)
     const devReady = devList.length === 0 || dev !== null;
-    const qaReady = qaList.length === 0 || qa !== null;
+    // noNeedTest → QA ไม่นับ readiness (ไม่ได้จะบันทึก point ของ QA อยู่แล้ว)
+    const qaReady = noNeedTest || qaList.length === 0 || qa !== null;
     btnSaveClickup.disabled = !(devReady && qaReady && (dev !== null || qa !== null));
   }
   btnSaveClickup.title = btnSaveClickup.disabled
     ? "รอให้ทุก role โหวตได้ค่าเดียวกันก่อน"
     : "";
+}
+
+/** req 14 — เรียกเมื่อ toggle checkbox No Need Test เพื่อ re-render ปุ่มบันทึกทันที
+ *  (label/disable ต้องสะท้อนว่า QA ถูกตัดออก ไม่ต้องรอ room tick ถัดไป) */
+export function refreshSaveButtonState(): void {
+  if (lastRoomData) renderSaveButton(lastRoomData);
 }
 
 export function updateUI(roomData: RoomData): void {

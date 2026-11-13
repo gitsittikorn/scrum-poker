@@ -15,7 +15,12 @@ const {
   CLICKUP_QA_POINT_FIELD_NAME = "QA Point Estimation",
 } = process.env;
 
-const CLICKUP_BASE = "https://api.clickup.com/api/v2";
+// Pure link extraction + dedup helpers (req 15) — no deps, unit-testable
+const { taskLinks } = require("./links");
+
+// ฐาน URL ของ ClickUp API — override ผ่าน env ได้เพื่อชี้ไปที่ mock server
+// ใน integration test (backend/test/) โดย prod/local ใช้ค่าจริงเหมือนเดิม
+const CLICKUP_BASE = process.env.CLICKUP_API_BASE || "https://api.clickup.com/api/v2";
 const clickup = axios.create({
   baseURL: CLICKUP_BASE,
   timeout: 15000,
@@ -138,121 +143,6 @@ function qaPointField(task) {
 
 const isNum = (v) => v === null || v === undefined || (typeof v === "number" && Number.isFinite(v));
 
-// Pull links out of the task's MARKDOWN description (fetched with
-// include_markdown_description=true). Supports markdown inline links
-// [display](url) — display can be shortened text — plus bare URLs with or
-// without protocol. Classify known brands (Figma/Google/Miro/GitHub/ClickUp)
-// and direct files by extension (image/pdf/other), cap at 6. Only http(s)
-// survives — anything javascript:/data: is dropped by construction.
-function extractLinks(rawMarkdown) {
-  // markdown ว่าง/ไม่มี = ไม่พบลิงก์ (คืน [] ทันที)
-  const md = String(rawMarkdown || "");
-  if (!md.trim()) return [];
-  const seen = new Set();
-  const urls = [];
-  const add = (u) => {
-    u = u
-      .replace(/(&(quot|amp|lt|gt|#39|apos);)+$/i, "") // entity ท้าย URL จากการ decode ไม่สมบูรณ์
-      .replace(/[)\].,;]+$/, ""); // trailing punctuation/bracket ของ markdown
-    if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-    if (!seen.has(u)) {
-      seen.add(u);
-      urls.push(u);
-    }
-  };
-  // 1) markdown inline link [display](url) — ดึง URL จากวงเล็บแล้ว "ตัด construct
-  //    ทิ้ง" จากข้อความที่เหลือ กัน pass อื่นไปเก็บ URL/domain ที่หลงเหลือใน display
-  //    text ของลิงก์ซ้ำ (เช่น [www.figma.com\nhttps://x](https://x))
-  const stripped = md.replace(/\[[^\]]*\]\(\s*(https?:\/\/[^\s)]+?)\s*\)/gi, (_m, url) => {
-    add(url);
-    return " ";
-  });
-  // 2) Figma URL ตรง ๆ (แม้ไม่ได้อยู่ในรูป markdown link)
-  for (const m of stripped.matchAll(/https?:\/\/(?:www\.)?figma\.com\/[^\s)\]"'<>]+/gi)) add(m[0]);
-  // 3) bare http(s) URLs อื่น ๆ — หยุดที่ space วงเล็บปิด bracket quote < >
-  for (const m of stripped.matchAll(/https?:\/\/[^\s)\]"'<>]+/gi)) add(m[0]);
-  // 4) href attribute (กันกรณีปน HTML)
-  for (const m of stripped.matchAll(/href=(?:"([^"]+)"|'([^']+)')/g)) add(m[1] ?? m[2]);
-  // 5) ลิงก์พิมพ์เปล่าไม่มีโปรโตคอล — www.* หรือโฮสต์ที่รู้จัก (lookbehind กันจับซ้ำใน hostname อื่น)
-  for (const m of stripped.matchAll(/www\.[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s)\]"'<>]*)?/gi)) add(m[0]);
-  for (const m of stripped.matchAll(
-    /(?<![\w.])(?:figma\.com|fig\.ma|docs\.google\.com|drive\.google\.com|miro\.com|github\.com|clickup\.com)\/[^\s)\]"'<>]*/gi
-  )) {
-    add(m[0]);
-  }
-
-  const out = [];
-  for (const u of urls) {
-    let host = "";
-    let path = "";
-    try {
-      const parsed = new URL(u);
-      host = parsed.hostname;
-      path = parsed.pathname;
-    } catch {
-      continue;
-    }
-    let type = "link";
-    // ตัด slash ท้าย path ก่อนเช็คนามสกุลไฟล์ (รูป/ไฟล์แนบที่ลิงก์ตรง ๆ)
-    const filePath = path.replace(/\/+$/, "");
-    if (/(^|\.)figma\.com$/.test(host) || /(^|\.)fig\.ma$/.test(host)) type = "figma";
-    else if (host === "docs.google.com") {
-      if (path.startsWith("/spreadsheets")) type = "sheets";
-      else if (path.startsWith("/document")) type = "docs";
-      else if (path.startsWith("/presentation")) type = "slides";
-    } else if (host === "drive.google.com" || host === "drive.usercontent.google.com") type = "drive";
-    else if (/(^|\.)miro\.com$/.test(host)) type = "miro";
-    else if (/(^|\.)github\.com$/.test(host)) type = "github";
-    else if (/(^|\.)clickup\.com$/.test(host)) type = "clickup";
-    else if (/\.pdf$/i.test(filePath)) type = "pdf";
-    else if (/\.(png|jpe?g|gif|webp|svg|bmp|ico|avif|heic)$/i.test(filePath)) type = "image";
-    else if (/\.(zip|rar|7z|xlsx?|docx?|pptx?|csv|txt|json|mp4|mov|webm|mp3|wav)$/i.test(filePath)) {
-      type = "file";
-    }
-    out.push({ type, url: u });
-    if (out.length >= 6) break;
-  }
-  return out;
-}
-
-// ClickUp task attachments → link entries. Classify by the REAL attachment
-// metadata (file_extension / mime_type from the API payload) so an image
-// attachment shows the image icon instead of the generic chain-link icon.
-// Falls back to the download/private URL when present; anything without an
-// http(s) URL is skipped. Clicks keep the original open-in-new-tab behavior.
-function classifyAttachment(att) {
-  const url = String(
-    att?.url_private_download || att?.url_private || att?.short_url || att?.url || ""
-  ).trim();
-  if (!/^https?:\/\//i.test(url)) return null;
-  const ext = String(att?.file_extension || att?.extension || "")
-    .toLowerCase()
-    .replace(/^\./, "");
-  const mime = String(att?.mime_type || att?.mimetype || "").toLowerCase();
-  let type = "file";
-  if (/^(png|jpe?g|gif|webp|svg|bmp|ico|avif|heic)$/.test(ext) || mime.startsWith("image/")) {
-    type = "image";
-  } else if (ext === "pdf" || mime === "application/pdf") {
-    type = "pdf";
-  }
-  return { type, url };
-}
-
-/** Links for a task = links parsed from the markdown description + real
- *  attachments (deduped by URL, description links first, cap 6 — same as before). */
-function taskLinks(task) {
-  const links = extractLinks(task.markdown_description);
-  const seen = new Set(links.map((l) => l.url));
-  for (const att of task.attachments || []) {
-    const l = classifyAttachment(att);
-    if (!l || seen.has(l.url)) continue;
-    seen.add(l.url);
-    links.push(l);
-    if (links.length >= 6) break;
-  }
-  return links;
-}
-
 // ── routes ──────────────────────────────────────────────────────────────
 
 app.get("/health", (_req, res) => {
@@ -360,6 +250,46 @@ app.post("/api/clickup/save-points", async (req, res, next) => {
       }
     }
     res.status(anyFailed ? 502 : 200).json(out);
+  } catch (err) {
+    next(clickupError(err));
+  }
+});
+
+// { taskId, tag } → ensure the task carries the given tag (req 14 — "no need test").
+// Read-only check first: task already tagged → nothing written (never duplicates).
+// Tag missing in the task's space → create it there first (ClickUp only attaches
+// existing space tags), then attach to the task. Existing tags are never removed
+// or renamed — attachments/other data untouched.
+app.post("/api/clickup/add-tag", async (req, res, next) => {
+  try {
+    const taskId = String(req.body?.taskId || "").trim();
+    const tag = String(req.body?.tag || "").trim();
+    if (!taskId) throw Object.assign(new Error("ต้องระบุ taskId"), { status: 400 });
+    if (!tag) throw Object.assign(new Error("ต้องระบุ tag"), { status: 400 });
+
+    const { data: task } = await clickup.get(`/task/${encodeURIComponent(taskId)}`);
+    const norm = (s) => String(s || "").trim().toLowerCase();
+    if ((task.tags || []).some((t) => norm(t.name) === norm(tag))) {
+      return res.json({ ok: true, added: false, reason: "already-tagged" });
+    }
+
+    const spaceId = task.space?.id;
+    if (spaceId) {
+      try {
+        const { data: spaceTags } = await clickup.get(`/space/${spaceId}/tag`);
+        const exists = (spaceTags.tags || []).some((t) => norm(t.name) === norm(tag));
+        if (!exists) await clickup.post(`/space/${spaceId}/tag`, { name: tag });
+      } catch (err) {
+        // best-effort: บาง token ลิสต์/สร้าง space tag ไม่ได้ — ปล่อยให้ตอนแนบ tag
+        // เป็นคนโยน error จริงออกมา (อาจ tag มีอยู่แล้วใน space ก็ผ่านได้)
+      }
+    }
+
+    await clickup.post(
+      `/task/${encodeURIComponent(taskId)}/tag/${encodeURIComponent(tag)}`
+    );
+    console.log(`[clickup] add tag "${tag}" → task ${taskId}`);
+    res.json({ ok: true, added: true });
   } catch (err) {
     next(clickupError(err));
   }

@@ -204,10 +204,21 @@ async function joinAs(browser, { name, role, room }) {
       const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
       if (!text.includes("Role - ")) ok('req 8: comment ไม่มี prefix "Role - "');
       else fail(`req 8: comment ยังมี "Role - " → ${JSON.stringify(text)}`);
-      if (lines[lines.length - 1] === testTask.name) {
-        ok(`req 11: ชื่อการ์ดอยู่บรรทัดสุดท้ายของ comment`);
+      // req 20 — เส้นคั่นปิดเป็นบรรทัดสุดท้าย และชื่อการ์ดอยู่บรรทัดก่อนเส้นคั่น
+      if (lines[0] === "━".repeat(20) && lines[lines.length - 1] === "━".repeat(20)) {
+        ok("req 20: comment มีเส้นคั่นหัว/ท้าย");
       } else {
-        fail(`req 11: บรรทัดสุดท้าย = "${lines[lines.length - 1]}" ≠ "${testTask.name}"`);
+        fail(`req 20: เส้นคั่นหัว/ท้ายไม่ครบ → ${JSON.stringify(text)}`);
+      }
+      if (lines[1] === "🃏 SCRUM POKER | POINT UPDATE") {
+        ok("req 20: มี header SCRUM POKER | POINT UPDATE");
+      } else {
+        fail(`req 20: header ผิด = "${lines[1]}"`);
+      }
+      if (lines[lines.length - 2] === testTask.name) {
+        ok(`req 11 + 20: ชื่อการ์ดอยู่ท้ายสุดก่อนเส้นคั่นปิด`);
+      } else {
+        fail(`req 11: บรรทัดก่อนเส้นคั่น = "${lines[lines.length - 2]}" ≠ "${testTask.name}"`);
       }
       console.log("    comment ที่ได้:\n" + lines.map((l) => "      | " + l).join("\n"));
     }

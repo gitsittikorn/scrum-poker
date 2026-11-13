@@ -1,4 +1,4 @@
-import type { GroomMode, User } from "./types";
+import type { GroomMode, TaskLink, User } from "./types";
 
 export function escapeHtml(str: string): string {
   const div = document.createElement("div");
@@ -97,9 +97,74 @@ export function hasConfiguredCards(cards: unknown): boolean {
   });
 }
 
+// ── ClickUp task links dedup (req 15) ───────────────────────────────────
+// (pure — มิเรอร์ logic เดียวกับ backend/links.js เพื่อกันไอคอนซ้ำที่หน้า render
+//  แม้ข้อมูลเก่าใน Firebase จะเก็บลิงก์ซ้ำมาก่อน)
+
+/** query params ที่เป็น signature ชั่วคราว — ไฟล์เดียวกันที่ดึงคนละครั้งได้ค่าต่างกัน
+ *  (เช่น signed URL ของ attachment) ตัดออกก่อนเทียบ โดยไม่แตะ query ที่ใช้ระบุไฟล์จริง */
+const VOLATILE_QUERY_KEYS =
+  /^(sig|signature|token|access_?token|auth|expires?|expiry|expiration|date|ts|timestamp|nonce|cb|_cb|_t|x-amz-[a-z-]+|x-goog-[a-z-]+|awsaccesskeyid)$/i;
+
+/** key ระบุ "ไฟล์" ของลิงก์ — host + path เสมอ บวกเฉพาะ query ที่ระบุไฟล์จริง
+ *  (signature ตัดทิ้ง · path ว่าง = ยึดทั้ง URL เพื่อไม่รวมไฟล์ต่างกันที่อยู่ใน query) */
+export function taskLinkKey(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/+$/, "");
+    if (!path) return `${u.hostname}${u.search}`.toLowerCase();
+    const identity = [...u.searchParams.entries()]
+      .filter(([k]) => !VOLATILE_QUERY_KEYS.test(k))
+      .map(([k, v]) => `${k}=${v}`)
+      .sort()
+      .join("&");
+    return `${u.hostname}${path}${identity ? `?${identity}` : ""}`.toLowerCase();
+  } catch {
+    return url.trim().toLowerCase();
+  }
+}
+
+/** req 15 — ตัดลิงก์รูป/ไฟล์เดียวกันที่มาจากหลายแหล่ง (description + attachment)
+ *  เหลือเฉพาะที่ไม่ซ้ำโดยคงลำดับเดิม — เรียกก่อน render เพื่อไม่โชว์ไอคอนซ้ำ */
+export function dedupeTaskLinks(links: TaskLink[] | null | undefined): TaskLink[] {
+  const seen = new Set<string>();
+  const out: TaskLink[] = [];
+  for (const l of links ?? []) {
+    const key = taskLinkKey(l.url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(l);
+  }
+  return out;
+}
+
 // ── ClickUp grooming comment ─────────────────────────────────────────
 // (ย้ายมาจาก clickup.ts เป็น pure function — ให้ unit test ตรวจรูปแบบ
 //  คอมเม้นได้โดยไม่ต้องแตะ DOM/Firebase)
+
+/** req 20 — โซนเวลาของ timestamp ใน comment (แสดงเวลาไทยทุกเครื่อง) */
+const BANGKOK_TZ = "Asia/Bangkok";
+
+/** req 20 — เส้นคั่นหัว/ท้าย comment + หัวข้อกลาง (แยกแต่ละรอบการบันทึก
+ *  point บนการ์ดให้เห็นชัด โดยเฉพาะตอนแก้ไข point แล้วบันทึกซ้ำหลายครั้ง) */
+const COMMENT_RULE = "━".repeat(20);
+const COMMENT_HEADER = "🃏 SCRUM POKER | POINT UPDATE";
+
+/** req 20 — เวลาไทย "DD/MM/YYYY HH:mm" จาก Date ใด ๆ
+ *  ใช้ Intl timeZone เพื่อให้ถูกต้องแม้เครื่องผู้กดบันทึกอยู่ timezone อื่น */
+export function formatBangkokDateTime(now: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: BANGKOK_TZ,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const get = (type: string): string => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("day")}/${get("month")}/${get("year")} ${get("hour")}:${get("minute")}`;
+}
 
 /** ลำดับกลุ่ม role ในคอมเม้น Attendees ("admin" = superadmin ถือเป็น PO ตาม isPO) */
 const ATTENDEE_ROLES: { keys: string[]; label: string }[] = [
@@ -110,23 +175,42 @@ const ATTENDEE_ROLES: { keys: string[]; label: string }[] = [
 ];
 
 /** ข้อความคอมเม้นท์ที่โพสต์ลงการ์ด ClickUp — dev/qa เป็น string สำเร็จรูปแล้ว
- *  ("3" ตอน groom / "1-3" ตอน pre-groom)
+ *  ("3" ตอน groom / "1-3" ตอน pre-groom / "no need test" ตอนติ๊ก No Need Test)
+ *  req 20 — โครงร่างเดียวกันทุกครั้ง (บันทึกครั้งแรกหรือแก้ไขแล้วบันทึกซ้ำ):
+ *    ━━━━━━━━━━━━━━━━━━━━
+ *    🃏 SCRUM POKER | POINT UPDATE
+ *    📅 DD/MM/YYYY HH:mm   ← เวลาไทย Asia/Bangkok ณ ตอนกดบันทึกจริง
+ *    ✅ Grooming / 🌱 Pre-Grooming
+ *    (ว่าง 1 บรรทัด)
+ *    Dev: … / QA: …
+ *    (ว่าง 1 บรรทัด)
+ *    Attendees + ชื่อแยกตาม role
+ *    (ว่าง 1 บรรทัด)
+ *    ชื่อการ์ด
+ *    ━━━━━━━━━━━━━━━━━━━━
  *  Attendees บรรทัดเดียวต่อ role ชื่อคั่นด้วย comma (ข้าม role ที่ไม่มีคน)
  *  ใช้ชื่อจริง (realName จาก member list) — ชื่อเล่นแสดงแค่ในห้อง poker
  *  PO ที่เป็นคนกดบันทึก (savedByUid) จะมี "(owner)" ต่อท้ายชื่อ
- *  cardName = ชื่อการ์ด ClickUp ที่โหวต — วางไว้บรรทัดสุดท้ายเก็บเป็นข้อมูลอ้างอิง */
+ *  cardName = ชื่อการ์ด ClickUp ที่โหวต — วางท้ายสุดก่อนเส้นคั่นปิด (req 20 ข้อ 7)
+ *  now = เวลาที่กดบันทึก (inject ได้เพื่อให้ test ตรวจ format แบบ deterministic) */
 export function buildGroomingComment(
   mode: GroomMode,
   dev: string | null,
   qa: string | null,
   attendees: [string, User][],
   savedByUid: string | null,
-  cardName: string
+  cardName: string,
+  now: Date = new Date()
 ): string {
-  const header = mode === "pre" ? "Pre-Grooming" : "Grooming";
-  // เวลาตอนกดบันทึก — เดิมใช้ revealTime ทำให้ย้อนหลังเท่ากับที่ reveal ค้างไว้
-  // (reveal ไว้นาน แล้วมาบันทึกทีหลัง เวลาเลยดูเหมือน timezone ช้าไปหลายชั่วโมง)
-  const lines = [`${header} : ${formatDateTime(Date.now())}`];
+  const modeLabel = mode === "pre" ? "🌱 Pre-Grooming" : "✅ Grooming";
+  // req 20 — เวลาตอนกดบันทึกจริงแสดงเป็นเวลาไทย (Asia/Bangkok) เสมอ
+  const lines = [
+    COMMENT_RULE,
+    COMMENT_HEADER,
+    `📅 ${formatBangkokDateTime(now)}`,
+    modeLabel,
+    "",
+  ];
   if (dev !== null) lines.push(`Dev: ${dev}`);
   if (qa !== null) lines.push(`QA: ${qa}`);
   lines.push("", "Attendees");
@@ -143,7 +227,8 @@ export function buildGroomingComment(
     if (names.length === 0) continue;
     lines.push(`${label}: ${names.join(", ")}`);
   }
-  // ชื่อการ์ดที่ใช้โหวต — บรรทัดสุดท้าย (เก็บตอนกดบันทึกเพื่ออ้างอิงย้อนหลัง)
+  // req 20 ข้อ 7 — ชื่อการ์ดอยู่ท้ายสุดของเนื้อหา ก่อนเส้นคั่นปิด comment
   if (cardName) lines.push("", cardName);
+  lines.push(COMMENT_RULE);
   return lines.join("\n");
 }

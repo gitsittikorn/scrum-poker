@@ -14,6 +14,9 @@ export const state = {
   currentRole: null as string | null,
   isSuperAdmin: false,
   isWheelRoom: false,
+  /** req 13 — No Need Task: ซ่อนแถบเตือน "ยังไม่ได้เลือกการ์ด" ของเครื่องนี้
+   *  (preference ในเซสชัน — ไม่เขียนอะไรลง Firebase ไม่แตะ task/โหวตเดิม) */
+  noNeedTask: false,
 };
 
 export const isPO = (): boolean => state.currentRole === "po" || state.currentRole === "admin";

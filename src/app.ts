@@ -20,6 +20,8 @@ import {
   btnGroomModePre,
   btnGroomModeGroom,
   btnTaskHistory,
+  noNeedTaskCheckbox,
+  noNeedTestCheckbox,
   clickupUrlInput,
   btnDeleteRoom,
   btnClearSpeakerCounts,
@@ -58,12 +60,13 @@ import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
 import { handleJoinRoom, handleLeave, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler, listenForceRefresh, writeForceRefreshVersion } from "./room";
 import { db, ref, update } from "./firebase";
 import type { CardDef } from "./types";
-import { renderCards, initPokerCardsListener, handleReveal, handleReset, handleClearSpeakerCounts } from "./voting";
+import { renderCards, initPokerCardsListener, handleReveal, handleReset, handleClearSpeakerCounts, refreshSaveButtonState } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
 import { toggleSoundPicker, renderSoundPicker, handleSoundPickerOutsideClick, triggerSound, registerSoundShortcuts, renderSoundShortcutSlots, startKeyCapture, cancelKeyCapture, setShortcutSound, setShortcutsEnabled, clearShortcut } from "./sounds";
 import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
-import { handleResolveClickUp, handleClearClickUpTask, handleSaveToClickUp, handleSetGroomMode, openTaskHistory } from "./clickup";
+import { handleResolveClickUp, handleClearClickUpTask, handleSaveToClickUp, handleSetGroomMode, openTaskHistory, setNoNeedTask } from "./clickup";
+import { initInfoTips } from "./infoTips";
 import { state } from "./state";
 import { FEATURES } from "./config";
 import { SUPER_ADMIN_NAME, DEFAULT_POKER_CARDS, REAL_NAME_ROOMS } from "./constants";
@@ -273,6 +276,12 @@ function bindEvents(): void {
   btnGroomModePre.addEventListener("click", () => handleSetGroomMode("pre"));
   btnGroomModeGroom.addEventListener("click", () => handleSetGroomMode("groom"));
   btnTaskHistory.addEventListener("click", () => void openTaskHistory());
+  // req 13 — No Need Task: ซ่อนแถบเตือนให้ดึง task ทันที (ไม่แตะข้อมูลห้อง)
+  noNeedTaskCheckbox.addEventListener("change", () => setNoNeedTask(noNeedTaskCheckbox.checked));
+  // req 14 — No Need Test: re-render ปุ่มบันทึกทันที (QA readiness/label)
+  noNeedTestCheckbox.addEventListener("change", refreshSaveButtonState);
+  // req 19 — ไอคอน ⓘ tooltip ข้าง checkbox ทั้งสอง (hover/แตะ/keyboard)
+  initInfoTips();
   clickupUrlInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") handleResolveClickUp();
   });

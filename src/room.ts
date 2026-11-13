@@ -114,7 +114,6 @@ export async function handleJoinRoom(): Promise<void> {
   saveUsername(username);
   localStorage.setItem("scrum-poker-room", roomCode);
   localStorage.setItem("scrum-poker-realname", realName ?? "");
-  const role = roleSelect.value;
   state.currentUser = { uid: state.currentUid, name: username, realName };
 
   try {

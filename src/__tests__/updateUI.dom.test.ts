@@ -50,6 +50,7 @@ vi.mock("../clickup", () => ({
   isSaveInFlight: vi.fn(() => false),
   onSaveStateChange: vi.fn(() => () => {}),
   updateTaskRequiredReminder: vi.fn(),
+  isNoNeedTestChecked: vi.fn(() => false),
 }));
 
 // เตรียม DOM ก่อน import โมดูลที่อ่าน element ตอนโหลด (dom.ts)
@@ -58,7 +59,7 @@ document.body.innerHTML = html
   .match(/<body>([\s\S]*)<\/body>/)![1]
   .replace(/<script[\s\S]*?<\/script>/g, "");
 
-const { updateUI, renderCards, initPokerCardsListener } = await import("../voting");
+const { updateUI, initPokerCardsListener } = await import("../voting");
 const { state } = await import("../state");
 import type { RoomData, User } from "../types";
 
@@ -88,7 +89,6 @@ const room = (users: Record<string, User>, over: Partial<RoomData> = {}): RoomDa
 
 const me = { uid: "dev1", name: "Tien", realName: "Tien" };
 const po = user({ name: "Yam", role: "po" });
-const dev1 = user({ name: "Tien", role: "dev" });
 const dev2 = user({ name: "Cing", role: "dev" });
 
 const cardOf = (uid: string): HTMLElement | null =>

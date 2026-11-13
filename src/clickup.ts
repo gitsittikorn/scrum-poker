@@ -28,10 +28,12 @@ import {
   groomModeBadge,
   groomModeControls,
   groomModeRow,
+  noNeedToggles,
+  noNeedTestCheckbox,
 } from "./dom";
 import { showConfirmModal, showToast, showSaveSplash, showWakeNotice } from "./ui";
 import { sendSystemMessage } from "./chat";
-import { buildGroomingComment, formatDateTime, parseRange, rangeFor, unanimousFor } from "./utils";
+import { buildGroomingComment, dedupeTaskLinks, formatDateTime, parseRange, rangeFor, unanimousFor } from "./utils";
 import { FEATURES } from "./config";
 import { ADMIN_ROOM } from "./constants";
 import { isPO, isRoomAdmin, state } from "./state";
@@ -139,11 +141,14 @@ const GENERIC_LINK_TYPES = new Set<TaskLink["type"]>(["link", "image", "file"]);
 let renderedLinksKey = "";
 
 function renderTaskLinks(links: TaskLink[] | undefined): void {
-  const key = (links ?? []).map((l) => `${l.type}:${l.url}`).join("|");
+  // req 15 — dedupe ก่อน render: รูปเดียวกันที่มาจากทั้ง description และ attachment
+  // (หรือลิงก์เก่าใน Firebase ที่เก็บซ้ำมาก่อน) ต้องเหลือไอคอนเดียว
+  const deduped = dedupeTaskLinks(links);
+  const key = deduped.map((l) => `${l.type}:${l.url}`).join("|");
   if (key === renderedLinksKey) return;
   renderedLinksKey = key;
   clickupLinks.innerHTML = "";
-  for (const l of links ?? []) {
+  for (const l of deduped) {
     const a = document.createElement("a");
     a.className = "clickup-link" + (GENERIC_LINK_TYPES.has(l.type) ? " clickup-link-generic" : "");
     a.href = l.url;
@@ -164,6 +169,12 @@ export function renderTaskBanner(task: ActiveTask | null, groomMode: GroomMode =
     clickupBanner.classList.add("hidden");
     return;
   }
+  // req 14 — No Need Test ใช้ได้เฉพาะเมื่อมี task ปัจจุบัน (ดึงสำเร็จ = enabled
+  // task ถูกล้าง/reset/บันทึกจบรอบ = unchecked + disabled) — sync ทุก room tick
+  updateNoNeedTestCheckbox(task);
+  // req 16 — checkbox ทั้งสองเห็นเฉพาะ admin ของห้อง (PO + deputy ตาม isRoomAdmin:
+  // ตรวจ uid จาก PO_DEPUTY_UIDS ก่อน แล้ว realName จาก member list — ไม่ใช้ชื่อที่แสดง)
+  noNeedToggles.classList.toggle("hidden", !isRoomAdmin());
   const po = isPO();
   // ซ่อนทั้งอันเมื่อปิด flag / ไม่มี task และไม่ใช่ admin ของห้อง (PO + deputy —
   // deputy เห็น banner เพื่อรับ reminder "ยังไม่ได้เลือกการ์ด" แต่ไม่เห็น input row)
@@ -199,12 +210,20 @@ export function renderTaskBanner(task: ActiveTask | null, groomMode: GroomMode =
  *  (reset เป็น false เมื่อเงื่อนไขเตือนหายไป = มี task แล้ว / lock / reveal) */
 let taskReminderScrolled = false;
 
+/** roomData ล่าสุดจาก room tick — ให้ setNoNeedTest คำนวณการแสดงแถบเตือนใหม่ได้
+ *  ทันทีตอน toggle checkbox (req 17: ห้องนิ่ง ๆ onValue ไม่ยิง ถ้ารอ tick เอง
+ *  แถบที่ซ่อนไว้จะไม่กลับมาหลัง uncheck จนกว่าจะมีคนขยับห้อง) */
+let lastReminderRoomData: RoomData | null = null;
+
 /** แถบ "🃏 ยังไม่ได้เลือกการ์ด — กรุณาดึง Task จาก ClickUp ก่อนดำเนินการโหวต"
  *  แสดงเฉพาะ admin ของห้อง (PO + deputy เช่น Dev Cing — ตาม isRoomAdmin)
  *  สมาชิกทั่วไปไม่เห็น (banner ถูกซ่อนอยู่แล้วสำหรับ non-admin ที่ไม่มี task)
  *  แสดงตั้งแต่ยังไม่มี task (จะได้ดึงก่อนเริ่มโหวต) และเน้นย้ำเมื่อมีคนเริ่มโหวต
- *  PO ดึงการ์ดแล้ว = แถบหายทันที (real-time ผ่าน room tick) */
+ *  PO ดึงการ์ดแล้ว = แถบหายทันที (real-time ผ่าน room tick)
+ *  req 13 — No Need Task (state.noNeedTask) ทำให้ active = false ทั้งแถบ:
+ *  ซ่อนแถบ + ไม่ scroll + ไม่ pulse animation โดยไม่แตะข้อมูลห้องใด ๆ */
 export function updateTaskRequiredReminder(roomData: RoomData): void {
+  lastReminderRoomData = roomData; // เก็บ snapshot ไว้ให้ setNoNeedTask re-render ทันที (req 17)
   const el = document.getElementById("task-required-reminder");
   if (!el) return;
   const active =
@@ -212,6 +231,7 @@ export function updateTaskRequiredReminder(roomData: RoomData): void {
     !state.isWheelRoom &&
     state.currentRoom !== ADMIN_ROOM &&
     isRoomAdmin() &&
+    !state.noNeedTask &&
     !roomData.activeTask &&
     !roomData.revealed &&
     !roomData.locked;
@@ -222,6 +242,46 @@ export function updateTaskRequiredReminder(roomData: RoomData): void {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
   }
   if (!active) taskReminderScrolled = false;
+}
+
+// ===== No Need Task / No Need Test (req 13-14) =====
+
+/** req 13 — toggle "No Need Task": ซ่อน/แสดงแถบเตือนให้ดึง task ทันทีที่ toggle
+ *  เป็น preference ของเครื่องนี้เท่านั้น ไม่เขียนอะไรลง Firebase
+ *  ไม่ลบ task ที่ดึงมาแล้วและไม่แตะคะแนนโหวตเดิม
+ *  req 17 — คำนวณการแสดงผลใหม่ทันทีทั้งตอน check (ซ่อน) และ uncheck (กลับมาแสดง)
+ *  จาก roomData ล่าสุดที่เคยเห็น — ไม่ต้องรอ room tick (ห้องนิ่ง onValue ไม่ยิง)
+ *  และไม่ใช่การซ่อนถาวร: updateTaskRequiredReminder ยังเป็นตัวชี้ขาดทุก tick ตามเดิม
+ *  req 16 — เปลี่ยนสถานะได้เฉพาะ admin ของห้อง (กันเรียกจากผู้ไม่มีสิทธิ์/console) */
+export function setNoNeedTask(checked: boolean): void {
+  if (!isRoomAdmin()) return;
+  state.noNeedTask = checked;
+  if (lastReminderRoomData) {
+    // มี snapshot ห้องล่าสุด → ประเมินเงื่อนไขเตือนใหม่ทันที (รวม scroll episode ใหม่)
+    updateTaskRequiredReminder(lastReminderRoomData);
+    return;
+  }
+  // ยังไม่เคยมี room tick เลย — ซ่อนได้อย่างเดียว (ไม่รู้ว่าเข้าเงื่อนไขเตือนไหม)
+  if (checked) {
+    document.getElementById("task-required-reminder")?.classList.add("hidden");
+  }
+}
+
+/** req 14 — sync สถานะ checkbox No Need Test ตาม task ปัจจุบัน (เรียกทุก room tick):
+ *  มี task (ดึงสำเร็จ) → enabled · ไม่มี task (ยังไม่ดึง/ถูกล้าง/reset หลังบันทึก)
+ *  → unchecked + disabled
+ *  req 16 — ใช้ได้เฉพาะ admin ของห้อง: คนอื่นถูก force unchecked + disabled
+ *  ทุก tick (แม้จะแก้ DOM มือผ่าน devtools ก็ถูกรีเซ็ตกลับ) */
+export function updateNoNeedTestCheckbox(task: ActiveTask | null): void {
+  const admin = isRoomAdmin();
+  noNeedTestCheckbox.disabled = !admin || !task;
+  if (!admin || !task) noNeedTestCheckbox.checked = false;
+}
+
+/** req 14 — สถานะ checkbox No Need Test ณ เวลาเรียก (อ่านสดจาก DOM ตอนกดบันทึกจริง
+ *  disabled = ใช้ไม่ได้ คืน false เสมอ กันค่าค้างจากจังหวะกดก่อน task ถูกล้าง) */
+export function isNoNeedTestChecked(): boolean {
+  return !noNeedTestCheckbox.disabled && noNeedTestCheckbox.checked;
 }
 
 // ===== Handlers =====
@@ -854,6 +914,22 @@ function armWakeNotice(action: string): number {
   return window.setTimeout(() => showWakeNotice(action), 8000);
 }
 
+/** req 14.1 — tag ที่ติดการ์ดเมื่อบันทึกสำเร็จโดยติ๊ก No Need Test
+ *  ใช้เป็นข้อความใน comment (QA: no need test) ด้วย — ต้องเป็นตัวเดียวกัน */
+const NO_NEED_TEST_TAG = "no need test";
+
+/** req 14.1 — เพิ่ม tag "no need test" ให้การ์ดปัจจุบันผ่าน backend
+ *  (backend เช็ค tag ซ้ำก่อนเขียน และไม่แตะ tags อื่นของการ์ด)
+ *  best-effort เหมือน comment: point ขึ้นการ์ดแล้ว ถือว่ารอบจบแม้ tag พัง
+ *  แต่โชว์ toast เตือนให้รู้ว่าต้องติด tag เอง */
+async function addNoNeedTestTag(taskId: string): Promise<void> {
+  try {
+    await api("/api/clickup/add-tag", { taskId, tag: NO_NEED_TEST_TAG });
+  } catch (err) {
+    showToast(`⚠️ บันทึกสำเร็จ แต่เพิ่ม tag "${NO_NEED_TEST_TAG}" ไม่สำเร็จ: ${(err as Error).message}`);
+  }
+}
+
 export async function handleSaveToClickUp(): Promise<void> {
   if (!isPO() || !state.currentRoom || saveInFlight) return;
   await withSaveBusy(doSaveToClickUp);
@@ -916,9 +992,12 @@ async function doSaveToClickUp(): Promise<void> {
   const mode: GroomMode = data.groomMode ?? "groom";
 
   // ── Pre-Groom: คอมเม้น min-max อย่างเดียว ไม่แตะ custom field ──
+  // req 14 — No Need Test: QA ถูกตัดออกจากรอบนี้ (comment บอก "no need test"
+  // ไม่มีช่วง QA + ติด tag บนการ์ดเมื่อบันทึกสำเร็จ)
   if (mode === "pre") {
+    const noNeedTest = isNoNeedTestChecked();
     const dev = rangeFor(devList);
-    const qa = rangeFor(qaList);
+    const qa = noNeedTest ? null : rangeFor(qaList);
     if (dev === null && qa === null) {
       showToast("⚠️ ไม่มีโหวตจาก Dev/QA ให้บันทึก");
       return;
@@ -926,20 +1005,31 @@ async function doSaveToClickUp(): Promise<void> {
     try {
       await api("/api/clickup/post-comment", {
         taskId: task.taskId,
-        comment: buildGroomingComment(mode, dev, qa, entries, state.currentUser?.uid ?? null, task.name),
+        comment: buildGroomingComment(
+          mode,
+          dev,
+          noNeedTest ? NO_NEED_TEST_TAG : qa,
+          entries,
+          state.currentUser?.uid ?? null,
+          task.name
+        ),
       });
-      const parts = [dev !== null && `Dev ${dev}`, qa !== null && `QA ${qa}`]
+      const parts = [
+        dev !== null && `Dev ${dev}`,
+        noNeedTest ? `QA ${NO_NEED_TEST_TAG}` : qa !== null && `QA ${qa}`,
+      ]
         .filter(Boolean)
         .join(" · ");
       // สำเร็จ — ใช้ splash กลางจออย่างเดียวเหมือน groom (ไม่มี toast มุมล่าง)
       showSaveSplash(
         [
           dev !== null && { label: "Dev", value: dev },
-          qa !== null && { label: "QA", value: qa },
+          !noNeedTest && qa !== null && { label: "QA", value: qa },
         ].filter(Boolean) as { label: string; value: string }[],
         "🌱 บันทึก Pre-Groom ลง ClickUp แล้ว"
       );
       void sendSystemMessage(`บันทึก Pre-Groom ลง ClickUp แล้ว → ${task.name} (${parts})`);
+      if (noNeedTest) await addNoNeedTestTag(task.taskId);
       void recordSavedAt(task.historyKey, {
         mode,
         dev: null,
@@ -956,11 +1046,14 @@ async function doSaveToClickUp(): Promise<void> {
   }
 
   // ── Groom: ทุกคนใน role (ไม่นับคนที่ออกแล้ว) ต้องโหวตเลขเดียวกันถึงบันทึกได้ ──
+  // req 14 — No Need Test: QA ไม่ถูกบันทึกในรอบนี้ → ไม่บังคับให้ QA โหวตตรงกัน
+  //  (บันทึกเฉพาะ Dev ตามปกติ) · qa = null ส่งไป backend = ไม่แตะ custom field ของ QA เลย
+  const noNeedTest = isNoNeedTestChecked();
   const dev = unanimousFor(devList);
-  const qa = unanimousFor(qaList);
+  const qa = noNeedTest ? null : unanimousFor(qaList);
   const pending: string[] = [];
   if (devList.length > 0 && dev === null) pending.push(`Dev (${votesStr(devList)})`);
-  if (qaList.length > 0 && qa === null) pending.push(`QA (${votesStr(qaList)})`);
+  if (!noNeedTest && qaList.length > 0 && qa === null) pending.push(`QA (${votesStr(qaList)})`);
   if (pending.length > 0) {
     showToast(`⚠️ ${pending.join(" และ ")} ยังโหวตไม่ตรงกัน — คุยกันให้ได้ค่าเดียวกันก่อน`);
     return;
@@ -981,15 +1074,21 @@ async function doSaveToClickUp(): Promise<void> {
   }
 
   const doSave = async (): Promise<void> => {
+    // req 14 — อ่านสถานะ No Need Test สด ๆ ตอนบันทึกจริง (ผู้ใช้อาจ toggle ระหว่าง
+    // confirm modal "บันทึกทับ" เปิดค้างอยู่) แล้วคำนวณ QA ใหม่ตามสถานะล่าสุดเสมอ
+    const noNeedTest = isNoNeedTestChecked();
+    const qaSave = noNeedTest ? null : unanimousFor(qaList);
     try {
       const result = await api<SaveResult>("/api/clickup/save-points", {
         taskId: task.taskId,
         dev,
-        qa,
+        // req 14.2 — noNeedTest → qa เป็น null: backend ไม่เขียน/ไม่ทับ custom field
+        // ของ QA ด้วยค่าใด ๆ (รวมถึง 0/null) — บันทึกเฉพาะ role อื่นตามปกติ
+        qa: qaSave,
         comment: buildGroomingComment(
           mode,
           dev !== null ? fmt(dev) : null,
-          qa !== null ? fmt(qa) : null,
+          noNeedTest ? NO_NEED_TEST_TAG : qaSave !== null ? fmt(qaSave) : null,
           entries,
           state.currentUser?.uid ?? null,
           task.name
@@ -998,7 +1097,7 @@ async function doSaveToClickUp(): Promise<void> {
       const saved: string[] = [];
       const failed: string[] = [];
       if (result.dev) (result.dev.ok ? saved : failed).push(`Dev ${fmt(dev!)}`);
-      if (result.qa) (result.qa.ok ? saved : failed).push(`QA ${fmt(qa!)}`);
+      if (result.qa) (result.qa.ok ? saved : failed).push(`QA ${fmt(qaSave!)}`);
       const commentFailed = result.comment && !result.comment.ok;
       if (failed.length) {
         showToast(`❌ บันทึกไม่สำเร็จ: ${failed.join(", ")}`);
@@ -1010,25 +1109,30 @@ async function doSaveToClickUp(): Promise<void> {
         showSaveSplash(
           [
             result.dev?.ok && { label: result.dev.field ?? "Dev", value: fmt(dev!) },
-            result.qa?.ok && { label: result.qa.field ?? "QA", value: fmt(qa!) },
+            result.qa?.ok && { label: result.qa.field ?? "QA", value: fmt(qaSave!) },
           ].filter(Boolean) as { label: string; value: string }[]
         );
       }
       if (saved.length) {
+        // req 14.3 — noNeedTest บอกในแชทห้องด้วยว่ารอบนี้ QA ไม่มี point (ไม่ได้ลืมบันทึก)
+        const parts = noNeedTest ? [...saved, `QA ${NO_NEED_TEST_TAG}`] : saved;
         void sendSystemMessage(
-          `บันทึกคะแนนลง ClickUp แล้ว → ${task.name} (${saved.join(" · ")})`
+          `บันทึกคะแนนลง ClickUp แล้ว → ${task.name} (${parts.join(" · ")})`
         );
       }
       // จด duration + point เฉพาะรอบที่ field สำเร็จครบ (บางส่วนพัง = รอบยังไม่จบ อย่าให้ history หลอกว่าเสร็จ)
       if (failed.length === 0 && saved.length > 0) {
+        // req 14.1 — ติด tag "no need test" เมื่อบันทึกสำเร็จ (best-effort)
+        if (noNeedTest) await addNoNeedTestTag(task.taskId);
         void recordSavedAt(task.historyKey, {
           mode: "groom",
           dev,
-          qa,
+          qa: qaSave,
           devRange: null,
           qaRange: null,
         });
         // บันทึกสำเร็จ → เริ่มรอบใหม่ (ล้างโหวต + task ทุกคนแบบ real-time)
+        // → room tick ถัดไป updateNoNeedTestCheckbox(null) = reset checkbox ตาม req 14.4
         // comment พังอย่างเดียว (best-effort) ถือว่ารอบจบ — point ขึ้นการ์ดแล้ว
         await resetRoomAfterSave(data.users ?? {});
       }
