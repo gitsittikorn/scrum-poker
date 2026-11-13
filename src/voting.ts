@@ -356,8 +356,21 @@ export async function handleKick(targetUid: string, targetName: string): Promise
   showToast(`เตะ ${targetName} ออกจากห้องแล้ว`);
 }
 
+/** กัน double-click ของ Reveal/Reset — ทั้งคู่เป็น get→update ถ้ากดซ้อนจะได้สอง
+ *  revealTime/speakers คนละชุดเขียนทับกัน (countdown เด้ง ลำโพงเปลี่ยนกลางอากาศ) */
+let roomActionInFlight = false;
+
 export async function handleReveal(): Promise<void> {
-  if (!state.currentRoom || !isPO()) return;
+  if (!state.currentRoom || !isPO() || roomActionInFlight) return;
+  roomActionInFlight = true;
+  try {
+    await doReveal();
+  } finally {
+    roomActionInFlight = false;
+  }
+}
+
+async function doReveal(): Promise<void> {
   // อ่านทั้งห้องเพื่อเอา users + speakerCounts ใน round-trip เดียว
   const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
   if (!roomSnap.exists()) return;
@@ -368,9 +381,11 @@ export async function handleReveal(): Promise<void> {
   // Check if all non-PO users who haven't intentionally left have voted.
   // Offline users (tab close/unload) still count — they remain in the room
   // and PO can kick them if they don't come back.
+  // (ผู้คุมห้อง = po + admin ตาม isPO — ให้ตรงกับ pendingVoters ใน updateUI
+  //  ไม่งั้น super admin ที่นั่งดูอยู่ block การ reveal โดยไม่เคยถูกเตือน)
   const notVoted = userList.filter(
     ([, user]) =>
-      user.role !== "po" && user.left !== true && user.vote == null,
+      user.role !== "po" && user.role !== "admin" && user.left !== true && user.vote == null,
   );
   if (notVoted.length > 0) {
     const names = notVoted.map(([, u]) => u.name).join(", ");
@@ -409,7 +424,16 @@ export async function handleReveal(): Promise<void> {
 }
 
 export async function handleReset(): Promise<void> {
-  if (!state.currentRoom || !isPO()) return;
+  if (!state.currentRoom || !isPO() || roomActionInFlight) return;
+  roomActionInFlight = true;
+  try {
+    await doReset();
+  } finally {
+    roomActionInFlight = false;
+  }
+}
+
+async function doReset(): Promise<void> {
   cancelUnlockTimer();
 
   const [usersSnap, countsSnap] = await Promise.all([
@@ -722,8 +746,10 @@ export function updateUI(roomData: RoomData): void {
     if (isPO()) btnReveal.style.display = "none";
   } else {
     cancelUnlockTimer();
-    const hasVoted =
-      state.currentUser && users[state.currentUser.uid]?.vote !== null;
+    // เช็ค record จริง — เดิม `?.vote !== null` ทำให้ record หายชั่วขณะ (snapshot
+    // ก่อน join เขียนเสร็จ) ถือว่า "โหวตแล้ว" แล้วซ่อนแถบสถานะไปเฉย ๆ
+    const me = state.currentUser ? users[state.currentUser.uid] : undefined;
+    const hasVoted = state.currentUser && me != null && me.vote != null;
     if (hasVoted) {
       // โหวตแล้ว — ซ่อนแถบสถานะทั้งแถวเพื่อคืนพื้นที่หน้าจอ
       // (การ์ดที่โหวตอยู่มี highlight + การ์ดผู้เล่นมี ✅ อยู่แล้ว)
@@ -1075,13 +1101,20 @@ function addRevoteButton(): void {
   revoteBtn.addEventListener("click", async () => {
     if (!state.currentRoom || !isPO()) return;
     cancelUnlockTimer();
-    await update(ref(db, `rooms/${state.currentRoom}`), {
-      revealed: false,
-      locked: false,
-      revealTime: null,
-    });
-    revoteBtn.remove();
-    btnReveal.style.display = "";
+    try {
+      await update(ref(db, `rooms/${state.currentRoom}`), {
+        revealed: false,
+        locked: false,
+        revealTime: null,
+      });
+      revoteBtn.remove();
+      btnReveal.style.display = "";
+    } catch (err) {
+      // สลายล็อกไม่สำเร็จ — คืน countdown ต่อและแจ้ง ไม่ปล่อยปุ่มค้างเงียบ ๆ
+      console.error("[voting] unlock failed:", err);
+      updateCountdownDisplay();
+      showToast(`❌ สลายล็อกไม่สำเร็จ: ${(err as Error).message}`);
+    }
   });
   btnReveal.parentNode!.appendChild(revoteBtn);
 }

@@ -2,7 +2,7 @@ import { destroySuperAdminPanel, initSuperAdminPanel } from "./admin";
 import { destroyChat, initChat, sendSystemMessage } from "./chat";
 import { AUTO_UNLOCK_SECONDS, FEATURES } from "./config";
 import { APP_VERSION, REAL_NAME_ROOMS, SUPER_ADMIN_NAME } from "./constants";
-import { realnameSelect, roleSelect, roomCodeDisplay, roomSelect, userBadge } from "./dom";
+import { noNeedTaskCheckbox, realnameSelect, roleSelect, roomCodeDisplay, roomSelect, userBadge } from "./dom";
 import {
   db,
   get,
@@ -60,7 +60,21 @@ export function checkUrlRoom(): void {
   }
 }
 
+/** กัน double-click ปุ่มเข้าร่วม — join เป็น async (หลาย await) กดซ้อนจะได้
+ *  flow ซ้อนกันสองรอบ (ข้อความ "เข้าร่วมแล้ว" ซ้ำ + เขียน user record สองครั้ง) */
+let joinInFlight = false;
+
 export async function handleJoinRoom(): Promise<void> {
+  if (joinInFlight) return;
+  joinInFlight = true;
+  try {
+    await doJoinRoom();
+  } finally {
+    joinInFlight = false;
+  }
+}
+
+async function doJoinRoom(): Promise<void> {
   const usernameInput = document.getElementById(
     "username-input",
   ) as HTMLInputElement;
@@ -365,6 +379,7 @@ function cancelOnDisconnect(roomCode: string, uid: string): void {
 export function handleLeave(skipMessage = false): void {
   if (!state.currentRoom || !state.currentUser) return;
   const leavingName = state.currentUser.name;
+  const leavingRealName = state.currentUser.realName ?? null;
   const roomCode = state.currentRoom;
   const uid = state.currentUser.uid;
   const role = state.currentRole;
@@ -407,6 +422,14 @@ export function handleLeave(skipMessage = false): void {
   state.currentUser = null;
   state.selectedCard = null;
   state.activeCard = null;
+  // เคลียร์ state ที่เป็น "ของเซสชันในห้อง" ให้หมด — เดิมไม่รีเซ็ตทั้ง 3 ตัวนี้ทำให้
+  // ค้างข้ามห้อง: currentRole ทำให้ isPO()/isRoomAdmin() ยัง true บน landing page,
+  // noNeedTask ทำให้แถบเตือน "ดึง Task ก่อน" ถูกซ่อนถาวรในห้องถัดไป (req 13),
+  // selectedCardCustom ทำให้การ์ด custom โดนไฮไลต์เกินจริงหลังเข้าห้องใหม่
+  state.currentRole = null;
+  state.noNeedTask = false;
+  state.selectedCardCustom = false;
+  noNeedTaskCheckbox.checked = false;
   showPage("landing");
   window.history.replaceState(null, "", window.location.pathname);
 
@@ -418,6 +441,9 @@ export function handleLeave(skipMessage = false): void {
   if (!skipMessage) {
     set(ref(db, `rooms/${roomCode}/users/${uid}`), {
       name: leavingName,
+      // realName = identity จาก member list — join เขียนมาแล้ว leave ต้องเก็บต่อ
+      // เดิมไม่เขียนทำให้ record คนที่ออกแล้ว realName หาย (history/wheel อ่านไม่ได้)
+      realName: leavingRealName,
       role: role,
       vote: null,
       online: false,

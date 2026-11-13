@@ -114,6 +114,22 @@ async function fetchTaskByInput(rawInput) {
   }
 }
 
+// GET /task/{id} แบบ canonical — ใช้ร่วมทุก route (check-existing / save-points /
+// add-tag) กัน drift ของการ encode id และ error handling ระหว่าง route
+async function getTask(taskId) {
+  const { data } = await clickup.get(`/task/${encodeURIComponent(taskId)}`);
+  return data;
+}
+
+// โพสต์คอมเม้นลงการ์ด (notify_all: false — กันสแปม notification ให้คนในการ์ด)
+// ใช้ร่วมระหว่าง save-points (คอมเม้นต่อท้าย point) และ post-comment
+async function postComment(taskId, comment) {
+  await clickup.post(`/task/${encodeURIComponent(taskId)}/comment`, {
+    comment_text: comment,
+    notify_all: false,
+  });
+}
+
 function readPointField(task, fieldId) {
   const field = (task.custom_fields || []).find((f) => f.id === fieldId);
   if (!field || field.value === null || field.value === undefined) return null;
@@ -154,10 +170,9 @@ app.post("/api/clickup/resolve-task", async (req, res, next) => {
   try {
     const task = await fetchTaskByInput(req.body?.input);
     const links = taskLinks(task);
-    const figmaUrls = links.filter((l) => l.type === "figma").map((l) => l.url);
-    console.log(`[clickup] resolve task=${task.id} custom=${task.custom_id || "-"}`);
-    console.log(`[clickup]   markdown_description=${JSON.stringify(task.markdown_description ?? null)}`);
-    console.log(`[clickup]   figma=${JSON.stringify(figmaUrls)} total_links=${links.length}`);
+    // log บรรทัดเดียว — เดิม dump markdown_description ทั้งก้อนใส่ log ทุกครั้ง
+    // (เนื้อหาการ์ดหลุดเข้า function logs + น่ารำคาญใน production)
+    console.log(`[clickup] resolve task=${task.id} custom=${task.custom_id || "-"} links=${links.length}`);
     res.json({
       taskId: task.id,
       name: task.name,
@@ -176,7 +191,7 @@ app.post("/api/clickup/check-existing", async (req, res, next) => {
   try {
     const taskId = String(req.body?.taskId || "").trim();
     if (!taskId) throw Object.assign(new Error("ต้องระบุ taskId"), { status: 400 });
-    const { data: task } = await clickup.get(`/task/${encodeURIComponent(taskId)}`);
+    const task = await getTask(taskId);
     res.json({
       dev: readPointField(task, devPointField(task)?.id),
       qa: readPointField(task, qaPointField(task)?.id),
@@ -196,10 +211,18 @@ app.post("/api/clickup/save-points", async (req, res, next) => {
     const comment = typeof req.body?.comment === "string" ? req.body.comment.trim() : "";
     if (!taskId) throw Object.assign(new Error("ต้องระบุ taskId"), { status: 400 });
     if (!isNum(dev) || !isNum(qa)) throw Object.assign(new Error("ค่า point ไม่ถูกต้อง"), { status: 400 });
+    // ขอบเขตค่า point — กันค่าลบ/ล้าน ๆ ถูกเขียนตรง ๆ ลง custom field ของการ์ดจริง
+    const inPointRange = (v) => v >= 0 && v <= 9999;
+    if ((dev !== null && !inPointRange(dev)) || (qa !== null && !inPointRange(qa))) {
+      throw Object.assign(new Error("ค่า point ต้องอยู่ระหว่าง 0-9999"), { status: 400 });
+    }
+    if (comment.length > 20000) {
+      throw Object.assign(new Error("comment ยาวเกิน 20,000 ตัวอักษร"), { status: 400 });
+    }
     if (dev === null && qa === null) throw Object.assign(new Error("ไม่มีค่าที่จะบันทึก"), { status: 400 });
 
     // Resolve field ids by name on THIS card (UUIDs differ across spaces)
-    const { data: task } = await clickup.get(`/task/${encodeURIComponent(taskId)}`);
+    const task = await getTask(taskId);
     const devField = dev !== null ? devPointField(task) : null;
     const qaField = qa !== null ? qaPointField(task) : null;
     if (dev !== null && !devField) {
@@ -240,10 +263,7 @@ app.post("/api/clickup/save-points", async (req, res, next) => {
     // Grooming comment — best-effort: only when the points actually landed
     if (comment && !anyFailed) {
       try {
-        await clickup.post(`/task/${encodeURIComponent(taskId)}/comment`, {
-          comment_text: comment,
-          notify_all: false,
-        });
+        await postComment(taskId, comment);
         out.comment = { ok: true };
       } catch (err) {
         out.comment = { ok: false, error: clickupError(err).message };
@@ -266,8 +286,12 @@ app.post("/api/clickup/add-tag", async (req, res, next) => {
     const tag = String(req.body?.tag || "").trim();
     if (!taskId) throw Object.assign(new Error("ต้องระบุ taskId"), { status: 400 });
     if (!tag) throw Object.assign(new Error("ต้องระบุ tag"), { status: 400 });
+    // กันชื่อ tag ยาวผิดปกติไปสร้าง tag ขยะใน space ของทีม (ClickUp limit ~50-100)
+    if (tag.length > 60) {
+      throw Object.assign(new Error("ชื่อ tag ยาวเกิน 60 ตัวอักษร"), { status: 400 });
+    }
 
-    const { data: task } = await clickup.get(`/task/${encodeURIComponent(taskId)}`);
+    const task = await getTask(taskId);
     const norm = (s) => String(s || "").trim().toLowerCase();
     if ((task.tags || []).some((t) => norm(t.name) === norm(tag))) {
       return res.json({ ok: true, added: false, reason: "already-tagged" });
@@ -302,10 +326,10 @@ app.post("/api/clickup/post-comment", async (req, res, next) => {
     const comment = typeof req.body?.comment === "string" ? req.body.comment.trim() : "";
     if (!taskId) throw Object.assign(new Error("ต้องระบุ taskId"), { status: 400 });
     if (!comment) throw Object.assign(new Error("ต้องระบุ comment"), { status: 400 });
-    await clickup.post(`/task/${encodeURIComponent(taskId)}/comment`, {
-      comment_text: comment,
-      notify_all: false,
-    });
+    if (comment.length > 20000) {
+      throw Object.assign(new Error("comment ยาวเกิน 20,000 ตัวอักษร"), { status: 400 });
+    }
+    await postComment(taskId, comment);
     res.json({ ok: true });
   } catch (err) {
     next(clickupError(err));

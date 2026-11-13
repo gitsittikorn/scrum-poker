@@ -1,5 +1,38 @@
+// @vitest-environment happy-dom
+// (escapeHtml/escapeAttr ใช้ DOM serialize — ต้องรันใน happy-dom)
 import { describe, it, expect } from "vitest";
-import { unanimousFor, rangeFor, parseRange, hasConfiguredCards } from "../utils";
+import { unanimousFor, rangeFor, parseRange, hasConfiguredCards, escapeAttr, safeHttpUrl } from "../utils";
+
+// ── Bug audit — XSS guards สำหรับข้อมูลที่มาจาก Firebase ───────────────────
+
+describe("escapeAttr (ค่าที่จะใส่ HTML attribute — ต้อง escape ฟันหนู/ฟันเดี่ยวด้วย)", () => {
+  it("ฟันหนู/ฟันเดี่ยว กลายเป็น entity — กัน break out จาก attribute", () => {
+    const out = escapeAttr('x" onclick="alert(1)" b="');
+    expect(out).not.toContain('"');
+    expect(out).toContain("onclick=&quot;alert(1)&quot;");
+    expect(escapeAttr("it's")).not.toContain("'");
+  });
+  it("< > & ถูก escape เหมือน escapeHtml", () => {
+    expect(escapeAttr("<img src=x>")).not.toContain("<");
+    expect(escapeAttr("a&b")).toBe("a&amp;b");
+  });
+  it("ข้อความปกติผ่านเปลี่ยนแปลงน้อยที่สุด", () => {
+    expect(escapeAttr("😀 hi")).toBe("😀 hi");
+  });
+});
+
+describe("safeHttpUrl (href จากข้อมูลภายนอก — ยอมเฉพาะ http/https)", () => {
+  it("javascript:/data: → '#' (กันรันสคริปต์ตอนคลิก)", () => {
+    expect(safeHttpUrl("javascript:alert(1)")).toBe("#");
+    expect(safeHttpUrl("JaVaScRiPt:alert(1)")).toBe("#");
+    expect(safeHttpUrl("data:text/html,<script>")).toBe("#");
+  });
+  it("http/https ปกติผ่านตรง ๆ", () => {
+    expect(safeHttpUrl("https://app.clickup.com/t/abc")).toBe("https://app.clickup.com/t/abc");
+    expect(safeHttpUrl("http://localhost:5173")).toBe("http://localhost:5173");
+  });
+});
+
 
 describe("unanimousFor (ค่าเดียวที่ทุกคนในกลุ่มโหวตเหมือนกัน)", () => {
   it("กลุ่มว่าง = null", () => {

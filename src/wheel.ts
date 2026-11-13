@@ -1014,6 +1014,11 @@ async function initWheel(): Promise<void> {
   // We only restore PO's customization (duplicate count, manual adds) when the
   // room's member set is unchanged since the last visit (matched by fingerprint).
   const freshMembers = await fetchMembers();
+  // ระหว่างรอ member list ผู้ใช้อาจออกห้องไปแล้ว (destroyWheel รีเซ็ต hasInitialized)
+  // ต้องเลิกตรงนี้ — เดิมไหลต่อไป re-bind delegation listener บน AbortController
+  // ใหม่ที่ไม่มีใคร abort อีก (DOM listener leak) + วาดวงล้อจากข้อมูลห้องเก่า
+  // (pattern เดียวกับ initWheelManual ที่ guard หลัง whenMembersReady)
+  if (!hasInitialized) return;
   memberFingerprint = fingerprintOf(freshMembers);
   const saved = loadWheelState();
   if (saved && saved.entries.length > 0 && saved.memberFingerprint === memberFingerprint) {
@@ -1120,7 +1125,9 @@ export function handleShuffle(): void {
 
 export function handleReset(): void {
   if (isSpinning) return;
-  restartEntries();
+  // restartEntries เป็น async (get + เขียน Firebase) — จับ error กัน unhandled
+  // rejection ตอน network พังแล้ววงล้อเงียบ ๆ ไม่ reset
+  restartEntries().catch((err) => console.error("[wheel] reset entries failed:", err));
 }
 
 export function handleClear(): void {

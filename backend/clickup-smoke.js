@@ -19,8 +19,8 @@ function findChromium() {
   const dirs = fs
     .readdirSync(root)
     .filter((d) => /^chromium-\d+$/.test(d))
-    .sort()
-    .reverse();
+    // เรียงเลขจริง (ไม่ใช่ lexicographic — "chromium-999" ต้องไม่ชนะ "chromium-1234")
+    .sort((a, b) => (parseInt(b.slice(9), 10) || 0) - (parseInt(a.slice(9), 10) || 0));
   for (const d of dirs) {
     const p = path.join(root, d, "chrome-win64", "chrome.exe");
     if (fs.existsSync(p)) return p;
@@ -37,8 +37,11 @@ async function launchBrowser() {
     return await chromium.launch({ headless: true, executablePath: findChromium() });
   }
 }
-const TASK_URL = "https://app.clickup.com/t/9018499665/86eq6n0wa";
-const TASK_NAME = "Update Value from API";
+// การ์ดทดสอบ — override ผ่าน env ได้ (SMOKE_TASK_URL / SMOKE_TASK_NAME)
+// default = การ์ด "test for big" ใน CES Team space (token เข้าถึงได้จริง —
+// การ์ดเดิม 86eq6n0wa อยู่คนละ team กับ token ปัจจุบัน ตรวจแล้วตอบ 401 OAUTH_027)
+const TASK_URL = process.env.SMOKE_TASK_URL || "https://app.clickup.com/t/9018244625/z91pu6abyb";
+const TASK_NAME = process.env.SMOKE_TASK_NAME || "test for big";
 
 (async () => {
   const browser = await launchBrowser();
@@ -94,7 +97,8 @@ const TASK_NAME = "Update Value from API";
     console.log("resolved task name:", name);
     if (!name || !name.includes(TASK_NAME)) fail("task name mismatch: " + name);
 
-    await page.screenshot({ path: "C:/tmp/clickup-smoke-room.png" });
+    // screenshot เป็น optional — พัง (ถูกล็อก/path ไม่มี) ห้ามทำให้ run ที่ผ่านทั้งหมดกลายเป็น FAIL
+    await page.screenshot({ path: "clickup-smoke-room.png" }).catch(() => {});
 
     // Clear the task
     await page.click("#btn-clickup-clear");
@@ -115,7 +119,7 @@ const TASK_NAME = "Update Value from API";
     }
   } catch (e) {
     fail(e.message);
-    await page.screenshot({ path: "C:/tmp/clickup-smoke-fail.png" }).catch(() => {});
+    await page.screenshot({ path: "clickup-smoke-fail.png" }).catch(() => {});
   }
   console.log("console errors:", errors.length ? JSON.stringify(errors, null, 2) : "none");
   await browser.close();

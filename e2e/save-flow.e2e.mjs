@@ -16,9 +16,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
 const BASE = process.env.E2E_BASE_URL || "http://localhost:5173";
 const ROOM = process.env.E2E_ROOM || "Cold";
-const LIST_ID = "1100670000009686"; // CES Team → Kitsune Sprint 2026 → Sprint 15 (การ์ดมี custom field Dev/QA Point)
+const LIST_ID = process.env.E2E_LIST_ID || "1100670000009686"; // CES Team → Kitsune Sprint (การ์ดมี custom field Dev/QA Point)
 const TOKEN = readFileSync(join(ROOT, "backend", ".env"), "utf8")
-  .match(/CLICKUP_API_TOKEN=(.+)/)?.[1]?.trim();
+  .match(/CLICKUP_API_TOKEN="?([^"\r\n]+)"?/)?.[1]?.trim();
 
 let failures = 0;
 const fail = (m) => { console.log("FAIL:", m); failures++; };

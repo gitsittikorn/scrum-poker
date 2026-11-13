@@ -315,7 +315,13 @@ function bindEvents(): void {
   document.getElementById("btn-super-admin-save-cleanup")?.addEventListener("click", async () => {
     const cleanupTime = cleanupTimeInput.value;
     if (cleanupTime) {
-      await update(ref(db, `settings`), { cleanupTime });
+      try {
+        await update(ref(db, `settings`), { cleanupTime });
+      } catch (err) {
+        console.error("[admin] save cleanup time failed:", err);
+        showToast(`❌ บันทึกไม่สำเร็จ: ${(err as Error).message}`);
+        return;
+      }
       closeSettings();
       showToast("💾 บันทึกเวลาเคลียร์ข้อมูลแล้ว");
     }
@@ -369,11 +375,17 @@ function bindEvents(): void {
     // คำอธิบายใต้การ์ด Custom (ว่าง = ใช้ default "Custom (Enter)" ฝั่ง render)
     const customDescInput = document.getElementById("poker-custom-desc") as HTMLInputElement | null;
     const customDesc = customDescInput ? customDescInput.value.trim() : "";
-    await update(ref(db, "settings"), {
-      pokerCards: cards,
-      pokerCustomCard: customOn,
-      pokerCustomCardDesc: customDesc,
-    });
+    try {
+      await update(ref(db, "settings"), {
+        pokerCards: cards,
+        pokerCustomCard: customOn,
+        pokerCustomCardDesc: customDesc,
+      });
+    } catch (err) {
+      console.error("[admin] save poker cards failed:", err);
+      showToast(`❌ บันทึกการ์ดไม่สำเร็จ: ${(err as Error).message}`);
+      return;
+    }
     closeSettings();
     showToast(`💾 บันทึกการ์ด Poker แล้ว (${filled} ใบ)`);
   });

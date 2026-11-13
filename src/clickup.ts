@@ -33,7 +33,7 @@ import {
 } from "./dom";
 import { showConfirmModal, showToast, showSaveSplash, showWakeNotice } from "./ui";
 import { sendSystemMessage } from "./chat";
-import { buildGroomingComment, dedupeTaskLinks, formatDateTime, parseRange, rangeFor, unanimousFor } from "./utils";
+import { buildGroomingComment, dedupeTaskLinks, formatDateTime, parseRange, rangeFor, safeHttpUrl, unanimousFor } from "./utils";
 import { FEATURES } from "./config";
 import { ADMIN_ROOM } from "./constants";
 import { isPO, isRoomAdmin, state } from "./state";
@@ -151,7 +151,7 @@ function renderTaskLinks(links: TaskLink[] | undefined): void {
   for (const l of deduped) {
     const a = document.createElement("a");
     a.className = "clickup-link" + (GENERIC_LINK_TYPES.has(l.type) ? " clickup-link-generic" : "");
-    a.href = l.url;
+    a.href = safeHttpUrl(l.url); // ลิงก์จาก Firebase — ยอมเฉพาะ http(s) กัน javascript:
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     a.title = LINK_LABELS[l.type];
@@ -194,7 +194,7 @@ export function renderTaskBanner(task: ActiveTask | null, groomMode: GroomMode =
 
   if (task) {
     clickupTaskRow.classList.remove("hidden");
-    clickupTaskDisplay.href = task.url;
+    clickupTaskDisplay.href = safeHttpUrl(task.url);
     clickupTaskName.textContent = task.name; // แสดงแค่ชื่อการ์ด (ไม่ใส่ customId)
     clickupTaskDisplay.title = task.name;
     renderTaskLinks(task.links);
@@ -391,7 +391,13 @@ export async function handleResolveClickUp(): Promise<void> {
 
 export async function handleClearClickUpTask(): Promise<void> {
   if (!isPO() || !state.currentRoom) return;
-  await update(ref(db, `rooms/${state.currentRoom}`), { activeTask: null });
+  try {
+    await update(ref(db, `rooms/${state.currentRoom}`), { activeTask: null });
+  } catch (err) {
+    console.error("[clickup] clear task failed:", err);
+    showToast(`❌ เคลียร์ task ไม่สำเร็จ: ${(err as Error).message}`);
+    return;
+  }
   clickupUrlInput.value = "";
   showToast("🧹 เคลียร์ task แล้ว");
 }
@@ -399,7 +405,13 @@ export async function handleClearClickUpTask(): Promise<void> {
 /** PO สลับโหมดห้อง groom/pre — เก็บใน Firebase ทุกคนเห็น real-time (ไม่ auto สลับกลับ) */
 export async function handleSetGroomMode(mode: GroomMode): Promise<void> {
   if (!isPO() || !state.currentRoom) return;
-  await update(ref(db, `rooms/${state.currentRoom}`), { groomMode: mode });
+  try {
+    await update(ref(db, `rooms/${state.currentRoom}`), { groomMode: mode });
+  } catch (err) {
+    console.error("[clickup] set groom mode failed:", err);
+    showToast(`❌ สลับโหมดไม่สำเร็จ: ${(err as Error).message}`);
+    return;
+  }
   const label = mode === "pre" ? "Pre-Groom (คอมเม้นอย่างเดียว)" : "Groom (บันทึก field + คอมเม้น)";
   const icon = mode === "pre" ? "🌱" : "✅";
   showToast(`${icon} สลับเป็นโหมด ${label}`);
@@ -462,7 +474,6 @@ export async function openTaskHistory(): Promise<void> {
   closeBtn.className = "btn btn-icon";
   closeBtn.title = "ปิด";
   closeBtn.textContent = "✕";
-  closeBtn.addEventListener("click", () => overlay.remove());
   header.append(h2, closeBtn);
 
   const list = document.createElement("div");
@@ -471,24 +482,37 @@ export async function openTaskHistory(): Promise<void> {
 
   content.append(header, list);
   overlay.appendChild(content);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
-  // Esc ปิด modal เหมือน confirm modal — ถอด listener เสมอเมื่อกด Esc
-  // (กัน leak กรณี modal ถูกปิดไปก่อนหน้าจากทางอื่น เช่น ✕ หรือคลิกนอกกล่อง)
+  // ปิด modal ทุกทาง (✕ / คลิกนอกกล่อง / Esc / ปุ่มล้างประวัติ) ผ่าน closeModal
+  // อันเดียว — ถอด keydown listener ทุกครั้ง กัน listener ซ้อนกันเมื่อเปิด-ปิด
+  // หลายรอบโดยไม่ได้กด Esc (เดิม ✕/คลิกนอกไม่ถอด ทิ้ง listener ค้างทุกรอบ)
   const onKey = (e: KeyboardEvent): void => {
     if (e.key !== "Escape") return;
-    document.removeEventListener("keydown", onKey);
     if (overlay.isConnected) {
       e.preventDefault();
-      overlay.remove();
+      closeModal();
     }
   };
+  const closeModal = (): void => {
+    document.removeEventListener("keydown", onKey);
+    overlay.remove();
+  };
+  closeBtn.addEventListener("click", closeModal);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeModal();
+  });
   document.addEventListener("keydown", onKey);
   (document.getElementById("app") || document.body).appendChild(overlay);
 
-  const snap = await get(query(ref(db, `rooms/${state.currentRoom}/taskHistory`), orderByKey()));
-  const entries = Object.entries((snap.val() ?? {}) as Record<string, TaskHistoryEntry>);
+  let entries: [string, TaskHistoryEntry][];
+  try {
+    const snap = await get(query(ref(db, `rooms/${state.currentRoom}/taskHistory`), orderByKey()));
+    entries = Object.entries((snap.val() ?? {}) as Record<string, TaskHistoryEntry>);
+  } catch (err) {
+    // โหลดไม่ได้ → บอกผู้ใช้แทนค้าง "…กำลังโหลด" ตลอดไป (และไม่ปล่อย unhandled)
+    console.error("[clickup] load task history failed:", err);
+    list.textContent = "❌ โหลดประวัติไม่สำเร็จ — ปิดแล้วลองเปิดใหม่";
+    return;
+  }
   list.textContent = "";
   if (entries.length === 0) {
     list.textContent = "ยังไม่มีประวัติการดึง task ในห้องนี้";
@@ -594,7 +618,7 @@ export async function openTaskHistory(): Promise<void> {
     nameCell.className = "task-history-name-cell";
     const link = document.createElement("a");
     link.className = "task-history-name";
-    link.href = entry.url;
+    link.href = safeHttpUrl(entry.url); // จาก Firebase — ยอมเฉพาะ http(s) กัน javascript:
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.textContent = `${entry.name} ↗`;
@@ -866,7 +890,7 @@ export async function openTaskHistory(): Promise<void> {
         onConfirm: async () => {
           if (!state.currentRoom) return;
           await remove(ref(db, `rooms/${state.currentRoom}/taskHistory`));
-          overlay.remove();
+          closeModal();
           showToast("🧹 ล้างประวัติการดึง task แล้ว");
         },
       });

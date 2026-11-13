@@ -1,5 +1,7 @@
 # Scrum Poker — Project Context
 
+> Architecture diagrams (Mermaid) อยู่ที่ `docs/architecture.md`
+
 ## Tech Stack
 - **Vanilla TypeScript** (no framework) — DOM manipulation via `document.getElementById`, `createElement`
 - **Vite 6.3+** — dev server + build (`src/` root, `dist/` output)
@@ -40,6 +42,7 @@
 - `pnpm test` — unit + integration tests (vitest) · `pnpm test:watch` — watch mode
 - `pnpm test:e2e` — Playwright E2E ฟีเจอร์ห้อง (ต้องรัน dev server :5173 ก่อน — ใช้ห้อง Cold)
 - `pnpm test:e2e:save` — Playwright E2E บันทึก ClickUp ครบวงจร (ต้องมี dev server + backend :3000 + token; สร้างการ์ด `[E2E-TEST]` ใน Kitsune Sprint แล้วลบคืนตอนจบ)
+- `pnpm test:e2e:noneedtest` — Playwright E2E No Need Test (tag + comment format + ไม่แตะ QA field; self-cleaning เหมือนชุด save)
 - `firebase deploy` — deploy to Firebase Hosting (prod)
 
 ## Backend (ClickUp proxy — backend/)

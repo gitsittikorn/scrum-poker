@@ -6,6 +6,20 @@ export function escapeHtml(str: string): string {
   return div.innerHTML;
 }
 
+/** escape สำหรับค่าที่จะใส่ใน HTML attribute — escapeHtml (textContent) ไม่
+ *  แปลงฟันหนู/ฟันเดี่ยว ใช้ใน attr ตรง ๆ ไม่ได้ (ตัวอักษร " กับ ' ต้องเป็น entity) */
+export function escapeAttr(str: string): string {
+  return escapeHtml(str)
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** href สำหรับลิงก์ที่มาจากข้อมูลภายนอก (Firebase/ClickUp) — ยอมรับเฉพาะ
+ *  http(s) อย่างเดียว กัน javascript: ที่ถูกแอบเขียนแล้วรันสคริปต์ตอนคลิก */
+export function safeHttpUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : "#";
+}
+
 /** ค่าเดียวที่ "ทุกคน" ในกลุ่มโหวตเหมือนกัน — groom ต้อง unanimous ถึงบันทึกได้
  *  คืน null เมื่อ: กลุ่มว่าง / มีคนยังไม่โหวต / โหวต non-numeric / โหวตไม่เท่ากัน */
 export function unanimousFor(list: [string, { vote: string | null }][]): number | null {

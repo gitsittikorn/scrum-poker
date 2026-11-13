@@ -32,6 +32,7 @@ import {
   renderReactPickerBar,
   animateFloatingEmoji,
   renderMessageReactions,
+  reactionBadgeHtml,
 } from "./reactions";
 import { initSoundListener, destroySoundListener } from "./sounds";
 
@@ -162,10 +163,12 @@ export function initChat(isReinit = false): void {
         if (data.senderUid !== state.currentUid) {
           animateFloatingEmoji(data.emoji, data.senderName);
         }
+        // จับ room ตอนนี้เลย — ถ้าอ่าน state ตอน timer ยิง (ผ่านไป N วิ) ผู้ใช้อาจ
+        // ย้ายห้องไปแล้ว จะไปลบ key ของห้องเก่าไม่ถูก (ค้างใน RTDB จนห้องถูกล้าง)
+        const room = state.currentRoom;
         const key = snap.key;
         setTimeout(() => {
-          if (state.currentRoom && key)
-            remove(ref(db, `rooms/${state.currentRoom}/liveReactions/${key}`));
+          if (room && key) remove(ref(db, `rooms/${room}/liveReactions/${key}`));
         }, FLOATING_EMOJI_DURATION_MS);
       }
     });
@@ -230,12 +233,7 @@ function renderChatMessage(msg: ChatMessage, msgId: string): void {
     if (msg.reactions && Object.keys(msg.reactions).length > 0) {
       reactionsHtml = `<div class="chat-msg-reactions">${
         Object.entries(msg.reactions)
-          .map(([emoji, users]) => {
-            const count = Object.keys(users).length;
-            const isMine = state.currentUid && users[state.currentUid] ? " mine" : "";
-            const names = Object.values(users as Record<string, string>).join(", ");
-            return `<span class="reaction-badge${isMine}" data-emoji="${emoji}" data-msg-id="${msgId}" data-names="${escapeHtml(names)}">${emoji} <small>${count}</small></span>`;
-          })
+          .map(([emoji, users]) => reactionBadgeHtml(emoji, users as Record<string, string>, msgId))
           .join("")
       }</div>`;
     }
@@ -266,7 +264,10 @@ export async function sendChatMessage(): Promise<void> {
   const text = chatInput.value.trim();
   if (!text || !state.currentRoom || !state.currentUser) return;
 
+  // เคลียร์ input ไว้ก่อน ( optimistic — ให้พิมพ์ต่อได้ทันที) แต่ถ้าเขียนลง
+  // Firebase พัง ต้องกู้ข้อความคืนเข้าช่อง input — ไม่งั้นข้อความหายเงียบ ๆ
   chatInput.value = "";
+  const replySnapshot = replyTo;
   clearTypingTimeout();
   remove(ref(db, `rooms/${state.currentRoom}/typing/${state.currentUid}`));
 
@@ -284,7 +285,24 @@ export async function sendChatMessage(): Promise<void> {
     cancelReply();
   }
 
-  await set(push(ref(db, `rooms/${state.currentRoom}/messages`)), msgData);
+  try {
+    await set(push(ref(db, `rooms/${state.currentRoom}/messages`)), msgData);
+  } catch (err) {
+    console.error("[chat] send message failed:", err);
+    // กู้คืนเฉพาะเมื่อผู้ใช้ยังไม่ได้พิมพ์ข้อความใหม่ทับ (กันเขียนทับงานที่กำลังพิมพ์)
+    if (chatInput.value === "") {
+      chatInput.value = text;
+      // กู้ reply ที่ถูก cancel ไปแล้วกลับเข้าแถบอ้างอิง (setReply ใช้ไม่ได้ —
+      // ข้อความต้นทางไม่เคยถูก render จึงไม่มีใน messageCache)
+      if (replySnapshot) {
+        replyTo = replySnapshot;
+        replyToName.textContent = replySnapshot.senderName;
+        replyToText.textContent =
+          replySnapshot.text.length > 60 ? replySnapshot.text.slice(0, 60) + "..." : replySnapshot.text;
+        chatReplyBar.classList.remove("hidden");
+      }
+    }
+  }
 }
 
 export async function sendSystemMessage(text: string): Promise<void> {

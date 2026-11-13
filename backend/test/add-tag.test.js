@@ -172,6 +172,12 @@ test("validation: ไม่ระบุ taskId หรือ tag → 400 โด�
   assert.equal(calls.length, 0);
 });
 
+test("validation: ชื่อ tag ยาวเกิน 60 ตัวอักษร → 400 (กันสร้าง tag ขยะใน space)", async () => {
+  const r = await post("/api/clickup/add-tag", { taskId: "t1", tag: "x".repeat(61) });
+  assert.equal(r.status, 400);
+  assert.equal(calls.filter((c) => c.method === "POST").length, 0);
+});
+
 // ── req 18 ข้อ 5-6: สัญญาของ save-points เมื่อ No Need Test ติ๊ก/ไม่ติ๊ก ──
 
 const pointFields = () => [
@@ -210,5 +216,21 @@ test("save-points แบบมีค่า qa (checkbox ไม่ได้ติ
 test("save-points: dev=null และ qa=null พร้อมกัน → 400 ไม่มีค่าให้บันทึก (กันเขียนเปล่า ๆ)", async () => {
   const r = await post("/api/clickup/save-points", { taskId: "t1", dev: null, qa: null });
   assert.equal(r.status, 400);
+  assert.equal(fieldCalls().length, 0);
+});
+
+test("save-points: point ติดลบ หรือเกิน 9999 → 400 ไม่เขียนลงการ์ด", async () => {
+  assert.equal((await post("/api/clickup/save-points", { taskId: "t1", dev: -5, qa: null })).status, 400);
+  assert.equal((await post("/api/clickup/save-points", { taskId: "t1", dev: null, qa: 1e7 })).status, 400);
+  assert.equal(fieldCalls().length, 0);
+});
+
+test("save-points / post-comment: comment ยาวเกิน 20,000 ตัวอักษร → 400", async () => {
+  const long = "x".repeat(20001);
+  assert.equal(
+    (await post("/api/clickup/save-points", { taskId: "t1", dev: 3, qa: null, comment: long })).status,
+    400,
+  );
+  assert.equal((await post("/api/clickup/post-comment", { taskId: "t1", comment: long })).status, 400);
   assert.equal(fieldCalls().length, 0);
 });

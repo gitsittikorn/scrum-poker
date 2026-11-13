@@ -130,5 +130,4 @@ export class EncryptHelper {
     }
   }
 }
-
-export default EncryptHelper;
+// (ไม่มี default export — ทุกที่ใช้ named import { EncryptHelper } เท่านั้น)

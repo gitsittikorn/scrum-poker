@@ -17,11 +17,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
 const BASE = process.env.E2E_BASE_URL || "http://localhost:5173";
 const ROOM = process.env.E2E_ROOM || "Cold";
-const LIST_ID = "1100670000009686"; // CES Team → Kitsune Sprint (มี custom field Dev/QA Point + tag "no need test" ใน space)
+// list ที่สร้างการ์ดทดสอบ (ต้องมี custom field Dev/QA Point และ space ต้องมี tag
+// "no need test" อยู่แล้ว) — override ได้ตอน sprint list หมุนไปลิสต์ใหม่
+const LIST_ID = process.env.E2E_LIST_ID || "1100670000009686"; // CES Team → Kitsune Sprint
 const RULE = "━".repeat(20);
 const HEADER = "🃏 SCRUM POKER | POINT UPDATE";
 const TOKEN = readFileSync(join(ROOT, "backend", ".env"), "utf8")
-  .match(/CLICKUP_API_TOKEN=(.+)/)?.[1]?.trim();
+  .match(/CLICKUP_API_TOKEN="?([^"\r\n]+)"?/)?.[1]?.trim();
 
 let failures = 0;
 const fail = (m) => { console.log("FAIL:", m); failures++; };
@@ -98,11 +100,16 @@ async function joinAs(browser, { name, role, room }) {
   };
   const cleanupTask = async () => {
     if (!testTask) return;
-    try {
-      await cu(`/task/${testTask.id}`, { method: "DELETE" });
-      console.log("cleanup: ลบการ์ดทดสอบ ClickUp แล้ว");
-    } catch (e) {
-      console.log("cleanup task skipped:", e.message);
+    // ลอง 2 ครั้ง — network เพี้ยนแวบเดียวไม่ควรทิ้งการ์ด "[E2E-TEST]" ค้างใน ClickUp จริง
+    for (let i = 0; i < 2; i++) {
+      try {
+        await cu(`/task/${testTask.id}`, { method: "DELETE" });
+        console.log("cleanup: ลบการ์ดทดสอบ ClickUp แล้ว");
+        return;
+      } catch (e) {
+        if (i === 1) console.log("cleanup task failed:", e.message);
+        await new Promise((r) => setTimeout(r, 1000));
+      }
     }
   };
 
@@ -140,8 +147,8 @@ async function joinAs(browser, { name, role, room }) {
       (el) => el.dataset.value,
     );
     await dev1.page.click('.poker-card:not(.custom-card)');
-    await qa1.page.click(".poker-card:not(.custom-card):not(.custom-input-card) >> nth=0");
-    await qa2.page.click(".poker-card:not(.custom-card):not(.custom-input-card) >> nth=-1");
+    await qa1.page.click('.poker-card:not(.custom-card) >> nth=0');
+    await qa2.page.click('.poker-card:not(.custom-card) >> nth=-1');
     const qaVote1 = await qa1.page.$eval(".poker-card.selected", (el) => el.dataset.value);
     const qaVote2 = await qa2.page.$eval(".poker-card.selected", (el) => el.dataset.value);
     if (qaVote1 === qaVote2) fail(`QA สองคนโหวตซ้ำ ${qaVote1} — เคสไม่ตรงเงื่อนไข`);

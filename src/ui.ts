@@ -50,14 +50,18 @@ export function showPage(page: "landing" | "room"): void {
 }
 
 let toastTimeout: ReturnType<typeof setTimeout>;
+let toastHideTimeout: ReturnType<typeof setTimeout>;
 export function showToast(msg: string): void {
+  // เคลียร์ทั้ง timer หลักและ timer ซ่อน (300ms หลังตัวหลัก) — เดิมเคลียร์แค่ตัวหลัก
+  // toast ใหม่ที่เข้ามาช่วง 300ms นั้นจะโดน timer เก่าซ่อนทิ้งก่อนเวลา
   clearTimeout(toastTimeout);
+  clearTimeout(toastHideTimeout);
   toastEl.textContent = msg;
   toastEl.classList.remove("hidden");
   toastEl.classList.add("show");
   toastTimeout = setTimeout(() => {
     toastEl.classList.remove("show");
-    setTimeout(() => toastEl.classList.add("hidden"), 300);
+    toastHideTimeout = setTimeout(() => toastEl.classList.add("hidden"), 300);
   }, TOAST_DURATION_MS);
 }
 
@@ -356,7 +360,14 @@ export async function saveSettings(): Promise<void> {
     }
   }
 
-  await update(ref(db, `rooms/${state.currentRoom}`), updates);
+  try {
+    await update(ref(db, `rooms/${state.currentRoom}`), updates);
+  } catch (err) {
+    // เขียนไม่สำเร็จ → ค้าง modal ไว้ให้แก้/ลองใหม่ + แจ้ง (เดิม modal ปิดเหมือนสำเร็จ)
+    console.error("[ui] save settings failed:", err);
+    showToast(`❌ บันทึกการตั้งค่าไม่สำเร็จ: ${(err as Error).message}`);
+    return;
+  }
   settingsModal.classList.remove("active");
   showToast("Settings saved");
 }
@@ -583,7 +594,12 @@ export function showConfirmModal(opts: ConfirmModalOptions): void {
   const finish = () => {
     document.removeEventListener("keydown", onKey);
     overlay.remove();
-    void Promise.resolve(onConfirm?.());
+    // onConfirm อาจเป็น async (ลบห้อง/kick/ล้างข้อมูล) — ต้องจับ error ไม่งั้น
+    // modal ปิดไปแล้วราวกับสำเร็จ แต่จริง ๆ การเขียน Firebase พังเงียบ ๆ
+    Promise.resolve(onConfirm?.()).catch((err) => {
+      console.error("[confirm] onConfirm failed:", err);
+      showToast(`❌ ทำรายการไม่สำเร็จ: ${(err as Error).message}`);
+    });
   };
 
   cancelBtn.addEventListener("click", close);
