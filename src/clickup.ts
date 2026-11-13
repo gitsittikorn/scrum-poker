@@ -31,10 +31,10 @@ import {
 } from "./dom";
 import { showConfirmModal, showToast, showSaveSplash, showWakeNotice } from "./ui";
 import { sendSystemMessage } from "./chat";
-import { formatDateTime, parseRange, rangeFor, unanimousFor } from "./utils";
+import { buildGroomingComment, formatDateTime, parseRange, rangeFor, unanimousFor } from "./utils";
 import { FEATURES } from "./config";
 import { ADMIN_ROOM } from "./constants";
-import { isPO, state } from "./state";
+import { isPO, isRoomAdmin, state } from "./state";
 import type { ActiveTask, GroomMode, RoomData, TaskHistoryEntry, TaskLink, User } from "./types";
 
 interface ResolvedTask {
@@ -76,51 +76,13 @@ async function api<T>(path: string, body: Record<string, unknown>): Promise<T> {
 
 const fmt = (n: number): string => String(n);
 
+/** ชื่อที่ใช้แสดง/ส่งไป ClickUp ของผู้ใช้ปัจจุบัน — realName จาก member list
+ *  (identity เดียวกับ attendees ใน comment) fallback ชื่อเล่นเฉพาะข้อมูลเก่า/ห้องไม่บังคับ */
+const myDisplayName = (): string =>
+  state.currentUser?.realName || state.currentUser?.name || "";
+
 /** จำนวนประวัติการดึง task สูงสุดต่อห้อง (เกินตัดรายการเก่าทิ้ง) */
 const TASK_HISTORY_LIMIT = 30;
-
-/** ลำดับกลุ่ม role ในคอมเม้น Attendees ("admin" = superadmin ถือเป็น PO ตาม isPO) */
-const ATTENDEE_ROLES: { keys: string[]; label: string }[] = [
-  { keys: ["po", "admin"], label: "PO" },
-  { keys: ["dev"], label: "Dev" },
-  { keys: ["qa"], label: "QA" },
-  { keys: ["ux"], label: "UX/UI" },
-];
-
-/** ข้อความคอมเม้นท์ที่โพสต์ลงการ์ด ClickUp — dev/qa เป็น string สำเร็จรูปแล้ว
- *  ("3" ตอน groom / "1-3" ตอน pre-groom)
- *  Attendees บรรทัดเดียวต่อ role ชื่อคั่นด้วย comma (ข้าม role ที่ไม่มีคน)
- *  ใช้ชื่อจริง (realName จาก member list) — ชื่อเล่นแสดงแค่ในห้อง poker
- *  PO ที่เป็นคนกดบันทึก (savedByUid) จะมี "(owner)" ต่อท้ายชื่อ */
-function buildGroomingComment(
-  mode: GroomMode,
-  dev: string | null,
-  qa: string | null,
-  attendees: [string, User][],
-  savedByUid: string | null
-): string {
-  const header = mode === "pre" ? "Pre-Grooming" : "Grooming";
-  // เวลาตอนกดบันทึก — เดิมใช้ revealTime ทำให้ย้อนหลังเท่ากับที่ reveal ค้างไว้
-  // (reveal ไว้นาน แล้วมาบันทึกทีหลัง เวลาเลยดูเหมือน timezone ช้าไปหลายชั่วโมง)
-  const lines = [`${header} : ${formatDateTime(Date.now())}`];
-  if (dev !== null) lines.push(`Dev: ${dev}`);
-  if (qa !== null) lines.push(`QA: ${qa}`);
-  lines.push("", "Attendees");
-  for (const { keys, label } of ATTENDEE_ROLES) {
-    // ชื่อเรียงตามตัวอักษร a-z (localeCompare จัดการพ่วงวรรณยุกต์ไทยให้ด้วย)
-    // เครื่องหมาย (owner) ใส่หลังเรียงแล้ว กัน suffix กระทบลำดับการเรียง
-    const names = attendees
-      .filter(([, u]) => keys.includes(u.role))
-      .sort(([, a], [, b]) => (a.realName ?? a.name).localeCompare(b.realName ?? b.name, "th"))
-      .map(([uid, u]) => {
-        const n = u.realName ?? u.name; // fallback ชื่อเล่นเฉพาะข้อมูลเก่า/ห้องไม่บังคับ
-        return uid === savedByUid ? `${n}(owner)` : n;
-      });
-    if (names.length === 0) continue;
-    lines.push(`Role - ${label}: ${names.join(", ")}`);
-  }
-  return lines.join("\n");
-}
 
 /** โหวตของกลุ่มเป็นข้อความ — สำหรับ toast บอกว่า role ไหนยังไม่ตรงกัน (คนไม่ได้โหวต = –) */
 const votesStr = (list: [string, User][]): string =>
@@ -203,8 +165,9 @@ export function renderTaskBanner(task: ActiveTask | null, groomMode: GroomMode =
     return;
   }
   const po = isPO();
-  // ซ่อนทั้งอันเมื่อปิด flag / ไม่มี task และไม่ใช่ PO (non-PO ไม่เห็น input เปล่า ๆ)
-  clickupBanner.classList.toggle("hidden", !po && !task);
+  // ซ่อนทั้งอันเมื่อปิด flag / ไม่มี task และไม่ใช่ admin ของห้อง (PO + deputy —
+  // deputy เห็น banner เพื่อรับ reminder "ยังไม่ได้เลือกการ์ด" แต่ไม่เห็น input row)
+  clickupBanner.classList.toggle("hidden", !isRoomAdmin() && !task);
   // input ผู้ใช้กำลังพิมพ์อยู่ — ห้ามแตะ value ในนี้ ไม่งั้นโดนเคลียร์ทุก room tick
   clickupInputRow.classList.toggle("hidden", !po);
   btnClickupClear.classList.toggle("hidden", !task);
@@ -230,13 +193,47 @@ export function renderTaskBanner(task: ActiveTask | null, groomMode: GroomMode =
   }
 }
 
+// ===== Task Required Reminder ("ยังไม่ได้เลือกการ์ด" — เตือน admin ของห้อง) =====
+
+/** เคย scroll ขึ้นไปโชว์แถบเตือนแล้วใน episode นี้ — กัน scroll ซ้ำทุก real-time tick
+ *  (reset เป็น false เมื่อเงื่อนไขเตือนหายไป = มี task แล้ว / lock / reveal) */
+let taskReminderScrolled = false;
+
+/** แถบ "🃏 ยังไม่ได้เลือกการ์ด — กรุณาดึง Task จาก ClickUp ก่อนดำเนินการโหวต"
+ *  แสดงเฉพาะ admin ของห้อง (PO + deputy เช่น Dev Cing — ตาม isRoomAdmin)
+ *  สมาชิกทั่วไปไม่เห็น (banner ถูกซ่อนอยู่แล้วสำหรับ non-admin ที่ไม่มี task)
+ *  แสดงตั้งแต่ยังไม่มี task (จะได้ดึงก่อนเริ่มโหวต) และเน้นย้ำเมื่อมีคนเริ่มโหวต
+ *  PO ดึงการ์ดแล้ว = แถบหายทันที (real-time ผ่าน room tick) */
+export function updateTaskRequiredReminder(roomData: RoomData): void {
+  const el = document.getElementById("task-required-reminder");
+  if (!el) return;
+  const active =
+    FEATURES.clickup &&
+    !state.isWheelRoom &&
+    state.currentRoom !== ADMIN_ROOM &&
+    isRoomAdmin() &&
+    !roomData.activeTask &&
+    !roomData.revealed &&
+    !roomData.locked;
+  el.classList.toggle("hidden", !active);
+  if (active && !taskReminderScrolled) {
+    taskReminderScrolled = true;
+    // เลื่อนไปที่แถบเตือน (อยู่บนหัว banner เหนือช่อง URL ของ PO) — ครั้งเดียวต่อ episode
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  if (!active) taskReminderScrolled = false;
+}
+
 // ===== Handlers =====
 
 /** เขียน activeTask ลงห้อง + บันทึกลงประวัติ (trim เกิน 30 ตัดรายการเก่าทิ้ง)
  *  ใช้ร่วมทั้งตอน PO วางลิงก์และตอน "นำมา Groom ใหม่" จาก history
- *  activeTask เก็บ historyKey เพื่อให้ตอนบันทึก ClickUp จด savedAt กลับได้ */
+ *  activeTask เก็บ historyKey เพื่อให้ตอนบันทึก ClickUp จด savedAt กลับได้
+ *  setBy/resolvedBy = realName (ถ้ามี) ให้ตรงกับชื่อที่ส่งไป comment ClickUp
+ *  → History Modal แสดงชื่อเดียวกับบนการ์ดเสมอ */
 async function applyResolvedTask(task: ResolvedTask): Promise<void> {
   if (!state.currentRoom) return;
+  const displayName = myDisplayName();
   const histRef = push(ref(db, `rooms/${state.currentRoom}/taskHistory`));
   await update(ref(db, `rooms/${state.currentRoom}`), {
     activeTask: {
@@ -244,7 +241,7 @@ async function applyResolvedTask(task: ResolvedTask): Promise<void> {
       name: task.name,
       url: task.url,
       customId: task.customId,
-      setBy: state.currentUser?.name ?? "",
+      setBy: displayName,
       timestamp: serverTimestamp(),
       links: task.links ?? [],
       historyKey: histRef.key,
@@ -256,7 +253,7 @@ async function applyResolvedTask(task: ResolvedTask): Promise<void> {
     customId: task.customId ?? null,
     url: task.url,
     links: task.links ?? [],
-    resolvedBy: state.currentUser?.name ?? "",
+    resolvedBy: displayName,
     resolvedAt: serverTimestamp(),
     savedAt: null,
   });
@@ -862,6 +859,42 @@ export async function handleSaveToClickUp(): Promise<void> {
   await withSaveBusy(doSaveToClickUp);
 }
 
+/** Reset รอบโหวตหลังบันทึกลง ClickUp สำเร็จ (req Reset After Saving Point)
+ *  — ล้างคะแนนทุกคนทุก role + ปลดล็อค + เคลียร์ task/URL ที่ค้างอยู่บนหน้าจอ
+ *  เรียกหลังยืนยันบันทึกสำเร็จเท่านั้น (ผลลัพธ์ field ok) — ระหว่าง reveal→บันทึก
+ *  ห้องถูก lock อยู่ โหวตเปลี่ยนไม่ได้ จึงไม่มีคะแนนหลุดก่อน reset
+ *  ทุก client เห็นสถานะใหม่ตรงกันผ่าน room tick เดิม (real-time)
+ *  taskHistory ที่บันทึกสำเร็จแล้วไม่ถูกแตะ (recordSavedAt จดก่อนหน้านี้แล้ว) */
+async function resetRoomAfterSave(users: Record<string, User>): Promise<void> {
+  if (!state.currentRoom) return;
+  const updates: Record<string, unknown> = {};
+  Object.keys(users ?? {}).forEach((uid) => {
+    updates[`users/${uid}/vote`] = null;
+  });
+  updates.revealed = false;
+  updates.locked = false;
+  updates.revealTime = null;
+  updates.drinkers = null;
+  updates.activeTask = null; // ล้าง task ปัจจุบัน — แถว task/URL หายจากหน้าจอทุกคน
+  try {
+    await update(ref(db, `rooms/${state.currentRoom}`), updates);
+  } catch (err) {
+    console.warn("[clickup] reset after save failed:", err);
+    showToast("⚠️ บันทึกสำเร็จ แต่ล้างรอบโหวตไม่สำเร็จ — กด 🔄 Reset เองอีกครั้ง");
+    return;
+  }
+  // เคลียร์ของค้างบนจอเครื่องผู้บันทึก (URL ใน input เห็นเฉพาะฝั่ง PO)
+  clickupUrlInput.value = "";
+  document
+    .querySelectorAll(".poker-card")
+    .forEach((el) => el.classList.remove("selected"));
+  document.querySelectorAll(".custom-point-input").forEach((el) => {
+    (el as HTMLInputElement).value = "";
+  });
+  state.selectedCardCustom = false;
+  void sendSystemMessage("🔄 บันทึกสำเร็จ — เริ่มรอบโหวตใหม่");
+}
+
 async function doSaveToClickUp(): Promise<void> {
   if (!state.currentRoom) return;
   const snap = await get(ref(db, `rooms/${state.currentRoom}`));
@@ -893,7 +926,7 @@ async function doSaveToClickUp(): Promise<void> {
     try {
       await api("/api/clickup/post-comment", {
         taskId: task.taskId,
-        comment: buildGroomingComment(mode, dev, qa, entries, state.currentUser?.uid ?? null),
+        comment: buildGroomingComment(mode, dev, qa, entries, state.currentUser?.uid ?? null, task.name),
       });
       const parts = [dev !== null && `Dev ${dev}`, qa !== null && `QA ${qa}`]
         .filter(Boolean)
@@ -914,6 +947,8 @@ async function doSaveToClickUp(): Promise<void> {
         devRange: dev,
         qaRange: qa,
       });
+      // บันทึกสำเร็จ → เริ่มรอบใหม่ (ล้างโหวต + task ทุกคนแบบ real-time)
+      await resetRoomAfterSave(data.users ?? {});
     } catch (err) {
       showToast(`❌ ${(err as Error).message}`);
     }
@@ -956,7 +991,8 @@ async function doSaveToClickUp(): Promise<void> {
           dev !== null ? fmt(dev) : null,
           qa !== null ? fmt(qa) : null,
           entries,
-          state.currentUser?.uid ?? null
+          state.currentUser?.uid ?? null,
+          task.name
         ),
       });
       const saved: string[] = [];
@@ -992,6 +1028,9 @@ async function doSaveToClickUp(): Promise<void> {
           devRange: null,
           qaRange: null,
         });
+        // บันทึกสำเร็จ → เริ่มรอบใหม่ (ล้างโหวต + task ทุกคนแบบ real-time)
+        // comment พังอย่างเดียว (best-effort) ถือว่ารอบจบ — point ขึ้นการ์ดแล้ว
+        await resetRoomAfterSave(data.users ?? {});
       }
     } catch (err) {
       showToast(`❌ ${(err as Error).message}`);

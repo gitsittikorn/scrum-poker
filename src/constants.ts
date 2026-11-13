@@ -21,6 +21,15 @@ export const DEFAULT_POKER_CARDS: CardDef[] = [
 
 export const SUPER_ADMIN_NAME = "admin889";
 
+/** Dev ที่ได้สิทธิ์ "ส่วนตั้งค่า" เดียวกับ PO (settings modal — req Dev Cing Permission)
+ *  ระบุตัวตนด้วยชื่อจริงจาก member list (realName = identity เดียวกับที่ใช้ใน comment ClickUp
+ *  เลือกจาก dropdown ที่กรองจาก member registry เท่านั้น) — ไม่ใช่ชื่อที่แสดง (display name)
+ *  ที่พิมพ์เองได้ · uid = Firebase anonymous uid (คงที่ต่อเบราว์เซอร์) สำหรับล็อกแน่นอนยิ่งขึ้น
+ *  (ใส่ uid ที่นี่แล้ว list ชื่อจะถูกข้าม) */
+export const PO_DEPUTY_REAL_NAMES: string[] = ["Cing"];
+/** เว้นว่าง = ยังไม่ล็อกตาม uid — ใช้การ match realName จากข้อบน */
+export const PO_DEPUTY_UIDS: string[] = [];
+
 /** ห้อง super admin console (ไม่ใช่ห้อง poker) — ไม่แสดงฟีเจอร์ ClickUp */
 export const ADMIN_ROOM = "admin";
 

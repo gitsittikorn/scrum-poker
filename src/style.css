@@ -3995,3 +3995,69 @@ button.task-history-po.active {
     font-size: 0.5rem;
   }
 }
+
+/* ===== Last Voter Nudge (คนสุดท้ายที่ยังไม่โหวต — ทุกคนเห็นเหมือนกัน) ===== */
+.participant-card.last-voter {
+  border-color: var(--warning);
+  animation: last-voter-glow 1.6s ease-in-out infinite;
+}
+
+.last-voter-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--warning);
+  white-space: nowrap;
+  animation: last-voter-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes last-voter-glow {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 10px 1px var(--warning-glow); }
+}
+
+@keyframes last-voter-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ===== Task Required Reminder (เตือน PO ให้ดึง Task ก่อนโหวต) ===== */
+.task-required-reminder {
+  flex: 1 1 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: center;
+  animation: task-reminder-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes task-reminder-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--warning-glow); }
+  50% { box-shadow: 0 0 16px 2px var(--warning-glow); }
+}
+
+/* ===== Custom card description input (super admin settings) ===== */
+.custom-desc-input {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+/* Mobile — ย่อขนาดแถบเตือนให้พอดีจอเล็ก */
+@media (max-width: 640px) {
+  .last-voter-label {
+    font-size: 0.62rem;
+  }
+  .task-required-reminder {
+    font-size: 0.8rem;
+    padding: 8px 10px;
+  }
+}

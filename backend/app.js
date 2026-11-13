@@ -215,6 +215,44 @@ function extractLinks(rawMarkdown) {
   return out;
 }
 
+// ClickUp task attachments → link entries. Classify by the REAL attachment
+// metadata (file_extension / mime_type from the API payload) so an image
+// attachment shows the image icon instead of the generic chain-link icon.
+// Falls back to the download/private URL when present; anything without an
+// http(s) URL is skipped. Clicks keep the original open-in-new-tab behavior.
+function classifyAttachment(att) {
+  const url = String(
+    att?.url_private_download || att?.url_private || att?.short_url || att?.url || ""
+  ).trim();
+  if (!/^https?:\/\//i.test(url)) return null;
+  const ext = String(att?.file_extension || att?.extension || "")
+    .toLowerCase()
+    .replace(/^\./, "");
+  const mime = String(att?.mime_type || att?.mimetype || "").toLowerCase();
+  let type = "file";
+  if (/^(png|jpe?g|gif|webp|svg|bmp|ico|avif|heic)$/.test(ext) || mime.startsWith("image/")) {
+    type = "image";
+  } else if (ext === "pdf" || mime === "application/pdf") {
+    type = "pdf";
+  }
+  return { type, url };
+}
+
+/** Links for a task = links parsed from the markdown description + real
+ *  attachments (deduped by URL, description links first, cap 6 — same as before). */
+function taskLinks(task) {
+  const links = extractLinks(task.markdown_description);
+  const seen = new Set(links.map((l) => l.url));
+  for (const att of task.attachments || []) {
+    const l = classifyAttachment(att);
+    if (!l || seen.has(l.url)) continue;
+    seen.add(l.url);
+    links.push(l);
+    if (links.length >= 6) break;
+  }
+  return links;
+}
+
 // ── routes ──────────────────────────────────────────────────────────────
 
 app.get("/health", (_req, res) => {
@@ -225,7 +263,7 @@ app.get("/health", (_req, res) => {
 app.post("/api/clickup/resolve-task", async (req, res, next) => {
   try {
     const task = await fetchTaskByInput(req.body?.input);
-    const links = extractLinks(task.markdown_description);
+    const links = taskLinks(task);
     const figmaUrls = links.filter((l) => l.type === "figma").map((l) => l.url);
     console.log(`[clickup] resolve task=${task.id} custom=${task.custom_id || "-"}`);
     console.log(`[clickup]   markdown_description=${JSON.stringify(task.markdown_description ?? null)}`);

@@ -14,7 +14,7 @@
 | `src/app.ts` | Entry point: `init()` + `bindEvents()` — thin orchestrator |
 | `src/types.ts` | All TypeScript interfaces (User, RoomData, ChatMessage, etc.) |
 | `src/constants.ts` | CARDS, EMOJIS, APP_VERSION, TOAST_DURATION, etc. |
-| `src/state.ts` | Shared mutable state object (`state.currentRoom`, `state.currentUser`, etc.) + `isPO()` |
+| `src/state.ts` | Shared mutable state object (`state.currentRoom`, `state.currentUser`, etc.) + `isPO()` + `isRoomAdmin()` (PO + deputy "ส่วนตั้งค่า" ตาม realName/uid จาก constants) |
 | `src/dom.ts` | DOM element references + `$()` helper |
 | `src/utils.ts` | Pure helpers: `escapeHtml`, `formatChatTime` |
 | `src/ui.ts` | Theme, toast, settings modal, firework effect |
@@ -30,26 +30,38 @@
 | `src/firebase.ts` | Firebase SDK init + re-exports |
 | `src/index.html` | SPA: landing page + room page (chat panel, bottom bar, floating reactions) |
 | `src/style.css` | Full CSS: dark/light themes, responsive, animations |
+| `src/__tests__/` | Vitest: unit (utils, permissions) + DOM integration (updateUI/renderCards ผ่าน happy-dom + mock Firebase) |
+| `e2e/features.e2e.mjs` | Playwright E2E (req reminders/wheel/wording) — รันกับ dev server + ห้อง Cold, ล้างห้องอัตโนมัติ |
 
 ## Key Commands
 - `pnpm dev` or `npx vite --host` — dev server
 - `npx tsc --noEmit` — type check
 - `pnpm build` or `npx vite build` — production build to `dist/`
+- `pnpm test` — unit + integration tests (vitest) · `pnpm test:watch` — watch mode
+- `pnpm test:e2e` — Playwright E2E ฟีเจอร์ห้อง (ต้องรัน dev server :5173 ก่อน — ใช้ห้อง Cold)
+- `pnpm test:e2e:save` — Playwright E2E บันทึก ClickUp ครบวงจร (ต้องมี dev server + backend :3000 + token; สร้างการ์ด `[E2E-TEST]` ใน Kitsune Sprint แล้วลบคืนตอนจบ)
 - `firebase deploy` — deploy to Firebase Hosting (prod)
+
+## Backend (ClickUp proxy — backend/)
+- Express thin proxy: local `cd backend && node server.js` (:3000) · prod = Firebase Cloud Function `api` (asia-southeast1)
+- Setup: `pnpm install` ที่ root ครั้งเดียว — backend เป็น workspace package (ดู `pnpm-workspace.yaml` → `packages: [backend]`)
+- คัดลอก `backend/.env.example` → `backend/.env` แล้วใส่ `CLICKUP_API_TOKEN` (ไม่มี token = backend รันได้แต่ route ClickUp ทุกตัวพัง)
+- `node backend/clickup-smoke.js` — E2E ดึง task จริง (ต้องมี dev server + backend + token; browser หาอัตโนมัติจาก ms-playwright)
 
 ## Module Dependencies
 ```
 types.ts ← constants.ts, state.ts, voting.ts, room.ts, chat.ts, auth.ts
+constants.ts ← state.ts (isRoomAdmin deputy config), ui.ts, auth.ts, room.ts, voting.ts, chat.ts
 state.ts ← ui.ts, auth.ts, room.ts, voting.ts, chat.ts, reactions.ts
 dom.ts ← ui.ts, auth.ts, room.ts, voting.ts, chat.ts, reactions.ts, app.ts
 firebase.ts ← ui.ts, auth.ts, room.ts, voting.ts, chat.ts, reactions.ts
-utils.ts ← ui.ts, room.ts, voting.ts, chat.ts, reactions.ts
+utils.ts ← ui.ts, room.ts, voting.ts, chat.ts, reactions.ts, clickup.ts (buildGroomingComment = pure, test ได้)
 members.ts ← admin.ts, app.ts, room.ts, wheel.ts
 couponCalc.ts ← couponTestdata.ts, couponUat.ts (pure — ไม่พึ่งโมดูลอื่น)
 couponUat.ts ← admin.ts, app.ts
 reactions.ts ← chat.ts
 chat.ts ← room.ts, voting.ts, app.ts
-voting.ts ← room.ts
+voting.ts ← room.ts, clickup.ts (renderTaskBanner/updateTaskRequiredReminder)
 room.ts ← auth.ts, app.ts
 app.ts ← everything (orchestrator)
 ```

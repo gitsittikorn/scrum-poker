@@ -25,7 +25,7 @@ import { escapeHtml, hasConfiguredCards, rangeFor, unanimousFor } from "./utils"
 import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
 import { playSound } from "./sounds";
-import { renderTaskBanner, isSaveInFlight, onSaveStateChange } from "./clickup";
+import { renderTaskBanner, isSaveInFlight, onSaveStateChange, updateTaskRequiredReminder } from "./clickup";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
@@ -37,6 +37,9 @@ let currentCards: CardDef[] = DEFAULT_POKER_CARDS;
 /** Whether the super admin enabled the custom-input card (settings/pokerCustomCard).
  *  When true, renderCards appends a Custom card after the fixed cards. */
 let customCardEnabled = false;
+/** คำอธิบายใต้การ์ด Custom ที่ super admin ตั้งไว้ (settings/pokerCustomCardDesc)
+ *  ว่าง = ใช้ข้อความ default "Custom (Enter)" */
+let customCardDesc = "";
 /** Tracks the room's locked state so a live card re-render can re-apply `.disabled`
  *  without waiting for the next room-data tick. */
 let cardsLocked = false;
@@ -192,9 +195,11 @@ export function renderCards(): void {
     el.setAttribute("role", "button");
     el.setAttribute("tabindex", "0");
     el.setAttribute("aria-label", "โหวตค่ากำหนดเอง");
+    // คำอธิบายใต้การ์ด = ที่ super admin ตั้งไว้ (real-time) · ว่าง = default
+    const customLabel = customCardDesc ? escapeHtml(customCardDesc) : "Custom<br>(Enter)";
     el.innerHTML = `
       <input type="number" class="custom-point-input" placeholder="…" min="0" step="0.1" inputmode="decimal" aria-label="point กำหนดเอง">
-      <span class="card-label">Custom<br>(Enter)</span>
+      <span class="card-label">${customLabel}</span>
     `;
     const input = el.querySelector<HTMLInputElement>(".custom-point-input")!;
     input.addEventListener("keydown", (e: KeyboardEvent) => {
@@ -275,6 +280,12 @@ export function initPokerCardsListener(): void {
   // Custom-input card toggle (separate path so the fixed grid stays clean).
   onValue(ref(db, "settings/pokerCustomCard"), (snap) => {
     customCardEnabled = !!snap.val();
+    renderCards();
+  });
+  // คำอธิบายใต้การ์ด Custom — แก้ที่หน้า super admin แล้วทุกห้องเห็นใหม่ทันที
+  onValue(ref(db, "settings/pokerCustomCardDesc"), (snap) => {
+    const v = snap.val();
+    customCardDesc = typeof v === "string" ? v.trim() : "";
     renderCards();
   });
 }
@@ -671,6 +682,8 @@ export function updateUI(roomData: RoomData): void {
   lastRoomData = roomData;
   renderTaskBanner(roomData.activeTask ?? null, roomData.groomMode ?? "groom");
   renderSaveButton(roomData);
+  // เตือน PO ให้ดึง task เมื่อมีคนเริ่มโหวตแต่ยังไม่มี task (เรียกทุก tick — sync real-time)
+  updateTaskRequiredReminder(roomData);
 
   // แถบสถานะ default คือแสดง — ซ่อนเฉพาะกรณี "โหวตแล้ว" ใน branch ล่าง
   votingStatus.style.display = "";
@@ -728,6 +741,20 @@ export function updateUI(roomData: RoomData): void {
 
   // Participants — diff-based update
   const grouped = groupUsers(userList);
+  // ── Last-voter nudge: เหลือคนเดียวที่ยังไม่โหวต (นิยามเดียวกับ handleReveal)
+  // ให้การ์ดคนนั้นเต้นเบา ๆ "ทุกคนรอคะแนนจากคุณ" — ทุกคนในห้องเห็นเหมือนกัน
+  // คำนวณจาก snapshot จริงทุก tick: คนเข้า/ออก (left) เปลี่ยน หรือโหวตแล้ว
+  // สถานะจะอัปเดตทันที → ไม่เตือนผิดคน และหยุดทันทีเมื่อโหวต (ไม่ทำงานตอน lock/reveal)
+  const pendingVoters = !locked && !revealed
+    ? userList.filter(
+        ([, u]) =>
+          u.role !== "po" &&
+          u.role !== "admin" &&
+          u.left !== true &&
+          u.vote == null,
+      )
+    : [];
+  const lastVoterUid = pendingVoters.length === 1 ? pendingVoters[0][0] : null;
   const speakers = new Set<string>(
     roomData.drinkers ? Object.keys(roomData.drinkers) : []
   );
@@ -773,6 +800,14 @@ export function updateUI(roomData: RoomData): void {
     return c >= 1 ? `🎤 (${c})` : "";
   };
 
+  /** แถบเตือน "เพื่อนสมาชิกรอคุณอยู่" ของ last voter — animation เบา ไม่รบกวน */
+  const buildLastVoterLabel = (): HTMLElement => {
+    const label = document.createElement("div");
+    label.className = "last-voter-label";
+    label.textContent = "👀 เพื่อนสมาชิกรอคุณอยู่";
+    return label;
+  };
+
   /** Build the kick button — opens the reusable confirm modal on click. */
   const buildKickButton = (uid: string, user: User): HTMLElement => {
     const kickBtn = document.createElement("button");
@@ -801,7 +836,9 @@ export function updateUI(roomData: RoomData): void {
     const isOnline = user.online !== false;
     const card = document.createElement("div");
     card.className =
-      "participant-card slide-in" + (user.vote ? " voted" : "");
+      "participant-card slide-in" +
+      (user.vote ? " voted" : "") +
+      (uid === lastVoterUid ? " last-voter" : "");
     card.dataset.uid = uid;
 
     const avatar = document.createElement("div");
@@ -839,6 +876,10 @@ export function updateUI(roomData: RoomData): void {
       speakerLabel.textContent = "📢 พูดเลยลูก";
       card.appendChild(speakerLabel);
     }
+    // Last-voter nudge — แถบเตือนใต้ชื่อ (เฉพาะตอนไม่ lock/reveal)
+    if (uid === lastVoterUid) {
+      card.appendChild(buildLastVoterLabel());
+    }
     if (isPO() && uid !== state.currentUid) {
       card.appendChild(buildKickButton(uid, user));
     }
@@ -864,8 +905,25 @@ export function updateUI(roomData: RoomData): void {
       const existing = existingCards.get(uid);
 
       if (existing) {
-        const newClass = "participant-card" + (user.vote ? " voted" : "");
+        const newClass =
+          "participant-card" +
+          (user.vote ? " voted" : "") +
+          (uid === lastVoterUid ? " last-voter" : "");
         if (existing.className !== newClass) existing.className = newClass;
+
+        // Last-voter nudge — เพิ่ม/ถอด label แบบ diff (class จัดการข้างบนแล้ว
+        // รวมใน newClass เพื่อไม่ให้โดนเขียนทับจน animation รีสตาร์ตทุก tick)
+        const lastVoterLabel = existing.querySelector<HTMLElement>(
+          ".last-voter-label"
+        );
+        if (uid === lastVoterUid && !lastVoterLabel) {
+          existing.insertBefore(
+            buildLastVoterLabel(),
+            existing.querySelector(".participant-status")
+          );
+        } else if (uid !== lastVoterUid && lastVoterLabel) {
+          lastVoterLabel.remove();
+        }
 
         // Sync name (handles rejoin with a new name under the same uid)
         const nameEl = existing.querySelector<HTMLElement>(".participant-name");

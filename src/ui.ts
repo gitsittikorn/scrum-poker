@@ -1,5 +1,5 @@
 import { db, ref, get, update } from "./firebase";
-import { state, isPO, isSuperAdmin } from "./state";
+import { state, isPO, isRoomAdmin, isSuperAdmin } from "./state";
 import {
   toastEl,
   settingsModal,
@@ -223,10 +223,11 @@ export async function openSettings(): Promise<void> {
     const gen = ++settingsLoadGen;
     setSettingsLoading(true);
     try {
-      const [cleanupSnap, cardsSnap, customSnap] = await Promise.all([
+      const [cleanupSnap, cardsSnap, customSnap, customDescSnap] = await Promise.all([
         get(ref(db, `settings/cleanupTime`)),
         get(ref(db, "settings/pokerCards")),
         get(ref(db, "settings/pokerCustomCard")),
+        get(ref(db, "settings/pokerCustomCardDesc")),
       ]);
       cleanupTimeInput.value = cleanupSnap.exists() ? cleanupSnap.val() : "19:00";
       fillPokerCardsForm(
@@ -235,6 +236,11 @@ export async function openSettings(): Promise<void> {
       refreshPokerSaveButton();
       const customToggle = document.getElementById("poker-custom-enabled") as HTMLInputElement | null;
       if (customToggle) customToggle.checked = !!customSnap.val();
+      const customDescInput = document.getElementById("poker-custom-desc") as HTMLInputElement | null;
+      if (customDescInput) {
+        customDescInput.value =
+          typeof customDescSnap.val() === "string" ? customDescSnap.val() : "";
+      }
     } finally {
       if (gen === settingsLoadGen) setSettingsLoading(false);
     }
@@ -244,8 +250,9 @@ export async function openSettings(): Promise<void> {
   document.getElementById("super-admin-settings")?.classList.add("hidden");
 
   // Sync section visibility ตาม role/feature ก่อน — แล้วค่อยเปิด modal (ไม่ flash section ผิด)
-  document.getElementById("btn-settings-save")!.classList.toggle("hidden", !isPO());
-  document.getElementById("settings-auto-unlock-group")!.classList.toggle("hidden", !isPO());
+  // ส่วนตั้งค่าเปิดให้ PO + deputy (isRoomAdmin — req Dev Cing Permission)
+  document.getElementById("btn-settings-save")!.classList.toggle("hidden", !isRoomAdmin());
+  document.getElementById("settings-auto-unlock-group")!.classList.toggle("hidden", !isRoomAdmin());
 
   const userSettings = document.getElementById("user-settings")!;
   userSettings.classList.toggle("hidden", !FEATURES.sound);
@@ -256,7 +263,7 @@ export async function openSettings(): Promise<void> {
     renderSoundShortcutSlots();
   }
 
-  adminSettings.classList.toggle("hidden", !isPO());
+  adminSettings.classList.toggle("hidden", !isRoomAdmin());
 
   // เปิด modal ทันทีหลังตั้ง section visibility — ข้อมูลโหลด async ทีหลัง
   settingsModal.classList.add("active");
@@ -264,7 +271,7 @@ export async function openSettings(): Promise<void> {
   setSettingsLoading(true);
   try {
     // Async: โหลดค่า PO-only fields แบบ parallel (1 round-trip แทน 4 sequential)
-    if (isPO()) {
+    if (isRoomAdmin()) {
       const [autoSnap, featuresSnap, cleanupSnap, permissions] = await Promise.all([
         get(ref(db, `rooms/${state.currentRoom}/autoUnlockSeconds`)),
         get(ref(db, `rooms/${state.currentRoom}/features`)),
@@ -323,8 +330,8 @@ export async function saveSettings(): Promise<void> {
 
   const updates: Record<string, unknown> = {};
 
-  // Auto-unlock — only save if PO
-  if (isPO()) {
+  // Auto-unlock — only save if PO/deputy (ส่วนตั้งค่าเดียวกัน — isRoomAdmin)
+  if (isRoomAdmin()) {
     const val = parseInt(settingsInput.value, 10);
     if (val < 5 || val > 300) {
       showToast("ค่าต้องอยู่ระหว่าง 5-300 วินาที");
@@ -333,8 +340,8 @@ export async function saveSettings(): Promise<void> {
     updates.autoUnlockSeconds = val;
   }
 
-  // Save admin settings if PO
-  if (isPO()) {
+  // Save admin settings if PO/deputy
+  if (isRoomAdmin()) {
     // Only save features that PO is allowed to control (not disabled by admin)
     const features: Record<string, boolean> = {};
     if (!featurePoker.disabled) features.poker = featurePoker.checked;

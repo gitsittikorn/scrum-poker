@@ -1,3 +1,5 @@
+import type { GroomMode, User } from "./types";
+
 export function escapeHtml(str: string): string {
   const div = document.createElement("div");
   div.textContent = str;
@@ -93,4 +95,55 @@ export function hasConfiguredCards(cards: unknown): boolean {
     const v = (c as { value?: unknown }).value;
     return typeof v === "string" && v.trim() !== "";
   });
+}
+
+// ── ClickUp grooming comment ─────────────────────────────────────────
+// (ย้ายมาจาก clickup.ts เป็น pure function — ให้ unit test ตรวจรูปแบบ
+//  คอมเม้นได้โดยไม่ต้องแตะ DOM/Firebase)
+
+/** ลำดับกลุ่ม role ในคอมเม้น Attendees ("admin" = superadmin ถือเป็น PO ตาม isPO) */
+const ATTENDEE_ROLES: { keys: string[]; label: string }[] = [
+  { keys: ["po", "admin"], label: "PO" },
+  { keys: ["dev"], label: "Dev" },
+  { keys: ["qa"], label: "QA" },
+  { keys: ["ux"], label: "UX/UI" },
+];
+
+/** ข้อความคอมเม้นท์ที่โพสต์ลงการ์ด ClickUp — dev/qa เป็น string สำเร็จรูปแล้ว
+ *  ("3" ตอน groom / "1-3" ตอน pre-groom)
+ *  Attendees บรรทัดเดียวต่อ role ชื่อคั่นด้วย comma (ข้าม role ที่ไม่มีคน)
+ *  ใช้ชื่อจริง (realName จาก member list) — ชื่อเล่นแสดงแค่ในห้อง poker
+ *  PO ที่เป็นคนกดบันทึก (savedByUid) จะมี "(owner)" ต่อท้ายชื่อ
+ *  cardName = ชื่อการ์ด ClickUp ที่โหวต — วางไว้บรรทัดสุดท้ายเก็บเป็นข้อมูลอ้างอิง */
+export function buildGroomingComment(
+  mode: GroomMode,
+  dev: string | null,
+  qa: string | null,
+  attendees: [string, User][],
+  savedByUid: string | null,
+  cardName: string
+): string {
+  const header = mode === "pre" ? "Pre-Grooming" : "Grooming";
+  // เวลาตอนกดบันทึก — เดิมใช้ revealTime ทำให้ย้อนหลังเท่ากับที่ reveal ค้างไว้
+  // (reveal ไว้นาน แล้วมาบันทึกทีหลัง เวลาเลยดูเหมือน timezone ช้าไปหลายชั่วโมง)
+  const lines = [`${header} : ${formatDateTime(Date.now())}`];
+  if (dev !== null) lines.push(`Dev: ${dev}`);
+  if (qa !== null) lines.push(`QA: ${qa}`);
+  lines.push("", "Attendees");
+  for (const { keys, label } of ATTENDEE_ROLES) {
+    // ชื่อเรียงตามตัวอักษร a-z (localeCompare จัดการพ่วงวรรณยุกต์ไทยให้ด้วย)
+    // เครื่องหมาย (owner) ใส่หลังเรียงแล้ว กัน suffix กระทบลำดับการเรียง
+    const names = attendees
+      .filter(([, u]) => keys.includes(u.role))
+      .sort(([, a], [, b]) => (a.realName ?? a.name).localeCompare(b.realName ?? b.name, "th"))
+      .map(([uid, u]) => {
+        const n = u.realName ?? u.name; // fallback ชื่อเล่นเฉพาะข้อมูลเก่า/ห้องไม่บังคับ
+        return uid === savedByUid ? `${n}(owner)` : n;
+      });
+    if (names.length === 0) continue;
+    lines.push(`${label}: ${names.join(", ")}`);
+  }
+  // ชื่อการ์ดที่ใช้โหวต — บรรทัดสุดท้าย (เก็บตอนกดบันทึกเพื่ออ้างอิงย้อนหลัง)
+  if (cardName) lines.push("", cardName);
+  return lines.join("\n");
 }

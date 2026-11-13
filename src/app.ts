@@ -357,9 +357,13 @@ function bindEvents(): void {
       showToast("❌ ต้องกรอก point อย่างน้อย 1 ช่อง หรือเปิดการ์ด Custom — ห้ามลบทุกอย่าง");
       return;
     }
+    // คำอธิบายใต้การ์ด Custom (ว่าง = ใช้ default "Custom (Enter)" ฝั่ง render)
+    const customDescInput = document.getElementById("poker-custom-desc") as HTMLInputElement | null;
+    const customDesc = customDescInput ? customDescInput.value.trim() : "";
     await update(ref(db, "settings"), {
       pokerCards: cards,
       pokerCustomCard: customOn,
+      pokerCustomCardDesc: customDesc,
     });
     closeSettings();
     showToast(`💾 บันทึกการ์ด Poker แล้ว (${filled} ใบ)`);

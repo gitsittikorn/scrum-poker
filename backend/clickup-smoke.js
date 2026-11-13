@@ -3,14 +3,45 @@
 // Drives the real app: join room Cold as PO → resolve the real test task →
 // verify banner text → clear task → leave. Prints console/page errors at the end.
 const path = require("path");
+const fs = require("fs");
 const { chromium } = require("playwright-core");
 
-const EXE = path.join(process.env.LOCALAPPDATA, "ms-playwright", "chromium-1200", "chrome-win64", "chrome.exe");
+// หา chromium อัตโนมัติ — ใช้ executablePath() ของ playwright-core ก่อน (ตรงเวอร์ชัน
+// กับ browser ที่ `npx playwright install chromium` โหลดไว้) ถ้าไม่มีค่อย glob
+// โฟลเดอร์ chromium-* เอง (กันเคสเวอร์ชัน browser กับ package ไม่ตรงกัน)
+function findChromium() {
+  if (process.env.PLAYWRIGHT_CHROMIUM) return process.env.PLAYWRIGHT_CHROMIUM;
+  try {
+    const p = chromium.executablePath();
+    if (fs.existsSync(p)) return p;
+  } catch { /* fallthrough */ }
+  const root = path.join(process.env.LOCALAPPDATA, "ms-playwright");
+  const dirs = fs
+    .readdirSync(root)
+    .filter((d) => /^chromium-\d+$/.test(d))
+    .sort()
+    .reverse();
+  for (const d of dirs) {
+    const p = path.join(root, d, "chrome-win64", "chrome.exe");
+    if (fs.existsSync(p)) return p;
+  }
+  throw new Error("ไม่พบ chromium — รัน `npx playwright install chromium` ก่อน");
+}
+
+/** Launch headless — แบบปกติก่อน (Playwright จะใช้ headless shell ซึ่งไม่โดน
+ *  Windows App Control บล็อกเหมือน chrome.dll ตัวเต็ม) พลาดค่อยชี้ executablePath เอง */
+async function launchBrowser() {
+  try {
+    return await chromium.launch({ headless: true });
+  } catch {
+    return await chromium.launch({ headless: true, executablePath: findChromium() });
+  }
+}
 const TASK_URL = "https://app.clickup.com/t/9018499665/86eq6n0wa";
 const TASK_NAME = "Update Value from API";
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: EXE, headless: true });
+  const browser = await launchBrowser();
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
@@ -30,9 +61,23 @@ const TASK_NAME = "Update Value from API";
     await page.fill("#username-input", "ClaudeTest");
     await page.selectOption("#role-select", "po");
     await page.selectOption("#room-select", "Cold");
+    // ห้อง squad บังคับเลือก "ชื่อที่แสดงใน comment ClickUp" — รอ member list แล้วเลือกตัวแรก
+    await page.waitForFunction(
+      () => {
+        const sel = document.getElementById("realname-select");
+        return !!sel && [...sel.options].some((o) => o.value !== "");
+      },
+      null,
+      { timeout: 15000 },
+    );
+    const realNames = await page.$$eval(
+      "#realname-select option",
+      (os) => os.map((o) => o.value).filter(Boolean),
+    );
+    await page.selectOption("#realname-select", realNames[0]);
     await page.click("#btn-join-room");
     await page.waitForSelector("#room-page.active", { timeout: 20000 });
-    console.log("joined room Cold as PO");
+    console.log(`joined room Cold as PO (realName: ${realNames[0]})`);
 
     // PO must see the banner + input row
     await page.waitForSelector("#clickup-banner", { timeout: 10000 });

@@ -99,7 +99,7 @@ export async function handleJoinRoom(): Promise<void> {
   let realName: string | null = realnameSelect.value.trim() || null;
   if (REAL_NAME_ROOMS.includes(roomCode) && roleSelect.value !== "admin") {
     if (!realName) {
-      showToast("เลือกชื่อสำหรับระบุตัวตนใน ClickUp ก่อนเข้าห้องนี้");
+      showToast("เลือกชื่อที่แสดงใน comment ClickUp ก่อนเข้าห้องนี้");
       realnameSelect.focus();
       return;
     }

@@ -58,7 +58,7 @@
           </div>
 
           <div class="form-group" id="realname-group" style="display:none">
-            <label for="realname-select">ชื่อสำหรับระบุตัวตนใน ClickUp</label>
+            <label for="realname-select">ชื่อที่แสดงใน comment ClickUp</label>
             <select id="realname-select">
               <option value="">-- เลือกชื่อ --</option>
             </select>
@@ -94,6 +94,9 @@
 
       <!-- ClickUp Task Banner — PO วางลิงก์ task, ทุกคนเห็น task ปัจจุบันแบบ real-time -->
       <section id="clickup-banner" class="clickup-banner hidden">
+        <div id="task-required-reminder" class="task-required-reminder hidden">
+          🃏 ยังไม่ได้เลือกการ์ด — กรุณาดึง Task จาก ClickUp ก่อนดำเนินการโหวต
+        </div>
         <div id="clickup-input-row" class="clickup-input-row hidden">
           <span class="clickup-label">🔗 Task</span>
           <input
@@ -149,7 +152,7 @@
       <div id="member-manage-page" class="member-manage-page hidden">
         <div class="super-admin-header">
           <span class="super-admin-title">👥 Member</span>
-          <span class="super-admin-subtitle">รายชื่อสำหรับระบุตัวตนใน ClickUp + ห้อง Wheel — ข้อมูลถาวร ไม่หายเวลาเคลียร์ข้อมูลทั้งหมด</span>
+          <span class="super-admin-subtitle">รายชื่อที่แสดงใน comment ClickUp + ห้อง Wheel — ข้อมูลถาวร ไม่หายเวลาเคลียร์ข้อมูลทั้งหมด</span>
         </div>
         <div id="member-columns" class="member-columns"></div>
       </div>
@@ -789,6 +792,7 @@
                 <span class="toggle-switch" role="switch" aria-checked="false"></span>
                 <span class="toggle-text">✏️ แสดงการ์ด Custom (ให้ผู้ใช้กรอก point เอง)</span>
               </label>
+              <input type="text" id="poker-custom-desc" class="custom-desc-input" maxlength="30" placeholder='คำอธิบายใต้การ์ด Custom (ว่าง = "Custom (Enter)")' autocomplete="off" aria-label="คำอธิบายใต้การ์ด Custom">
             </div>
             <button id="btn-super-admin-reset-cards" class="btn btn-secondary" style="width:100%;margin-bottom:8px">🔄 ใช้ค่า default</button>
             <button id="btn-super-admin-save-cards" class="btn btn-primary" style="width:100%">💾 บันทึกการ์ด Poker</button>
