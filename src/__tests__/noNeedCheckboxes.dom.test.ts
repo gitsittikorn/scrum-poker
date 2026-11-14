@@ -29,6 +29,9 @@ vi.mock("../firebase", () => ({
     // path ย่อย /users ต้องได้ users object — ไม่ใช่ทั้ง room
     if (r.path === "rooms/Cold/users")
       return { exists: () => true, val: () => h.store.room?.users ?? null };
+    // path ย่อย /speakerCounts เช่นกัน (ใช้โดย roomReset.buildRoundResetUpdates)
+    if (r.path === "rooms/Cold/speakerCounts")
+      return { exists: () => true, val: () => h.store.room?.speakerCounts ?? null };
     return { exists: () => true, val: () => h.store.room };
   }),
   set: vi.fn(async () => {}),
@@ -81,6 +84,7 @@ const {
   handleHotFixToggle,
   renderTaskBanner,
   handleSaveToClickUp,
+  handleClearClickUpTask,
 } = await import("../clickup");
 const { state } = await import("../state");
 const { updateUI, handleReveal, handleVote, handleCustomVote } = await import("../voting");
@@ -395,6 +399,51 @@ describe("req 14 — No Need Test ล็อคการโหวตของ QA 
       expect.objectContaining({ path: "rooms/Cold/users/qa1/vote" }),
       "5",
     );
+  });
+});
+
+describe("เคลียร์ task ✕ = reset ข้อมูลรอบโหวตทันที (handleClearClickUpTask)", () => {
+  it("ล้าง task + noNeedTest/hotFix + โหวตทุกคน + revealed/locked กลับค่าว่าง ใน update เดียว (atomic)", async () => {
+    h.store.room = { ...revealedRoom(true), noNeedTest: true, hotFix: true };
+
+    await handleClearClickUpTask();
+
+    expect(updateMock).toHaveBeenCalledTimes(1); // atomic — update เดียวเท่านั้น
+    const [, payload] = vi.mocked(updateMock).mock.calls[0];
+    expect(payload).toMatchObject({
+      activeTask: null,
+      noNeedTest: false,
+      hotFix: false,
+      revealed: false,
+      locked: false,
+      revealTime: null,
+      drinkers: null,
+      "users/dev1/vote": null,
+      "users/qa1/vote": null,
+      "users/qa2/vote": null,
+    });
+    expect(vi.mocked(showToast)).toHaveBeenCalledWith(expect.stringContaining("reset รอบโหวต"));
+  });
+
+  it("speakerCounts: ทุกคนที่โหวตเคยพูดแล้ว → ล้างด้วย · ยังไม่ครบ → คงไว้ (anti-streak)", async () => {
+    // ทุกคนพูดครบ → จบรอบ ล้างตัวนับพูด
+    h.store.room = { ...revealedRoom(false), speakerCounts: { dev1: 1, qa1: 1, qa2: 1 } };
+    await handleClearClickUpTask();
+    expect(vi.mocked(updateMock).mock.calls[0][1]).toMatchObject({ speakerCounts: null });
+
+    // qa ยังไม่เคยพูด → กลางรอบ คงตัวนับไว้
+    vi.clearAllMocks();
+    h.store.room = { ...revealedRoom(false), speakerCounts: { dev1: 1 } };
+    await handleClearClickUpTask();
+    expect(vi.mocked(updateMock).mock.calls[0][1]).not.toHaveProperty("speakerCounts");
+  });
+
+  it("ไม่มี users ในห้อง (ห้องว่าง) — ยังเคลียร์ task ได้ ไม่พัง", async () => {
+    h.store.room = { ...noTaskRoom(), activeTask };
+    await handleClearClickUpTask();
+    const [, payload] = vi.mocked(updateMock).mock.calls[0];
+    expect(payload).toMatchObject({ activeTask: null, noNeedTest: false, hotFix: false });
+    expect(vi.mocked(showToast)).toHaveBeenCalledWith(expect.stringContaining("เคลียร์ task"));
   });
 });
 

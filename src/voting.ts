@@ -26,6 +26,7 @@ import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
 import { playSound } from "./sounds";
 import { renderTaskBanner, isSaveInFlight, onSaveStateChange, updateTaskRequiredReminder } from "./clickup";
+import { buildRoundResetUpdates, resetLocalVoteUi } from "./roomReset";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
@@ -463,40 +464,13 @@ export async function handleReset(): Promise<void> {
 async function doReset(): Promise<void> {
   cancelUnlockTimer();
 
-  const [usersSnap, countsSnap] = await Promise.all([
-    get(ref(db, `rooms/${state.currentRoom}/users`)),
-    get(ref(db, `rooms/${state.currentRoom}/speakerCounts`)),
-  ]);
-  if (usersSnap.exists()) {
-    const updates: Record<string, unknown> = {};
-    const users = usersSnap.val() as Record<string, User>;
-    Object.entries(users).forEach(([uid]) => {
-      updates[`users/${uid}/vote`] = null;
-    });
-    updates["revealed"] = false;
-    updates["locked"] = false;
-    updates["revealTime"] = null;
-    updates["drinkers"] = null; // Firebase field kept as "drinkers"
-    // เคลียร์ count เฉพาะตอน "รอบจบ" = ทุกคนที่โหวต (non-PO, non-left, เลข) เคยพูด ≥1 ครั้ง
-    // ถ้ายังไม่ครบ = reset เพื่อโหวตใหม่เรื่องเดิม → คง count ไว้ให้ anti-streak ทำงานต่อ
-    const counts: Record<string, number> = countsSnap.val() ?? {};
-    const allSpoken = Object.entries(users).every(([uid, u]) => {
-      if (u.role === "po" || u.left === true) return true;
-      if (isNaN(parseFloat(u.vote ?? ""))) return true;
-      return (counts[uid] ?? 0) >= 1;
-    });
-    if (allSpoken) updates["speakerCounts"] = null;
+  // payload ล้างรอบโหวต (ใช้ร่วมกับ "เคลียร์ task" — ดู roomReset.ts)
+  const updates = await buildRoundResetUpdates();
+  if (updates) {
     await update(ref(db, `rooms/${state.currentRoom}`), updates);
   }
 
-  state.selectedCardCustom = false;
-  state.selectedCard = null;
-  document
-    .querySelectorAll(".poker-card")
-    .forEach((el) => el.classList.remove("selected"));
-  document.querySelectorAll(".custom-point-input").forEach((el) => {
-    (el as HTMLInputElement).value = "";
-  });
+  resetLocalVoteUi();
   showToast("Reset complete");
 }
 

@@ -22,6 +22,7 @@
 | `src/ui.ts` | Theme, toast, settings modal, firework effect |
 | `src/auth.ts` | Firebase auth, version check, auto-rejoin from URL |
 | `src/room.ts` | Room lifecycle: join/leave/listen/delete, auto-unlock timer, beforeunload |
+| `src/roomReset.ts` | Logic กลางล้างรอบโหวตทั้งห้อง (โหวต/reveal/lock/ลำโพง/speakerCounts) — ใช้ร่วมระหว่างปุ่ม Reset (voting) กับเคลียร์ task (clickup) |
 | `src/voting.ts` | Card rendering, vote actions, participant grouping, results, `pickSpeakers` |
 | `src/chat.ts` | Chat init/destroy, messages, typing indicator, emoji picker, reply |
 | `src/reactions.ts` | Live floating reactions, message reactions, quick reaction popups |
@@ -60,6 +61,7 @@ state.ts ← ui.ts, auth.ts, room.ts, voting.ts, chat.ts, reactions.ts
 dom.ts ← ui.ts, auth.ts, room.ts, voting.ts, chat.ts, reactions.ts, app.ts
 firebase.ts ← ui.ts, auth.ts, room.ts, voting.ts, chat.ts, reactions.ts
 utils.ts ← ui.ts, room.ts, voting.ts, chat.ts, reactions.ts, clickup.ts (buildGroomingComment = pure, test ได้)
+roomReset.ts ← voting.ts, clickup.ts (ไฟล์กลาง — กัน cycle เพราะ clickup ห้าม import voting)
 members.ts ← admin.ts, app.ts, room.ts, wheel.ts
 couponCalc.ts ← couponTestdata.ts, couponUat.ts (pure — ไม่พึ่งโมดูลอื่น)
 couponUat.ts ← admin.ts, app.ts

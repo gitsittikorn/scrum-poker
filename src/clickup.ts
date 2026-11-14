@@ -10,7 +10,8 @@
  *    อย่างเดียว ไม่แตะ custom field (token อยู่ฝั่ง backend เท่านั้น)
  *
  * ไม่ import voting.ts/room.ts เพื่อกัน dependency cycle (voting เรียก
- * renderTaskBanner ของไฟล์นี้ใน updateUI)
+ * renderTaskBanner ของไฟล์นี้ใน updateUI) — logic reset รอบโหวตที่ใช้ร่วมกัน
+ * อยู่ที่ roomReset.ts (ไฟล์กลาง ไม่พึ่ง voting/clickup)
  */
 import { db, get, orderByKey, push, query, ref, remove, serverTimestamp, set, update } from "./firebase";
 import {
@@ -39,6 +40,7 @@ import { buildGroomingComment, dedupeTaskLinks, formatDateTime, parseRange, rang
 import { FEATURES } from "./config";
 import { ADMIN_ROOM } from "./constants";
 import { isPO, isRoomAdmin, state } from "./state";
+import { buildRoundResetUpdates, resetLocalVoteUi } from "./roomReset";
 import type { ActiveTask, GroomMode, RoomData, TaskHistoryEntry, TaskLink, User } from "./types";
 
 interface ResolvedTask {
@@ -468,15 +470,24 @@ export async function handleClearClickUpTask(): Promise<void> {
   // deputy เคลียร์การ์ดที่ดึงได้เหมือน PO — ใช้สิทธิ์ admin ของห้อง
   if (!isRoomAdmin() || !state.currentRoom) return;
   try {
-    // ล้าง task = No Need Test / Hot Fix กลับ unchecked ด้วย (ผูกกับ task ปัจจุบัน)
-    await update(ref(db, `rooms/${state.currentRoom}`), { activeTask: null, noNeedTest: false, hotFix: false });
+    // เคลียร์ task = จบรอบ → reset ข้อมูลรอบโหวตทันทีใน update เดียว (atomic):
+    // โหวตคนทุกคน + revealed/locked/ลำโพง กลับสถานะว่าง พร้อม No Need Test /
+    // Hot Fix กลับ unchecked (ผูกกับ task ปัจจุบัน) — logic ล้างรอบอยู่ที่ roomReset.ts
+    const roundUpdates = (await buildRoundResetUpdates()) ?? {};
+    await update(ref(db, `rooms/${state.currentRoom}`), {
+      activeTask: null,
+      noNeedTest: false,
+      hotFix: false,
+      ...roundUpdates,
+    });
   } catch (err) {
     console.error("[clickup] clear task failed:", err);
     showToast(`❌ เคลียร์ task ไม่สำเร็จ: ${(err as Error).message}`);
     return;
   }
+  resetLocalVoteUi(); // ล้าง highlight การ์ดฝั่งเครื่องทันที ไม่ต้องรอ room tick
   clickupUrlInput.value = "";
-  showToast("🧹 เคลียร์ task แล้ว");
+  showToast("🧹 เคลียร์ task แล้ว — reset รอบโหวต");
 }
 
 /** PO สลับโหมดห้อง groom/pre — เก็บใน Firebase ทุกคนเห็น real-time (ไม่ auto สลับกลับ) */
