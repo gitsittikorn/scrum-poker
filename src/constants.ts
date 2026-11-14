@@ -34,7 +34,7 @@ export const PO_DEPUTY_UIDS: string[] = [];
 export const ADMIN_ROOM = "admin";
 
 /** Bump = เคลียร์ localStorage room → ทุกคนกลับไปหน้าแรกกรอกใหม่ (รอบนี้เพิ่มห้อง Raiju + banner scroll) */
-export const APP_VERSION = "2026-11-15-v1";
+export const APP_VERSION = "2026-11-15-v2";
 
 /** ห้องที่บังคับเลือก "ชื่อสำหรับระบุตัวตนใน ClickUp" ตอน join
  *  (Wheel/TQM1/TQM2/admin ใช้ฟอร์มเดิม — ไม่ต้องเลือก) */
