@@ -41,7 +41,7 @@ const FEATURE_KEYS: (keyof FeaturePermissions)[] = [
 ];
 
 const FEATURE_LABELS: Record<keyof FeaturePermissions, string> = {
-  poker: "🃏 Poker",
+  poker: "Poker",
   chat: "💬 Chat",
   react: "😀 React",
   sound: "🔊 Sound",
@@ -51,7 +51,7 @@ const FEATURE_LABELS: Record<keyof FeaturePermissions, string> = {
 };
 
 const FEATURE_ICONS: Record<keyof FeaturePermissions, string> = {
-  poker: "🃏",
+  poker: "",
   chat: "💬",
   react: "😀",
   sound: "🔊",

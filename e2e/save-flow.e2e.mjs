@@ -210,15 +210,15 @@ async function joinAs(browser, { name, role, room }) {
       } else {
         fail(`req 20: เส้นคั่นหัว/ท้ายไม่ครบ → ${JSON.stringify(text)}`);
       }
-      if (lines[1] === "🃏 SCRUM POKER | POINT UPDATE") {
+      if (lines[1] === "SCRUM POKER | POINT UPDATE") {
         ok("req 20: มี header SCRUM POKER | POINT UPDATE");
       } else {
         fail(`req 20: header ผิด = "${lines[1]}"`);
       }
-      if (lines[lines.length - 2] === testTask.name) {
-        ok(`req 11 + 20: ชื่อการ์ดอยู่ท้ายสุดก่อนเส้นคั่นปิด`);
+      if (lines[lines.length - 2] === `📌 การ์ด: ${testTask.name}`) {
+        ok(`req 11 + 20: ชื่อการ์ด (มี title) อยู่ท้ายสุดก่อนเส้นคั่นปิด`);
       } else {
-        fail(`req 11: บรรทัดก่อนเส้นคั่น = "${lines[lines.length - 2]}" ≠ "${testTask.name}"`);
+        fail(`req 11: บรรทัดก่อนเส้นคั่น = "${lines[lines.length - 2]}" ≠ "📌 การ์ด: ${testTask.name}"`);
       }
       console.log("    comment ที่ได้:\n" + lines.map((l) => "      | " + l).join("\n"));
     }
