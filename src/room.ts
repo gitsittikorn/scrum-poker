@@ -462,7 +462,9 @@ let backendPrewarmed = false;
 function prewarmBackend(): void {
   if (backendPrewarmed) return;
   backendPrewarmed = true;
-  void fetch(`${import.meta.env.VITE_BACKEND_URL}/health`, { method: "GET" }).catch(() => {});
+  // ENV ขาด → "" (same-origin) แทน undefined — ดูคอมเมนต์เดียวกันใน clickup.ts
+  const backendUrl = import.meta.env.VITE_BACKEND_URL ?? "";
+  void fetch(`${backendUrl}/health`, { method: "GET" }).catch(() => {});
 }
 
 export function listenRoom(): void {

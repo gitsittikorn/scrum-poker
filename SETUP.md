@@ -50,15 +50,18 @@ pnpm test:e2e:noneedtest  # E2E No Need Test + tag + comment format (เงื�
 
 ## 5. Deploy (production)
 
-ไม่ได้ใช้ GitHub Pages — production คือ **Firebase Hosting + Cloud Function**:
+ไม่ได้ใช้ GitHub Pages — production คือ **Firebase Hosting** (frontend) + **backend บน Render**:
 
 ```bash
-pnpm build        # tsc + vite build → dist/
-firebase deploy   # Hosting (dist/) + function api (backend/) ตาม firebase.json
+pnpm build        # tsc + vite build → dist/ (อ่าน .env.production อัตโนมัติ)
+firebase login    # ต้อง login ก่อน — CLI ไม่มี account จะ deploy fail ทันที
+firebase deploy   # Hosting (dist/) ตาม firebase.json
 ```
 
-- Hosting rewrite `/api/**` → function `api` (asia-southeast1) = same-origin ไม่ต้อง CORS
+- ENV ตอน build: `.env.development` = dev (commit ไว้) · `.env.production` = prod (commit ไว้ ชี้ backend Render) · secret เช่น `ENCRYPTO_KEY/IV` ใส่ใน `.env` หรือ `.env.production.local` (git-ignored) — ดู `.env.example`
+- Hosting rewrite `/api/**` → function `api` (asia-southeast1) มีไว้สำหรับทางเลือก same-origin — **ปัจจุบัน function ยังไม่ได้ deploy** backend จริงคือ Render (ตรวจ: `https://<project>.web.app/api/health` ต้องตอบจาก Express ไม่ใช่หน้า 404 ของ Hosting)
 - มี `render.yaml` สำหรับรัน backend บน Render อีกทาง (optional)
+- GitHub Actions (`.github/workflows/ci.yml`) รัน type check + tests + build อัตโนมัติตอน push/PR เข้า main — **ไม่ deploy**
 - **Deploy จริงต้องขออนุญาตเจ้าของระบบก่อนเสมอ — production มีผู้ใช้จริง**
 
 ## 6. Firebase Security Rules (ตัวอย่าง)

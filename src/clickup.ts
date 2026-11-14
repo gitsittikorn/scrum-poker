@@ -59,11 +59,16 @@ type SaveResult = {
   comment?: { ok: boolean; error?: string };
 };
 
+/** Backend base URL จาก ENV (.env.development / .env.production) — ถ้า ENV ไม่ถูก
+ *  define ตอน build จะได้ "" = same-origin (Hosting rewrite /api/** → function api)
+ *  ป้องกัน bundle ที่ bake "undefined/api/..." แบบเงียบ ๆ แบบที่เคยเกิด */
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "";
+
 /** POST เล็ก ๆ ไป backend — แปลง HTTP error เป็น message ภาษาไทยสำหรับ toast */
 async function api<T>(path: string, body: Record<string, unknown>): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${import.meta.env.VITE_BACKEND_URL}${path}`, {
+    res = await fetch(`${BACKEND_URL}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
