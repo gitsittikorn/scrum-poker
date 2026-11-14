@@ -52,6 +52,9 @@ export interface RoomData {
   activeTask?: ActiveTask | null;
   /** โหมด session — "groom" (default): บันทึก field + comment, "pre": pre-groom ของ lead บันทึก comment อย่างเดียว */
   groomMode?: GroomMode;
+  /** "Groom ไม่มี Task" — admin (PO/deputy) ติ๊กเพื่อซ่อนแถบเตือน "ยังไม่ได้เลือกการ์ด"
+   *  sync ทั้งห้องแบบ real-time (เดิมเป็น preference รายเครื่อง) */
+  noNeedTask?: boolean;
 }
 
 /** โหมดการ groom ของห้อง — PO สลับเองผ่าน toggle บน banner ClickUp */

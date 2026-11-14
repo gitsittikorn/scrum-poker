@@ -29,6 +29,7 @@ import {
   groomModeControls,
   groomModeRow,
   noNeedToggles,
+  noNeedTaskCheckbox,
   noNeedTestCheckbox,
 } from "./dom";
 import { showConfirmModal, showToast, showSaveSplash, showWakeNotice } from "./ui";
@@ -225,11 +226,19 @@ let lastReminderRoomData: RoomData | null = null;
  *  สมาชิกทั่วไปไม่เห็น (banner ถูกซ่อนอยู่แล้วสำหรับ non-admin ที่ไม่มี task)
  *  แสดงตั้งแต่ยังไม่มี task (จะได้ดึงก่อนเริ่มโหวต) และเน้นย้ำเมื่อมีคนเริ่มโหวต
  *  PO ดึงการ์ดแล้ว = แถบหายทันที (real-time ผ่าน room tick)
- *  req 13 — No Need Task (state.noNeedTask) ทำให้ active = false ทั้งแถบ:
- *  ซ่อนแถบ + ไม่ scroll + ไม่ pulse animation โดยไม่แตะข้อมูลห้องใด ๆ */
+ *  req 13 — "Groom ไม่มี Task" (rooms/{roomId}/noNeedTask — sync ทั้งห้อง) ทำให้
+ *  active = false ทั้งแถบ: ซ่อนแถบ + ไม่ scroll + ไม่ pulse โดยไม่แตะข้อมูลห้องอื่น */
 export function updateTaskRequiredReminder(roomData: RoomData): void {
   lastReminderRoomData = roomData; // เก็บ snapshot ไว้ให้ setNoNeedTask re-render ทันที (req 17)
   const el = document.getElementById("task-required-reminder");
+  // sync ค่าจากห้อง → เครื่องนี้ (เฉพาะ admin): checkbox และ state mirror ค่าเดียวกันทั้งห้อง
+  // ยึดค่าห้องเฉพาะเมื่อมาเป็น boolean ชัด ๆ — undefined = ยังไม่เคยติ๊กในห้องนี้ หรือ write
+  // ของเครื่องเรายังไม่ propagation → ยึด state ในเครื่องไปก่อน กันแถบกะพริบตอนห้องนิ่ง
+  if (isRoomAdmin() && typeof roomData.noNeedTask === "boolean") {
+    const synced = roomData.noNeedTask;
+    if (noNeedTaskCheckbox.checked !== synced) noNeedTaskCheckbox.checked = synced;
+    state.noNeedTask = synced;
+  }
   if (!el) return;
   const active =
     FEATURES.clickup &&
@@ -251,18 +260,24 @@ export function updateTaskRequiredReminder(roomData: RoomData): void {
 
 // ===== No Need Task / No Need Test (req 13-14) =====
 
-/** req 13 — toggle "No Need Task": ซ่อน/แสดงแถบเตือนให้ดึง task ทันทีที่ toggle
- *  เป็น preference ของเครื่องนี้เท่านั้น ไม่เขียนอะไรลง Firebase
- *  ไม่ลบ task ที่ดึงมาแล้วและไม่แตะคะแนนโหวตเดิม
+/** req 13 — toggle "Groom ไม่มี Task": ซ่อน/แสดงแถบเตือนให้ดึง task ทันทีที่ toggle
+ *  sync ทั้งห้อง — เขียนลง rooms/{roomId}/noNeedTask ให้ admin ทุกเครื่อง (PO + deputy)
+ *  หายแถบพร้อมกันแบบ real-time (แก้จากเดิมที่เป็น preference รายเครื่อง)
+ *  ไม่ลบ task ที่ดึงมาแล้วและไม่แตะคะแนนโหวตเดิม — payload มีเฉพาะ field เดียว
  *  req 17 — คำนวณการแสดงผลใหม่ทันทีทั้งตอน check (ซ่อน) และ uncheck (กลับมาแสดง)
- *  จาก roomData ล่าสุดที่เคยเห็น — ไม่ต้องรอ room tick (ห้องนิ่ง onValue ไม่ยิง)
- *  และไม่ใช่การซ่อนถาวร: updateTaskRequiredReminder ยังเป็นตัวชี้ขาดทุก tick ตามเดิม
+ *  จาก snapshot ที่ patch ค่าใหม่ — ไม่ต้องรอ room tick (ห้องนิ่ง onValue ไม่ยิง)
+ *  ค่าจริงจะมายืนยันทาง room tick ตามหลังเสมอ
  *  req 16 — เปลี่ยนสถานะได้เฉพาะ admin ของห้อง (กันเรียกจากผู้ไม่มีสิทธิ์/console) */
 export function setNoNeedTask(checked: boolean): void {
   if (!isRoomAdmin()) return;
   state.noNeedTask = checked;
+  if (state.currentRoom) {
+    // sync ทั้งห้อง — เขียนเฉพาะ field เดียว ไม่แตะ task/โหวต
+    void update(ref(db, `rooms/${state.currentRoom}`), { noNeedTask: checked }).catch(() => {});
+  }
   if (lastReminderRoomData) {
-    // มี snapshot ห้องล่าสุด → ประเมินเงื่อนไขเตือนใหม่ทันที (รวม scroll episode ใหม่)
+    // patch snapshot ด้วยค่าที่เพิ่งติ๊กแล้ว re-render ทันที (รวม scroll episode ใหม่)
+    lastReminderRoomData = { ...lastReminderRoomData, noNeedTask: checked };
     updateTaskRequiredReminder(lastReminderRoomData);
     return;
   }
