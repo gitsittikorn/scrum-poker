@@ -15,7 +15,7 @@ const TAG = "no need test";
 const fx = {
   task: null, // GET /task/{taskId} → การ์ดปัจจุบัน (space.id + tags)
   spaceTags: [], // GET /space/{spaceId}/tag → รายการ tag ของ space
-  attachStatus: 200, // PUT .../tag/{name} (Add Tag To Task) → status ที่จะตอบ
+  attachStatus: 200, // POST .../tag/{name} → status ที่จะตอบ (ของจริง ClickUp ใช้ POST — PUT ได้ 405)
   attachBody: {},
 };
 const calls = []; // ทุก request ที่ยิงเข้า mock: { method, url (raw), body }
@@ -42,7 +42,7 @@ const mock = http.createServer((req, res) => {
     if (req.method === "POST" && req.url.match(/^\/space\/([^/?]+)\/tag$/)) {
       return send(200, {});
     }
-    if (req.method === "PUT" && (m = req.url.match(/^\/task\/([^/?]+)\/tag\/(.+)$/))) {
+    if (req.method === "POST" && (m = req.url.match(/^\/task\/([^/?]+)\/tag\/(.+)$/))) {
       if (fx.attachStatus !== 200) return send(fx.attachStatus, fx.attachBody);
       return send(200, {});
     }
@@ -94,7 +94,7 @@ beforeEach(() => {
   fx.attachBody = {};
 });
 
-const attachCalls = () => calls.filter((c) => c.method === "PUT" && /^\/task\/[^/]+\/tag\//.test(c.url));
+const attachCalls = () => calls.filter((c) => c.method === "POST" && /^\/task\/[^/]+\/tag\//.test(c.url));
 const spaceCreateCalls = () => calls.filter((c) => c.method === "POST" && /^\/space\/[^/]+\/tag$/.test(c.url));
 const fieldCalls = () => calls.filter((c) => /^\/task\/[^/]+\/field\//.test(c.url));
 
@@ -117,7 +117,7 @@ test("เพิ่ม tag สำเร็จ: ตรวจ space tags → ใช
     attachCalls().map((c) => c.url),
     ["/task/t1/tag/no%20need%20test"],
   );
-  // ไม่มีการลบ tag ของการ์ด (แนบด้วย PUT ครั้งเดียวตามด้านบน — ไม่มี DELETE)
+  // ไม่มีการลบ tag ของการ์ด (ไม่มี DELETE ใด ๆ — แนบด้วย POST ครั้งเดียวตามด้านบน)
   assert.ok(!calls.some((c) => c.method === "DELETE"));
 });
 
