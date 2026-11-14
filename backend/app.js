@@ -309,7 +309,9 @@ app.post("/api/clickup/add-tag", async (req, res, next) => {
       }
     }
 
-    await clickup.post(
+    // ClickUp API: Add Tag To Task = PUT /task/{task_id}/tag/{tag_name}
+    // (เดิมใช้ POST ผิด — ClickUp ตอบ 404 ทำให้ tag "no need test" ไม่ติดการ์ด)
+    await clickup.put(
       `/task/${encodeURIComponent(taskId)}/tag/${encodeURIComponent(tag)}`
     );
     console.log(`[clickup] add tag "${tag}" → task ${taskId}`);

@@ -25,7 +25,7 @@ import { escapeHtml, hasConfiguredCards, rangeFor, unanimousFor } from "./utils"
 import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
 import { playSound } from "./sounds";
-import { renderTaskBanner, isSaveInFlight, onSaveStateChange, updateTaskRequiredReminder, isNoNeedTestChecked } from "./clickup";
+import { renderTaskBanner, isSaveInFlight, onSaveStateChange, updateTaskRequiredReminder } from "./clickup";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
@@ -653,7 +653,9 @@ function renderSaveButton(roomData: RoomData): void {
     btnSaveClickup.textContent = "…กำลังบันทึก";
     return;
   }
-  const noNeedTest = isNoNeedTestChecked();
+  // state.noNeedTest = mirror จาก tick ล่าสุด (optimistic ตอน admin เพิ่งติ๊ก)
+  // roomData.noNeedTest = ค่าจากห้อง — OR รวมเพื่อให้ PO เห็น label ใหม่ทันทีไม่ต้องรอ tick
+  const noNeedTest = state.noNeedTest || roomData.noNeedTest === true;
   const groomMode = roomData.groomMode ?? "groom";
   const notLeft = Object.entries(roomData.users ?? {}).filter(([, u]) => !u.left);
   const devList = notLeft.filter(([, u]) => u.role === "dev");
@@ -704,6 +706,10 @@ export function updateUI(roomData: RoomData): void {
   const revealed = roomData.revealed || false;
   const locked = roomData.locked || false;
   cardsLocked = locked;
+  // mirror สถานะ No Need Test จากห้อง (ใช้ร่วมทุกเครื่อง — checkbox มีแค่ฝั่ง admin
+  // การอ่านจาก roomData ทำให้เครื่อง QA/dev รู้สถานะนี้ด้วย: ล็อคการ์ด QA ฯลฯ)
+  state.noNeedTest = roomData.noNeedTest === true;
+  state.hotFix = roomData.hotFix === true;
   const userList = Object.entries(users);
 
   detectJoinLeave(users);
@@ -734,6 +740,14 @@ export function updateUI(roomData: RoomData): void {
     state.currentRoom !== ADMIN_ROOM &&
     !roomData.noNeedTask &&
     !roomData.activeTask;
+  // QA gate — No Need Test ทำงาน: เครื่องของ QA เองถูกล็อคการ์ด ไม่ต้องใส่ point
+  // รอบนี้ (point เดิมถูกเคลียร์ตอน admin ติ๊กแล้ว) — dev/PO ไม่กระทบ
+  const qaGate =
+    state.noNeedTest &&
+    state.currentRole === "qa" &&
+    FEATURES.clickup &&
+    !state.isWheelRoom &&
+    state.currentRoom !== ADMIN_ROOM;
   votingStatus.style.display = "";
   if (locked && revealed) {
     statusDot.className = "status-dot locked";
@@ -764,6 +778,13 @@ export function updateUI(roomData: RoomData): void {
     statusText.textContent = "🔒 ยังไม่ได้ดึงการ์ด — รอ PO ดึง Task จาก ClickUp ก่อนโหวต";
     const existing = document.getElementById("btn-revote");
     if (existing) existing.remove();
+  } else if (qaGate) {
+    cancelUnlockTimer();
+    // No Need Test — QA ไม่ต้องใส่ point รอบนี้ (การ์ดถูกล็อคอยู่)
+    statusDot.className = "status-dot";
+    statusText.textContent = "🚫 No Need Test — ไม่ต้องใส่ point รอบนี้";
+    const existing = document.getElementById("btn-revote");
+    if (existing) existing.remove();
   } else {
     cancelUnlockTimer();
     // ไม่ล็อคและไม่รอ task = ซ่อนแถบสถานะไปเลย (เดิมแสดง "Select your estimate"
@@ -773,7 +794,7 @@ export function updateUI(roomData: RoomData): void {
     if (existing) existing.remove();
   }
 
-  const disableVoting = locked || taskGate;
+  const disableVoting = locked || taskGate || qaGate;
   document.querySelectorAll(".poker-card").forEach((el) => {
     el.classList.toggle("disabled", disableVoting);
   });
@@ -798,7 +819,8 @@ export function updateUI(roomData: RoomData): void {
   // Task gate ล็อคอยู่ = โหวตไม่ได้อยู่แล้ว ไม่ nudge ใครทั้งนั้นจนกว่าจะมี task
   const lastVoterUids = new Set<string>();
   if (!locked && !revealed && !taskGate) {
-    const noNeedTest = isNoNeedTestChecked();
+    // อ่านจาก roomData (ไม่ใช่ checkbox ของเครื่องนี้) — เครื่อง QA/dev ก็ต้องรู้
+    const noNeedTest = roomData.noNeedTest === true;
     const pendingByRole = new Map<string, [string, User][]>();
     for (const entry of userList) {
       const u = entry[1];

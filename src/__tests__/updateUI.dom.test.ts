@@ -61,7 +61,6 @@ document.body.innerHTML = html
 
 const { updateUI, initPokerCardsListener } = await import("../voting");
 const { state } = await import("../state");
-const { isNoNeedTestChecked } = await import("../clickup");
 import type { ActiveTask, RoomData, User } from "../types";
 
 /** ดันค่า settings ผ่าน onValue callback ที่ mock เก็บไว้ (จำลอง Firebase tick) */
@@ -111,7 +110,8 @@ beforeEach(() => {
   state.currentUid = me.uid;
   state.currentUser = me;
   state.selectedCard = null;
-  vi.mocked(isNoNeedTestChecked).mockImplementation(() => false);
+  state.noNeedTest = false;
+  state.hotFix = false;
 });
 
 describe("req 2 — Last voter animation (เหลือคนสุดท้ายที่ยังไม่โหวต)", () => {
@@ -210,14 +210,16 @@ describe("req ใหม่ — Last voter นับแยกตาม role (ไ�
   });
 
   it("No Need Test ทำงาน → QA ไม่ต้องโหวต = ไม่ถูกเตือน แม้เป็น QA คนเดียวที่ค้าง (dev ยังเตือนตามปกติ)", () => {
-    vi.mocked(isNoNeedTestChecked).mockImplementation(() => true);
     updateUI(
-      room({
-        po,
-        dev1: user({ name: "Tien", role: "dev", vote: "3" }),
-        dev2,
-        qa1: user({ name: "Run", role: "qa" }), // QA ค้างคนเดียว แต่ไม่ต้องโหวตแล้ว
-      }),
+      room(
+        {
+          po,
+          dev1: user({ name: "Tien", role: "dev", vote: "3" }),
+          dev2,
+          qa1: user({ name: "Run", role: "qa" }), // QA ค้างคนเดียว แต่ไม่ต้องโหวตแล้ว
+        },
+        { noNeedTest: true }, // flag จากห้อง — ทุกเครื่องรู้ (ไม่พึ่ง checkbox ฝั่ง admin)
+      ),
     );
     expect(cardOf("qa1")!.classList.contains("last-voter")).toBe(false);
     expect(cardOf("qa1")!.querySelector(".last-voter-label")).toBeNull();
@@ -288,6 +290,53 @@ describe("Task gate — ล็อคการ์ดก่อน PO ดึง tas
     );
     expect(cardOf("dev2")!.classList.contains("last-voter")).toBe(false);
     expect(cardOf("qa1")!.classList.contains("last-voter")).toBe(false);
+  });
+});
+
+describe("No Need Test — QA ถูกล็อคการ์ด + ข้อความ 'ไม่ต้องใส่ point'", () => {
+  const firstCard = () => document.querySelector(".poker-card") as HTMLElement;
+  const statusTextEl = () =>
+    document.querySelector("#voting-status .status-text") as HTMLElement;
+
+  beforeEach(() => {
+    initPokerCardsListener();
+    emitSetting("settings/pokerCards", null);
+  });
+
+  it("เครื่องของ QA เอง: การ์ด disabled + แถบสถานะแจ้ง 'No Need Test — ไม่ต้องใส่ point'", () => {
+    state.currentRole = "qa"; // เครื่อง QA
+    state.currentUid = "qa1";
+    updateUI(
+      room(
+        { po, dev1: user({ name: "Tien", role: "dev" }), qa1: user({ name: "Run", role: "qa", vote: null }) },
+        { noNeedTest: true },
+      ),
+    );
+    expect(firstCard().classList.contains("disabled")).toBe(true);
+    expect(statusTextEl().textContent).toContain("No Need Test");
+    expect(statusTextEl().textContent).toContain("ไม่ต้องใส่ point");
+  });
+
+  it("เครื่องของ dev: การ์ดปกติ โหวตได้ตามปกติ แม้ห้องจะ No Need Test", () => {
+    state.currentRole = "dev";
+    updateUI(
+      room(
+        { po, dev1: user({ name: "Tien", role: "dev" }), qa1: user({ name: "Run", role: "qa" }) },
+        { noNeedTest: true },
+      ),
+    );
+    expect(firstCard().classList.contains("disabled")).toBe(false);
+    // แถบสถานะ (ที่เคยแสดงข้อความ QA ในเคสก่อน) ต้องถูกซ่อน — ไม่มีข้อความรบกวนฝั่ง dev
+    expect(document.getElementById("voting-status")!.style.display).toBe("none");
+  });
+
+  it("uncheck (flag กลับ false) → QA กลับมาโหวตได้ทันทีผ่าน room tick", () => {
+    state.currentRole = "qa";
+    state.currentUid = "qa1";
+    updateUI(room({ po, qa1: user({ name: "Run", role: "qa" }) }, { noNeedTest: true }));
+    expect(firstCard().classList.contains("disabled")).toBe(true);
+    updateUI(room({ po, qa1: user({ name: "Run", role: "qa" }) }, { noNeedTest: false }));
+    expect(firstCard().classList.contains("disabled")).toBe(false);
   });
 });
 

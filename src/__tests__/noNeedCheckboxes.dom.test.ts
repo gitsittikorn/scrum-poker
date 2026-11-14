@@ -8,7 +8,7 @@ import html from "../index.html?raw";
 const h = vi.hoisted(() => {
   // ข้อมูลห้องที่ firebase get จะคืน (แก้ต่อเคสได้) + response ของแต่ละ route
   const store: {
-    room: unknown;
+    room: import("../types").RoomData | null;
     responses: Record<string, { data: unknown; status?: number }>;
   } = {
     room: null,
@@ -24,11 +24,13 @@ vi.mock("../firebase", () => ({
     path: parts.filter((p) => typeof p === "string").join("/"),
   })),
   onValue: vi.fn(),
-  get: vi.fn(async (r: { path: string }) =>
-    r.path === "rooms/Cold"
-      ? { exists: () => true, val: () => h.store.room }
-      : { exists: () => false, val: () => null },
-  ),
+  get: vi.fn(async (r: { path: string }) => {
+    if (!r.path.startsWith("rooms/Cold")) return { exists: () => false, val: () => null };
+    // path ย่อย /users ต้องได้ users object — ไม่ใช่ทั้ง room
+    if (r.path === "rooms/Cold/users")
+      return { exists: () => true, val: () => h.store.room?.users ?? null };
+    return { exists: () => true, val: () => h.store.room };
+  }),
   set: vi.fn(async () => {}),
   update: vi.fn(async () => {}),
   remove: vi.fn(async () => {}),
@@ -75,12 +77,14 @@ vi.stubGlobal(
 const {
   updateTaskRequiredReminder,
   setNoNeedTask,
+  handleNoNeedTestToggle,
+  handleHotFixToggle,
   renderTaskBanner,
   handleSaveToClickUp,
 } = await import("../clickup");
 const { state } = await import("../state");
 const { updateUI } = await import("../voting");
-const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow } = await import("../dom");
+const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow, clickupInputRow, hotFixCheckbox } = await import("../dom");
 const { showToast } = await import("../ui");
 const { initInfoTips } = await import("../infoTips");
 const { update: updateMock } = await import("../firebase");
@@ -160,6 +164,8 @@ beforeEach(() => {
   state.currentUid = "po1";
   state.currentUser = { uid: "po1", name: "Yam", realName: "Yam" };
   state.noNeedTask = false;
+  state.noNeedTest = false;
+  state.hotFix = false;
   noNeedTaskCheckbox.checked = false;
   noNeedTestCheckbox.checked = false;
   noNeedTestCheckbox.disabled = true;
@@ -230,6 +236,18 @@ describe("req 14 — No Need Test (สถานะ checkbox ผูกกับ t
     renderTaskBanner(null, "groom"); // task ถูกล้าง (PO กด ✕ / reset หลังบันทึกสำเร็จ)
     expect(noNeedTestCheckbox.checked).toBe(false);
     expect(noNeedTestCheckbox.disabled).toBe(true);
+  });
+
+  it("Hot Fix ใช้ได้เฉพาะเมื่อดึง task แล้ว — ไม่มี task = unchecked + disabled", () => {
+    renderTaskBanner(null, "groom"); // ยังไม่ดึง task
+    expect(hotFixCheckbox.disabled).toBe(true);
+    expect(hotFixCheckbox.checked).toBe(false);
+    renderTaskBanner(activeTask, "groom"); // ดึงสำเร็จ
+    expect(hotFixCheckbox.disabled).toBe(false);
+    hotFixCheckbox.checked = true; // จำลองผู้ใช้ติ๊กไว้
+    renderTaskBanner(null, "groom"); // task ถูกล้าง
+    expect(hotFixCheckbox.checked).toBe(false);
+    expect(hotFixCheckbox.disabled).toBe(true);
   });
 });
 
@@ -314,8 +332,9 @@ describe("req 14 — ปุ่มบันทึก (renderSaveButton ผ่า�
     expect(noNeedTestCheckbox.disabled).toBe(false);
     expect(btnSaveClickup.disabled).toBe(true); // QA ไม่ตรง → ปกติต้องรอ
 
-    noNeedTestCheckbox.checked = true; // ติ๊ก No Need Test
-    updateUI(room);
+    noNeedTestCheckbox.checked = true; // ติ๊ก No Need Test (change handler เขียน flag ลง Firebase)
+    // room tick ถัดมาเห็น flag จากห้อง (ใน app จริง latency compensation ทำให้ทันที)
+    updateUI({ ...room, noNeedTest: true });
     expect(btnSaveClickup.disabled).toBe(false); // QA ไม่นับ readiness แล้ว
     expect(btnSaveClickup.textContent).toContain("Dev 3");
     expect(btnSaveClickup.textContent).toContain("QA no need test");
@@ -332,13 +351,15 @@ describe("req 16 — Permission & Visibility (เห็นเฉพาะ PO + D
     expect(noNeedTestCheckbox.disabled).toBe(false); // มี task → enabled
   });
 
-  it("Dev Cing (deputy — realName จาก member list ตาม PO_DEPUTY_REAL_NAMES) เห็นและใช้ได้", () => {
+  it("Dev Cing (deputy — realName จาก member list ตาม PO_DEPUTY_REAL_NAMES) เห็นและใช้ได้ + ดึงการ์ดได้เหมือน PO", () => {
     state.currentRole = "dev";
     state.currentUid = "cing-browser";
     state.currentUser = { uid: "cing-browser", name: "ซิน", realName: "Cing" };
     renderTaskBanner(activeTask, "groom");
     expect(noNeedToggles.classList.contains("hidden")).toBe(false);
     expect(noNeedTestCheckbox.disabled).toBe(false);
+    // input row ดึงการ์ดเห็นด้วย (เดิม PO เท่านั้น — deputy ดึงไม่ได้)
+    expect(clickupInputRow.classList.contains("hidden")).toBe(false);
     setNoNeedTask(true); // deputy ใช้ได้ — ไม่โดน guard ตีตก
     expect(state.noNeedTask).toBe(true);
   });
@@ -351,6 +372,7 @@ describe("req 16 — Permission & Visibility (เห็นเฉพาะ PO + D
       state.currentUser = { uid: `user-${role}`, name: "Cing", realName: "คนอื่น" };
       renderTaskBanner(activeTask, "groom");
       expect(noNeedToggles.classList.contains("hidden")).toBe(true); // ไม่เห็น
+      expect(clickupInputRow.classList.contains("hidden")).toBe(true); // ดึงการ์ดไม่ได้
       expect(noNeedTestCheckbox.disabled).toBe(true); // แม้มี task ก็ใช้ไม่ได้
       // แก้ DOM มือ (devtools) → tick ถัดไปต้องถูก force รีเซ็ต
       noNeedTestCheckbox.checked = true;
@@ -372,20 +394,23 @@ const TIP_TEXTS = {
     "ใช้สำหรับการโหวตประเมิน Point โดยไม่จำเป็นต้องดึง Task จาก ClickUp ระบบจะซ่อนการแจ้งเตือนให้ดึง Task ให้ทุกคนในห้อง และสามารถดำเนินการโหวตได้ตามปกติ โดยไม่มีการบันทึก Point ไปยัง ClickUp Task",
   test:
     "ใช้สำหรับ Task ที่ไม่จำเป็นต้องให้ QA ทดสอบ เมื่อบันทึก Point ระบบจะเพิ่ม Tag 'no need test' ใน ClickUp โดยไม่อัปเดต QA Point ใน Custom Field และระบุ 'QA: no need test' ใน Comment แทนคะแนน QA",
+  hotfix:
+    "ใช้กับ Task ที่เป็น Hot Fix — เมื่อบันทึก Point ระบบจะเพิ่ม Tag 'hot fix' ใน ClickUp เลือกอย่างเดียวหรือร่วมกับ No Need Test ก็ได้",
 } as const;
 
-const tipBtn = (which: "task" | "test"): HTMLButtonElement =>
+const tipBtn = (which: "task" | "test" | "hotfix"): HTMLButtonElement =>
   noNeedToggles.querySelector(
-    `.no-need-toggle:nth-child(${which === "task" ? 1 : 2}) .info-tip`,
+    `.no-need-toggle:nth-child(${which === "task" ? 1 : which === "test" ? 2 : 3}) .info-tip`,
   ) as HTMLButtonElement;
 
-describe("req 19 — Tooltip ⓘ อธิบาย No Need Task / No Need Test", () => {
-  it("มีไอคอน info ครบทั้งสอง checkbox พร้อมข้อความ tooltip ตาม requirement ภาษาไทย", () => {
+describe("req 19 — Tooltip ⓘ อธิบาย Groom ไม่มี Task / No Need Test / Hot Fix", () => {
+  it("มีไอคอน info ครบทั้งสาม checkbox พร้อมข้อความ tooltip ตาม requirement ภาษาไทย", () => {
     const btns = noNeedToggles.querySelectorAll(".info-tip");
-    expect(btns).toHaveLength(2);
+    expect(btns).toHaveLength(3);
     const bubbles = noNeedToggles.querySelectorAll(".info-tip-bubble");
     expect(bubbles[0].textContent).toBe(TIP_TEXTS.task);
     expect(bubbles[1].textContent).toBe(TIP_TEXTS.test);
+    expect(bubbles[2].textContent).toBe(TIP_TEXTS.hotfix);
     // tooltip เป็นส่วนหนึ่งของ toggle → ซ่อน/แสดงตามสิทธิ์ admin ของห้อง (req 19 ข้อ 7)
     state.currentRole = "qa";
     state.currentUid = "qa9";
@@ -500,5 +525,84 @@ describe("sync ทั้งห้อง — แถบเตือน/checkbox �
     updateTaskRequiredReminder({ ...noTaskRoom(), noNeedTask: true });
     expect(reminderEl.classList.contains("hidden")).toBe(true); // deputy ก็หายแถบ
     expect(noNeedTaskCheckbox.checked).toBe(true);
+  });
+});
+
+// ── No Need Test toggle: sync ทั้งห้อง + เคลียร์ point QA ทันทีที่ติ๊ก ──────
+
+describe("No Need Test toggle — sync ทั้งห้อง (rooms/{roomId}/noNeedTest) + เคลียร์ point QA", () => {
+  const toggleCall = () =>
+    vi.mocked(updateMock).mock.calls.find(
+      ([, p]) => p != null && typeof p === "object" && "noNeedTest" in (p as object),
+    );
+
+  it("ติ๊ก → เขียน noNeedTest:true + เคลียร์ vote เฉพาะ QA (dev/PO ไม่ถูกแตะ)", async () => {
+    // qa1 โหวต "5" อยู่ → ต้องถูกเคลียร์ · dev1 โหวต "3" → ไม่แตะ
+    h.store.room = revealedRoom();
+    await handleNoNeedTestToggle(true);
+    const call = toggleCall();
+    expect(call).toBeDefined();
+    const payload = call![1] as Record<string, unknown>;
+    expect(payload.noNeedTest).toBe(true);
+    expect(payload["users/qa1/vote"]).toBeNull();
+    expect(payload["users/qa2/vote"]).toBeNull();
+    expect(payload["users/dev1/vote"]).toBeUndefined();
+  });
+
+  it("uncheck → เขียน noNeedTest:false เท่านั้น (ไม่แตะโหวตใคร)", async () => {
+    await handleNoNeedTestToggle(false);
+    const call = toggleCall();
+    expect(call).toBeDefined();
+    expect(call![1]).toEqual({ noNeedTest: false });
+  });
+
+  it("คนที่ไม่มีสิทธิ์ (QA ทั่วไป) เรียกตรง ๆ → ไม่เขียนอะไรลง Firebase", async () => {
+    state.currentRole = "qa";
+    state.currentUid = "qa9";
+    state.currentUser = { uid: "qa9", name: "ใครก็ได้", realName: "คนอื่น" };
+    await handleNoNeedTestToggle(true);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── Hot Fix: checkbox อิสระ — เลือกอย่างเดียวหรือร่วมกับ No Need Test ก็ได้ ──
+
+describe("Hot Fix — sync ทั้งห้อง + ติด tag 'hot fix' ตอนบันทึก (ร่วมกับ No Need Test ได้)", () => {
+  const tagCalls = () =>
+    h.calls.fetch.filter((c) => c.path.includes("add-tag")).map((c) => c.body.tag as string);
+
+  it("toggle Hot Fix → เขียน hotFix ลงห้องเท่านั้น (ไม่แตะ noNeedTest/โหวต)", async () => {
+    await handleHotFixToggle(true);
+    const call = vi.mocked(updateMock).mock.calls.find(
+      ([, p]) => p != null && typeof p === "object" && "hotFix" in (p as object),
+    );
+    expect(call).toBeDefined();
+    expect(call![1]).toEqual({ hotFix: true });
+  });
+
+  it("Hot Fix อย่างเดียว + บันทึก → ติดแค่ tag 'hot fix'", async () => {
+    h.store.room = revealedRoom(false); // QA ตรงกัน 5/5 บันทึกได้ปกติ
+    noNeedTestCheckbox.disabled = false;
+    noNeedTestCheckbox.checked = false;
+    state.hotFix = true;
+    await handleSaveToClickUp();
+    expect(tagCalls()).toEqual(["hot fix"]);
+  });
+
+  it("ทั้ง No Need Test + Hot Fix + บันทึก → ติด 2 tags ('no need test' แล้ว 'hot fix')", async () => {
+    h.store.room = revealedRoom(true); // QA ไม่ตรง 5/8 — No Need Test ตัด QA ออกจึงบันทึกได้
+    noNeedTestCheckbox.disabled = false;
+    noNeedTestCheckbox.checked = true;
+    state.hotFix = true;
+    await handleSaveToClickUp();
+    expect(tagCalls()).toEqual(["no need test", "hot fix"]);
+  });
+
+  it("ไม่เลือกอะไรเลย + บันทึก → ไม่มีการติด tag", async () => {
+    h.store.room = revealedRoom(false);
+    noNeedTestCheckbox.disabled = false;
+    noNeedTestCheckbox.checked = false;
+    await handleSaveToClickUp();
+    expect(tagCalls()).toEqual([]);
   });
 });

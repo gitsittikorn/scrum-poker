@@ -135,6 +135,12 @@
               </label>
               <button type="button" class="info-tip" aria-expanded="false" aria-label="ดูคำอธิบาย No Need Test">ⓘ<span class="info-tip-bubble" role="tooltip">ใช้สำหรับ Task ที่ไม่จำเป็นต้องให้ QA ทดสอบ เมื่อบันทึก Point ระบบจะเพิ่ม Tag 'no need test' ใน ClickUp โดยไม่อัปเดต QA Point ใน Custom Field และระบุ 'QA: no need test' ใน Comment แทนคะแนน QA</span></button>
             </span>
+            <span class="no-need-toggle">
+              <label class="no-need-label">
+                <input type="checkbox" id="hot-fix" disabled> Hot Fix
+              </label>
+              <button type="button" class="info-tip" aria-expanded="false" aria-label="ดูคำอธิบาย Hot Fix">ⓘ<span class="info-tip-bubble" role="tooltip">ใช้กับ Task ที่เป็น Hot Fix — เมื่อบันทึก Point ระบบจะเพิ่ม Tag 'hot fix' ใน ClickUp เลือกอย่างเดียวหรือร่วมกับ No Need Test ก็ได้</span></button>
+            </span>
           </span>
         </div>
         <div id="clickup-task-row" class="clickup-task-row hidden">
