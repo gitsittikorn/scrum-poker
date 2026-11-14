@@ -62,7 +62,7 @@ document.body.innerHTML = html
 const { updateUI, initPokerCardsListener } = await import("../voting");
 const { state } = await import("../state");
 const { isNoNeedTestChecked } = await import("../clickup");
-import type { RoomData, User } from "../types";
+import type { ActiveTask, RoomData, User } from "../types";
 
 /** ดันค่า settings ผ่าน onValue callback ที่ mock เก็บไว้ (จำลอง Firebase tick) */
 const emitSetting = (path: string, val: unknown): void => {
@@ -79,11 +79,22 @@ const user = (over: Partial<User> & Pick<User, "name" | "role">): User => ({
   ...over,
 });
 
+const taskFixture: ActiveTask = {
+  taskId: "task-1",
+  name: "Card A",
+  url: "https://app.clickup.com/t/task-1",
+  setBy: "Yam",
+  timestamp: 0,
+  historyKey: "hist-1",
+};
+
+// default มี task อยู่แล้ว (สภาพปกติตอนโหวต) — เคส "ยังไม่มี task" ส่ง { activeTask: undefined } ทับ
 const room = (users: Record<string, User>, over: Partial<RoomData> = {}): RoomData => ({
   createdAt: 0,
   revealed: false,
   locked: false,
   autoUnlockSeconds: 30,
+  activeTask: taskFixture,
   users,
   ...over,
 });
@@ -227,6 +238,56 @@ describe("req ใหม่ — Last voter นับแยกตาม role (ไ�
     expect(cardOf("ux1")!.classList.contains("last-voter")).toBe(false);
     expect(cardOf("ux2")!.classList.contains("last-voter")).toBe(false);
     expect(cardOf("dev2")!.classList.contains("last-voter")).toBe(true); // dev นับของตัวเอง
+  });
+});
+
+describe("Task gate — ล็อคการ์ดก่อน PO ดึง task (ยังไม่ได้ติ๊ก Groom ไม่มี Task)", () => {
+  const firstCard = () => document.querySelector(".poker-card") as HTMLElement;
+  const statusRow = () => document.getElementById("voting-status")!;
+
+  beforeEach(() => {
+    initPokerCardsListener();
+    emitSetting("settings/pokerCards", null); // render การ์ดชุด default ให้มี .poker-card
+  });
+
+  it("ไม่มี task → การ์ด disabled + แถบสถานะขึ้น 'ยังไม่ได้ดึงการ์ด'", () => {
+    updateUI(room({ po, dev1: user({ name: "Tien", role: "dev" }) }, { activeTask: undefined }));
+    expect(firstCard().classList.contains("disabled")).toBe(true);
+    expect(statusRow().style.display).not.toBe("none");
+    expect(statusRow().querySelector(".status-text")!.textContent).toContain("ยังไม่ได้ดึงการ์ด");
+  });
+
+  it("PO ดึง task มาแล้ว (room tick ใหม่) → ปลดล็อค + ซ่อนแถบสถานะ (ไม่มี 'Select your estimate' แล้ว)", () => {
+    updateUI(room({ po, dev1: user({ name: "Tien", role: "dev" }) }, { activeTask: undefined }));
+    expect(firstCard().classList.contains("disabled")).toBe(true);
+
+    updateUI(room({ po, dev1: user({ name: "Tien", role: "dev" }) })); // fixture default มี task
+    expect(firstCard().classList.contains("disabled")).toBe(false);
+    expect(statusRow().style.display).toBe("none");
+  });
+
+  it("ติ๊ก Groom ไม่มี Task (noNeedTask=true) → ไม่ล็อค โหวตได้ทันทีแม้ไม่มี task", () => {
+    updateUI(
+      room({ po, dev1: user({ name: "Tien", role: "dev" }) }, { activeTask: undefined, noNeedTask: true }),
+    );
+    expect(firstCard().classList.contains("disabled")).toBe(false);
+    expect(statusRow().style.display).toBe("none");
+  });
+
+  it("gate ล็อคอยู่ → ไม่ nudge 'เพื่อนสมาชิกรอคุณอยู่' ใครเลย (กันเตือนก่อนมี task)", () => {
+    updateUI(
+      room(
+        {
+          po,
+          dev1: user({ name: "Tien", role: "dev", vote: "3" }),
+          dev2,
+          qa1: user({ name: "Run", role: "qa" }),
+        },
+        { activeTask: undefined },
+      ),
+    );
+    expect(cardOf("dev2")!.classList.contains("last-voter")).toBe(false);
+    expect(cardOf("qa1")!.classList.contains("last-voter")).toBe(false);
   });
 });
 
