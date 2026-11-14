@@ -1,0 +1,51 @@
+# CI — type check + tests + production build ทุกครั้งที่ push/PR เข้า main
+# ไม่มีขั้นตอน deploy (deploy เป็นขั้นตอน manual ผ่าน firebase deploy — ต้องขออนุญาตก่อนเสมอ)
+# ไม่ต้องใช้ secret ใด ๆ: VITE_BACKEND_URL มาจาก .env.production ที่ commit ไว้
+# ส่วน ENCRYPTO_* เป็น optional (build ผ่านได้ — มีแค่ warning จาก vite.config.ts)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Frontend tests (vitest)
+        run: pnpm test
+
+      - name: Backend tests (mock ClickUp — ไม่ยิงของจริง)
+        run: pnpm --filter scrum-poker-backend test
+
+      - name: Production build
+        run: pnpm build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 7

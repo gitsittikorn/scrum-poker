@@ -1,84 +1,72 @@
-# Scrum Poker — Planning Poker for Agile Teams
+# Scrum Poker — Setup Guide
 
-Real-time Scrum Poker web app using Firebase.
+Real-time Scrum Poker (Planning Poker) สำหรับทีม Agile — Vanilla TypeScript + Vite + Firebase RTDB
+พร้อม ClickUp integration ผ่าน backend proxy (Express)
 
-## Quick Start
+> ภาพรวมสถาปัตยกรรม/flow ต่าง ๆ ดู `docs/architecture.md` · บริบทโปรเจกต์เต็ม ดู `CLAUDE.md`
 
-### 1. Firebase Setup
+## 1. Firebase Setup
 
-1. Go to [Firebase Console](https://console.firebase.google.com/) and create a new project
-2. Enable **Realtime Database**:
-   - Go to Build > Realtime Database > Create Database
-   - Choose **Start in test mode** (we'll add rules later)
-3. Enable **Anonymous Authentication**:
-   - Go to Build > Authentication > Sign-in method
-   - Enable **Anonymous** sign-in
-4. Copy your Firebase config:
-   - Go to Project Settings (gear icon) > General > Your apps > Web app
-   - Register a new web app if you haven't
-   - Copy the `firebaseConfig` object
+1. สร้าง project ใหม่ที่ [Firebase Console](https://console.firebase.google.com/)
+2. เปิด **Realtime Database** (โปรเจกต์นี้ใช้ region `asia-southeast1`)
+3. เปิด **Authentication → Sign-in method → Anonymous** (ระบบ sign-in อัตโนมัติ ไม่มีฟอร์ม login)
+4. คัดลอก `firebaseConfig` จาก Project Settings → General → Your apps → Web app
+5. แปะค่าลง `src/firebase.ts` (แทนที่ config เดิม)
 
-### 2. Configure the App
+## 2. Frontend — รัน local
 
-Edit `src/firebase.js` and paste your config:
-
-```javascript
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
-};
-```
-
-### 3. Run Locally
+ต้องใช้ **pnpm** (repo นี้เป็น pnpm workspace — backend เป็น member package)
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev          # vite dev server → http://localhost:5173
 ```
 
-Open http://localhost:3000
+- หน้าเว็บ: **http://localhost:5173** (ไม่ใช่ 3000 — 3000 คือ backend)
+- `.env.development` ชี้ `VITE_BACKEND_URL=http://localhost:3000` อยู่แล้ว
 
-### 4. Deploy to GitHub Pages
+## 3. Backend (ClickUp proxy)
 
-1. Push this repo to GitHub
-2. Go to Settings > Pages
-3. Set Source to `main` branch, folder `/src`
-4. Your app will be live at `https://<username>.github.io/<repo>/`
+Backend เป็น Express app เดียวใช้ 2 ที่: local (`node server.js`) และ production
+(Firebase Cloud Function `api` ผ่าน `backend/index.js`)
 
-### 5. Firebase Security Rules
-
-Go to Realtime Database > Rules and paste:
-
-```json
-{
-  "rules": {
-    "rooms": {
-      "$roomId": {
-        ".read": true,
-        ".write": true,
-        "users": {
-          "$uid": {
-            ".validate": "newData.hasChildren(['name', 'online'])",
-            "name": {
-              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
-            },
-            "vote": {
-              ".validate": "newData.val() == null || newData.isString()"
-            }
-          }
-        }
-      }
-    }
-  }
-}
+```bash
+cd backend
+cp .env.example .env      # ใส่ CLICKUP_API_TOKEN (ไม่มี = route ClickUp ทุกตัวพัง)
+node server.js            # listening on http://localhost:3000
 ```
 
-For production, restrict `.write` to authenticated users:
+หมายเหตุ: `pnpm install` ที่ root ครั้งเดียวก็ครอบ backend (ดู `pnpm-workspace.yaml`)
+
+## 4. Tests
+
+```bash
+pnpm test                 # unit + DOM integration (vitest)
+cd backend && npm test    # backend integration (mock ClickUp — ไม่ยิงของจริง)
+pnpm test:e2e             # Playwright E2E (ต้องรัน dev server :5173 + backend :3000 ก่อน)
+pnpm test:e2e:save        # E2E บันทึก ClickUp ครบวงจร (ต้องมี token — สร้าง/ลบการ์ด [E2E-TEST] เอง)
+pnpm test:e2e:noneedtest  # E2E No Need Test + tag + comment format (เงื่อนไขเดียวกัน)
+```
+
+## 5. Deploy (production)
+
+ไม่ได้ใช้ GitHub Pages — production คือ **Firebase Hosting** (frontend) + **backend บน Render**:
+
+```bash
+pnpm build        # tsc + vite build → dist/ (อ่าน .env.production อัตโนมัติ)
+firebase login    # ต้อง login ก่อน — CLI ไม่มี account จะ deploy fail ทันที
+firebase deploy   # Hosting (dist/) ตาม firebase.json
+```
+
+- ENV ตอน build: `.env.development` = dev (commit ไว้) · `.env.production` = prod (commit ไว้ ชี้ backend Render) · secret เช่น `ENCRYPTO_KEY/IV` ใส่ใน `.env` หรือ `.env.production.local` (git-ignored) — ดู `.env.example`
+- Hosting rewrite `/api/**` → function `api` (asia-southeast1) มีไว้สำหรับทางเลือก same-origin — **ปัจจุบัน function ยังไม่ได้ deploy** backend จริงคือ Render (ตรวจ: `https://<project>.web.app/api/health` ต้องตอบจาก Express ไม่ใช่หน้า 404 ของ Hosting)
+- มี `render.yaml` สำหรับรัน backend บน Render อีกทาง (optional)
+- GitHub Actions (`.github/workflows/ci.yml`) รัน type check + tests + build อัตโนมัติตอน push/PR เข้า main — **ไม่ deploy**
+- **Deploy จริงต้องขออนุญาตเจ้าของระบบก่อนเสมอ — production มีผู้ใช้จริง**
+
+## 6. Firebase Security Rules (ตัวอย่าง)
+
+Production ควรจำกัด `.write` เฉพาะผู้ที่ sign-in แล้ว (ระบบนี้ใช้ anonymous auth):
 
 ```json
 {
@@ -93,34 +81,27 @@ For production, restrict `.write` to authenticated users:
 }
 ```
 
-## Features
-
-- Create / Join rooms with a code
-- Fibonacci cards (0 - 89) + ? and Coffee
-- Real-time sync across all users
-- Reveal votes / Reset round
-- Auto-remove disconnected users
-- Dark mode
-- Mobile responsive
-- Share room link
-
-## Project Structure
+## Project Structure (ย่อ — ดูรายละเอียดใน CLAUDE.md)
 
 ```
 scrum-poker/
-├── src/
-│   ├── index.html      # Main HTML
-│   ├── style.css       # Styles + dark mode + responsive
-│   ├── firebase.js     # Firebase config & exports
-│   └── app.js          # Application logic
-├── package.json
-├── .gitignore
-└── SETUP.md            # This file
+├── src/                # Frontend — TypeScript (entry: app.ts, DOM: index.html)
+│   ├── voting.ts       # การ์ด/โหวต/reveal/reset/speakers
+│   ├── clickup.ts      # banner task ClickUp + บันทึก point/tag/comment
+│   ├── chat.ts · reactions.ts · sounds.ts · wheel.ts
+│   ├── room.ts · auth.ts · members.ts · admin.ts
+│   └── __tests__/      # vitest (unit + DOM integration ผ่าน happy-dom)
+├── backend/            # Express ClickUp proxy (local + Cloud Function)
+│   ├── app.js · links.js
+│   └── test/           # node:test integration (mock ClickUp API)
+├── e2e/                # Playwright E2E (.mjs)
+├── firebase.json       # Hosting + Functions config
+└── docs/architecture.md
 ```
 
 ## Tech Stack
 
-- Vanilla HTML/CSS/JavaScript (no framework)
-- Firebase Realtime Database
-- Firebase Anonymous Auth
-- ES Modules
+- Vanilla **TypeScript** (no framework) + **Vite**
+- **Firebase RTDB** (real-time) + **Firebase Anonymous Auth**
+- **Express** backend proxy (token ClickUp ไม่ออกจาก backend เด็ดขาด)
+- **pnpm** workspace · **vitest** + **Playwright** สำหรับ tests

@@ -85,7 +85,7 @@ async function cleanOldSoundCaches(): Promise<void> {
 /** Preload + decode every sound on room join so the first play is instant and complete.
  *  Includes NOTIFICATION_SOUNDS (in.mp3/out.mp3) so join/leave cues are instant too —
  *  these never appear in the picker, but share the same buffer cache. */
-export async function preloadSounds(): Promise<void> {
+async function preloadSounds(): Promise<void> {
   getAudioContext();
   cleanOldSoundCaches().catch(() => {});
   await Promise.all([
@@ -178,10 +178,13 @@ export function initSoundListener(): void {
         const emoji = getSoundEmoji(data.file);
         animateFloatingEmoji(emoji, data.senderName);
       }
+      // จับ room ตอนนี้เลย — อ่าน state ตอน timer ยิง (5 วิถัดไป) ผู้ใช้อาจย้าย
+      // ห้องแล้ว จะไปลบ path ของห้องใหม่ด้วย key ของห้องเก่า (ไม่ถูกไฟล์)
+      const room = state.currentRoom;
       const key = snap.key;
       setTimeout(() => {
-        if (state.currentRoom && key) {
-          remove(ref(db, `rooms/${state.currentRoom}/sounds/${key}`));
+        if (room && key) {
+          remove(ref(db, `rooms/${room}/sounds/${key}`));
         }
       }, 5000);
     }

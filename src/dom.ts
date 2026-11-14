@@ -75,6 +75,11 @@ export const btnGroomModePre = $("btn-groom-mode-pre") as HTMLButtonElement;
 export const btnGroomModeGroom = $("btn-groom-mode-groom") as HTMLButtonElement;
 export const groomModeBadge = $("groom-mode-badge");
 export const btnTaskHistory = $("btn-task-history") as HTMLButtonElement;
+// No Need Task / No Need Test — checkbox ข้างปุ่ม History (req 13-14)
+// container คุมการแสดงผล: เห็นเฉพาะ admin ของห้อง (req 16)
+export const noNeedToggles = $("no-need-toggles");
+export const noNeedTaskCheckbox = $("no-need-task") as HTMLInputElement;
+export const noNeedTestCheckbox = $("no-need-test") as HTMLInputElement;
 
 // Admin settings
 export const adminSettings = $("admin-settings");
