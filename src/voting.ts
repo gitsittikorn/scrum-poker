@@ -779,20 +779,28 @@ export function updateUI(roomData: RoomData): void {
 
   // Participants — diff-based update
   const grouped = groupUsers(userList);
-  // ── Last-voter nudge: เหลือคนเดียวที่ยังไม่โหวต (นิยามเดียวกับ handleReveal)
-  // ให้การ์ดคนนั้นเต้นเบา ๆ "ทุกคนรอคะแนนจากคุณ" — ทุกคนในห้องเห็นเหมือนกัน
-  // คำนวณจาก snapshot จริงทุก tick: คนเข้า/ออก (left) เปลี่ยน หรือโหวตแล้ว
-  // สถานะจะอัปเดตทันที → ไม่เตือนผิดคน และหยุดทันทีเมื่อโหวต (ไม่ทำงานตอน lock/reveal)
-  const pendingVoters = !locked && !revealed
-    ? userList.filter(
-        ([, u]) =>
-          u.role !== "po" &&
-          u.role !== "admin" &&
-          u.left !== true &&
-          u.vote == null,
-      )
-    : [];
-  const lastVoterUid = pendingVoters.length === 1 ? pendingVoters[0][0] : null;
+  // ── Last-voter nudge: "คนสุดท้ายที่ยังไม่โหวต" นับแยกตาม role — ห้ามรวมกัน
+  // แต่ละ role มี last voter ของตัวเอง: dev เหลือคนเดียว = การ์ด dev คนนั้นถูกเตือน
+  // แม้ QA/UX จะยังไม่โหวตอยู่กี่คนก็ตาม (และกลับกัน) — จะได้รู้ว่า role ไหนยังไม่ใส่
+  // point · deputy (เช่น Dev Cing) มี role เป็น dev ก็นับเป็น dev ตาม role จริง ไม่ใช่ po
+  // No Need Test ทำงาน → QA ไม่ต้องโหวต = ไม่นับกลุ่ม QA (นิยามเดียวกับ qaReady ตอน reveal)
+  // คำนวณจาก snapshot จริงทุก tick → ไม่เตือนผิดคน หยุดทันทีเมื่อโหวต (ไม่ทำงานตอน lock/reveal)
+  const lastVoterUids = new Set<string>();
+  if (!locked && !revealed) {
+    const noNeedTest = isNoNeedTestChecked();
+    const pendingByRole = new Map<string, [string, User][]>();
+    for (const entry of userList) {
+      const u = entry[1];
+      if (u.role === "po" || u.role === "admin" || u.left === true || u.vote != null) continue;
+      if (noNeedTest && u.role === "qa") continue;
+      const list = pendingByRole.get(u.role);
+      if (list) list.push(entry);
+      else pendingByRole.set(u.role, [entry]);
+    }
+    for (const list of pendingByRole.values()) {
+      if (list.length === 1) lastVoterUids.add(list[0][0]);
+    }
+  }
   const speakers = new Set<string>(
     roomData.drinkers ? Object.keys(roomData.drinkers) : []
   );
@@ -876,7 +884,7 @@ export function updateUI(roomData: RoomData): void {
     card.className =
       "participant-card slide-in" +
       (user.vote ? " voted" : "") +
-      (uid === lastVoterUid ? " last-voter" : "");
+      (lastVoterUids.has(uid) ? " last-voter" : "");
     card.dataset.uid = uid;
 
     const avatar = document.createElement("div");
@@ -915,7 +923,7 @@ export function updateUI(roomData: RoomData): void {
       card.appendChild(speakerLabel);
     }
     // Last-voter nudge — แถบเตือนใต้ชื่อ (เฉพาะตอนไม่ lock/reveal)
-    if (uid === lastVoterUid) {
+    if (lastVoterUids.has(uid)) {
       card.appendChild(buildLastVoterLabel());
     }
     if (isPO() && uid !== state.currentUid) {
@@ -946,7 +954,7 @@ export function updateUI(roomData: RoomData): void {
         const newClass =
           "participant-card" +
           (user.vote ? " voted" : "") +
-          (uid === lastVoterUid ? " last-voter" : "");
+          (lastVoterUids.has(uid) ? " last-voter" : "");
         if (existing.className !== newClass) existing.className = newClass;
 
         // Last-voter nudge — เพิ่ม/ถอด label แบบ diff (class จัดการข้างบนแล้ว
@@ -954,12 +962,12 @@ export function updateUI(roomData: RoomData): void {
         const lastVoterLabel = existing.querySelector<HTMLElement>(
           ".last-voter-label"
         );
-        if (uid === lastVoterUid && !lastVoterLabel) {
+        if (lastVoterUids.has(uid) && !lastVoterLabel) {
           existing.insertBefore(
             buildLastVoterLabel(),
             existing.querySelector(".participant-status")
           );
-        } else if (uid !== lastVoterUid && lastVoterLabel) {
+        } else if (!lastVoterUids.has(uid) && lastVoterLabel) {
           lastVoterLabel.remove();
         }
 

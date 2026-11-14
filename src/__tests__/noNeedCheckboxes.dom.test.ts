@@ -190,12 +190,16 @@ describe("req 13 — No Need Task (ซ่อนแถบเตือนให้
     expect(scrollSpy).toHaveBeenCalledTimes(1); // ไม่มี auto scroll เพิ่มหลัง check
   });
 
-  it("check ไม่ลบ task ที่ดึงมาแล้วและไม่เขียนอะไรลง Firebase", () => {
+  it("check ไม่ลบ task ที่ดึงมาแล้ว — เขียนเฉพาะ field noNeedTask ลงห้อง (sync ทั้งห้อง)", () => {
     setNoNeedTask(true);
     renderTaskBanner(activeTask, "groom");
     // task row ยังแสดงตามปกติ — ข้อมูล task ไม่ถูกแตะ
     expect(clickupTaskRow.classList.contains("hidden")).toBe(false);
-    expect(updateMock).not.toHaveBeenCalled(); // ไม่มีการเขียนลงห้องเลย
+    // sync ทั้งห้อง: payload มี noNeedTask เป็น key เดียว — ไม่แตะ task/โหวต
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "rooms/Cold" }),
+      { noNeedTask: true },
+    );
   });
 
   it("uncheck → กลับไปเตือนตามเงื่อนไขเดิม (episode ใหม่ scroll ได้อีก)", () => {
@@ -365,7 +369,7 @@ initInfoTips();
 
 const TIP_TEXTS = {
   task:
-    "ใช้สำหรับการโหวตประเมิน Point โดยไม่จำเป็นต้องดึง Task จาก ClickUp ระบบจะซ่อนการแจ้งเตือนให้ดึง Task และสามารถดำเนินการโหวตได้ตามปกติ โดยไม่มีการบันทึก Point ไปยัง ClickUp Task",
+    "ใช้สำหรับการโหวตประเมิน Point โดยไม่จำเป็นต้องดึง Task จาก ClickUp ระบบจะซ่อนการแจ้งเตือนให้ดึง Task ให้ทุกคนในห้อง และสามารถดำเนินการโหวตได้ตามปกติ โดยไม่มีการบันทึก Point ไปยัง ClickUp Task",
   test:
     "ใช้สำหรับ Task ที่ไม่จำเป็นต้องให้ QA ทดสอบ เมื่อบันทึก Point ระบบจะเพิ่ม Tag 'no need test' ใน ClickUp โดยไม่อัปเดต QA Point ใน Custom Field และระบุ 'QA: no need test' ใน Comment แทนคะแนน QA",
 } as const;
@@ -457,11 +461,44 @@ describe("req 17 — Warning กลับมาหลัง uncheck (ห้อ�
     expect(reminderEl.classList.contains("hidden")).toBe(true);
   });
 
-  it("toggle ไม่กระทบโหวต/task — ไม่มีการเขียนลง Firebase เลย", () => {
+  it("toggle หลายรอบ — เขียนเฉพาะ noNeedTask ทุกครั้ง ไม่แตะ field อื่นในห้อง", () => {
     updateTaskRequiredReminder(noTaskRoom());
     setNoNeedTask(true);
     setNoNeedTask(false);
     setNoNeedTask(true);
-    expect(updateMock).not.toHaveBeenCalled();
+    // 3 ครั้ง = 3 writes ที่มี "แค่" noNeedTask เป็น key — โหวต/task ไม่ถูกแตะ
+    const payloads = vi.mocked(updateMock).mock.calls.map((c) => c[1]);
+    expect(payloads).toEqual([{ noNeedTask: true }, { noNeedTask: false }, { noNeedTask: true }]);
+  });
+});
+
+// ── sync ทั้งห้อง: noNeedTask อยู่ที่ rooms/{roomId}/noNeedTask (แทน pref รายเครื่อง) ──
+
+describe("sync ทั้งห้อง — แถบเตือน/checkbox ตามค่าจาก Firebase ไม่ใช่เครื่องตัวเอง", () => {
+  it("อีก admin ติ๊ก (room tick ส่ง noNeedTask=true) → เครื่องเราแถบหาย + checkbox ติ๊กตาม แม้ไม่ได้กดเอง", () => {
+    updateTaskRequiredReminder(noTaskRoom());
+    expect(reminderEl.classList.contains("hidden")).toBe(false);
+    expect(noNeedTaskCheckbox.checked).toBe(false);
+
+    updateTaskRequiredReminder({ ...noTaskRoom(), noNeedTask: true }); // tick จาก Firebase
+    expect(reminderEl.classList.contains("hidden")).toBe(true);
+    expect(noNeedTaskCheckbox.checked).toBe(true); // checkbox sync ตาม
+    expect(state.noNeedTask).toBe(true);
+  });
+
+  it("uncheck จากอีกเครื่อง → tick ถัดไปทุกเครื่องกลับมาเตือน + checkbox คืน", () => {
+    updateTaskRequiredReminder({ ...noTaskRoom(), noNeedTask: true });
+    updateTaskRequiredReminder({ ...noTaskRoom(), noNeedTask: false });
+    expect(reminderEl.classList.contains("hidden")).toBe(false);
+    expect(noNeedTaskCheckbox.checked).toBe(false);
+  });
+
+  it("เครื่อง deputy (เช่น Dev Cing) ได้ผลเหมือนกัน — เพราะอ่านจากค่าห้องไม่ใช่เครื่องผู้ติ๊ก", () => {
+    state.currentRole = "dev";
+    state.currentUid = "cing-browser";
+    state.currentUser = { uid: "cing-browser", name: "ซิน", realName: "Cing" };
+    updateTaskRequiredReminder({ ...noTaskRoom(), noNeedTask: true });
+    expect(reminderEl.classList.contains("hidden")).toBe(true); // deputy ก็หายแถบ
+    expect(noNeedTaskCheckbox.checked).toBe(true);
   });
 });

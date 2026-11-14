@@ -120,14 +120,14 @@
           </div>
           <span id="groom-mode-badge" class="groom-mode-badge hidden" title="ห้องนี้อยู่โหมด Pre-Groom (lead)">🌱 Pre-Groom</span>
           <button type="button" id="btn-task-history" class="btn btn-task-history" title="ประวัติการดึง task ของห้องนี้">🕘 History</button>
-          <!-- No Need Task/Test — เห็นเฉพาะ admin ของห้อง (PO + deputy) ควบคุมการโชว์ที่ renderTaskBanner -->
+          <!-- Groom ไม่มี Task / No Need Test — เห็นเฉพาะ admin ของห้อง (PO + deputy) · ตัวแรก sync ทั้งห้องผ่าน rooms/{roomId}/noNeedTask -->
           <!-- req 19 — ไอคอน ⓘ เปิด tooltip อธิบาย: hover (desktop) / แตะ (mobile) / Tab focus + Esc (keyboard) -->
           <span id="no-need-toggles" class="no-need-toggles hidden">
             <span class="no-need-toggle">
               <label class="no-need-label">
-                <input type="checkbox" id="no-need-task"> No Need Task
+                <input type="checkbox" id="no-need-task"> Groom ไม่มี Task
               </label>
-              <button type="button" class="info-tip" aria-expanded="false" aria-label="ดูคำอธิบาย No Need Task">ⓘ<span class="info-tip-bubble" role="tooltip">ใช้สำหรับการโหวตประเมิน Point โดยไม่จำเป็นต้องดึง Task จาก ClickUp ระบบจะซ่อนการแจ้งเตือนให้ดึง Task และสามารถดำเนินการโหวตได้ตามปกติ โดยไม่มีการบันทึก Point ไปยัง ClickUp Task</span></button>
+              <button type="button" class="info-tip" aria-expanded="false" aria-label="ดูคำอธิบาย Groom ไม่มี Task">ⓘ<span class="info-tip-bubble" role="tooltip">ใช้สำหรับการโหวตประเมิน Point โดยไม่จำเป็นต้องดึง Task จาก ClickUp ระบบจะซ่อนการแจ้งเตือนให้ดึง Task ให้ทุกคนในห้อง และสามารถดำเนินการโหวตได้ตามปกติ โดยไม่มีการบันทึก Point ไปยัง ClickUp Task</span></button>
             </span>
             <span class="no-need-toggle">
               <label class="no-need-label">

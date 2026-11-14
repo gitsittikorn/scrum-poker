@@ -61,6 +61,7 @@ document.body.innerHTML = html
 
 const { updateUI, initPokerCardsListener } = await import("../voting");
 const { state } = await import("../state");
+const { isNoNeedTestChecked } = await import("../clickup");
 import type { RoomData, User } from "../types";
 
 /** ดันค่า settings ผ่าน onValue callback ที่ mock เก็บไว้ (จำลอง Firebase tick) */
@@ -99,6 +100,7 @@ beforeEach(() => {
   state.currentUid = me.uid;
   state.currentUser = me;
   state.selectedCard = null;
+  vi.mocked(isNoNeedTestChecked).mockImplementation(() => false);
 });
 
 describe("req 2 — Last voter animation (เหลือคนสุดท้ายที่ยังไม่โหวต)", () => {
@@ -161,6 +163,70 @@ describe("req 2 — Last voter animation (เหลือคนสุดท้�
       ),
     );
     expect(cardOf("dev2")!.classList.contains("last-voter")).toBe(false);
+  });
+});
+
+describe("req ใหม่ — Last voter นับแยกตาม role (ไม่รวมกัน)", () => {
+  it("dev เหลือคนเดียวถูกเตือน แม้ QA ยังไม่โหวตค้างอยู่ — และ QA เหลือคนเดียวก็ถูกเตือนของกลุ่มตัวเอง", () => {
+    updateUI(
+      room({
+        po,
+        dev1: user({ name: "Tien", role: "dev", vote: "3" }), // โหวตแล้ว
+        dev2, // last dev — ต้องเตือนแม้ QA ค้างโหวต
+        qa1: user({ name: "Run", role: "qa" }), // last qa — เตือนของกลุ่ม QA ด้วย
+      }),
+    );
+    expect(cardOf("dev2")!.classList.contains("last-voter")).toBe(true);
+    expect(
+      cardOf("dev2")!.querySelector(".last-voter-label")?.textContent,
+    ).toContain("เพื่อนสมาชิกรอคุณอยู่");
+    expect(cardOf("qa1")!.classList.contains("last-voter")).toBe(true);
+    expect(cardOf("dev1")!.classList.contains("last-voter")).toBe(false); // โหวตแล้วไม่โดน
+  });
+
+  it("dev ค้าง 2 คน = ไม่เตือน dev ใด ๆ แม้ QA เหลือคนเดียว (นับแยก role)", () => {
+    updateUI(
+      room({
+        po,
+        dev1: user({ name: "Tien", role: "dev" }), // dev ค้าง 2 คน → ไม่มี last dev
+        dev2,
+        qa1: user({ name: "Run", role: "qa" }),
+      }),
+    );
+    expect(cardOf("dev1")!.classList.contains("last-voter")).toBe(false);
+    expect(cardOf("dev2")!.classList.contains("last-voter")).toBe(false);
+    expect(cardOf("qa1")!.classList.contains("last-voter")).toBe(true); // QA นับของตัวเอง
+  });
+
+  it("No Need Test ทำงาน → QA ไม่ต้องโหวต = ไม่ถูกเตือน แม้เป็น QA คนเดียวที่ค้าง (dev ยังเตือนตามปกติ)", () => {
+    vi.mocked(isNoNeedTestChecked).mockImplementation(() => true);
+    updateUI(
+      room({
+        po,
+        dev1: user({ name: "Tien", role: "dev", vote: "3" }),
+        dev2,
+        qa1: user({ name: "Run", role: "qa" }), // QA ค้างคนเดียว แต่ไม่ต้องโหวตแล้ว
+      }),
+    );
+    expect(cardOf("qa1")!.classList.contains("last-voter")).toBe(false);
+    expect(cardOf("qa1")!.querySelector(".last-voter-label")).toBeNull();
+    expect(cardOf("dev2")!.classList.contains("last-voter")).toBe(true);
+  });
+
+  it("UX มี last voter ของกลุ่มตัวเองเหมือนกัน (ไม่ถูก dev/QA บังคับ)", () => {
+    updateUI(
+      room({
+        po,
+        dev1: user({ name: "Tien", role: "dev", vote: "3" }),
+        dev2,
+        qa1: user({ name: "Run", role: "qa", vote: "5" }),
+        ux1: user({ name: "Ploy", role: "ux" }), // last ux
+        ux2: user({ name: "Fon", role: "ux" }), // ux ค้าง 2 คน → ไม่มี last ux
+      }),
+    );
+    expect(cardOf("ux1")!.classList.contains("last-voter")).toBe(false);
+    expect(cardOf("ux2")!.classList.contains("last-voter")).toBe(false);
+    expect(cardOf("dev2")!.classList.contains("last-voter")).toBe(true); // dev นับของตัวเอง
   });
 });
 
