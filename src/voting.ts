@@ -383,9 +383,17 @@ async function doReveal(): Promise<void> {
   // and PO can kick them if they don't come back.
   // (ผู้คุมห้อง = po + admin ตาม isPO — ให้ตรงกับ pendingVoters ใน updateUI
   //  ไม่งั้น super admin ที่นั่งดูอยู่ block การ reveal โดยไม่เคยถูกเตือน)
+  // No Need Test ทำงาน → QA ไม่ต้องใส่ point รอบนี้ = ไม่ถูกนับเป็น "ยังไม่โหวต"
+  // (อ่านจาก flag ของห้องโดยตรง — นิยามเดียวกับ nudge/qaReady ไม่งั้น PO reveal
+  //  ไม่ได้เพราะ modal เตือนให้ QA ใส่ point ทั้งที่ไม่ต้องใส่)
+  const noNeedTest = roomVal.noNeedTest === true;
   const notVoted = userList.filter(
     ([, user]) =>
-      user.role !== "po" && user.role !== "admin" && user.left !== true && user.vote == null,
+      user.role !== "po" &&
+      user.role !== "admin" &&
+      user.left !== true &&
+      user.vote == null &&
+      !(noNeedTest && user.role === "qa"),
   );
   if (notVoted.length > 0) {
     const names = notVoted.map(([, u]) => u.name).join(", ");

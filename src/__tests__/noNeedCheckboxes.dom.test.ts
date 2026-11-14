@@ -83,9 +83,9 @@ const {
   handleSaveToClickUp,
 } = await import("../clickup");
 const { state } = await import("../state");
-const { updateUI } = await import("../voting");
+const { updateUI, handleReveal } = await import("../voting");
 const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow, clickupInputRow, hotFixCheckbox } = await import("../dom");
-const { showToast } = await import("../ui");
+const { showToast, showNotVotedModal } = await import("../ui");
 const { initInfoTips } = await import("../infoTips");
 const { update: updateMock } = await import("../firebase");
 import type { ActiveTask, RoomData, User } from "../types";
@@ -604,5 +604,37 @@ describe("Hot Fix — sync ทั้งห้อง + ติด tag 'hot fix' �
     noNeedTestCheckbox.checked = false;
     await handleSaveToClickUp();
     expect(tagCalls()).toEqual([]);
+  });
+});
+
+// ── Reveal + No Need Test: QA ไม่ต้องใส่ point = ไม่ถูก modal เตือน ────────
+
+describe("Reveal กับ No Need Test — modal เตือนคนยังไม่โหวตต้องข้าม QA", () => {
+  /** ห้องโหวตกลางคัน: dev โหวตแล้ว QA ยังไม่ใส่ (จะ reveal ได้เมื่อไม่ต้องนับ QA) */
+  const votingRoom = (noNeedTest: boolean): RoomData => ({
+    createdAt: 0,
+    revealed: false,
+    locked: false,
+    autoUnlockSeconds: 30,
+    activeTask,
+    noNeedTest,
+    users: {
+      po1: user({ name: "Yam", realName: "Yam", role: "po" }),
+      dev1: user({ name: "Tien", realName: "Tien", role: "dev", vote: "3" }),
+      qa1: user({ name: "Run", realName: "Run", role: "qa", vote: null }), // QA ยังไม่ใส่
+    },
+  });
+
+  it("No Need Test เปิด + QA ยังไม่โหวต → reveal ผ่าน ไม่เด้ง modal", async () => {
+    h.store.room = votingRoom(true);
+    await handleReveal();
+    expect(vi.mocked(showNotVotedModal)).not.toHaveBeenCalled();
+    expect(updateMock).toHaveBeenCalled(); // เขียน reveal จริง
+  });
+
+  it("ไม่ได้เปิด No Need Test + QA ยังไม่โหวต → ยังเด้ง modal ตามพฤติกรรมเดิม", async () => {
+    h.store.room = votingRoom(false);
+    await handleReveal();
+    expect(vi.mocked(showNotVotedModal)).toHaveBeenCalledWith("Run");
   });
 });
