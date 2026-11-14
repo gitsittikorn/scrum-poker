@@ -80,6 +80,7 @@ export const btnTaskHistory = $("btn-task-history") as HTMLButtonElement;
 export const noNeedToggles = $("no-need-toggles");
 export const noNeedTaskCheckbox = $("no-need-task") as HTMLInputElement;
 export const noNeedTestCheckbox = $("no-need-test") as HTMLInputElement;
+export const hotFixCheckbox = $("hot-fix") as HTMLInputElement;
 
 // Admin settings
 export const adminSettings = $("admin-settings");

@@ -22,6 +22,7 @@ import {
   btnTaskHistory,
   noNeedTaskCheckbox,
   noNeedTestCheckbox,
+  hotFixCheckbox,
   clickupUrlInput,
   btnDeleteRoom,
   btnClearSpeakerCounts,
@@ -65,7 +66,7 @@ import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, inser
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
 import { toggleSoundPicker, renderSoundPicker, handleSoundPickerOutsideClick, triggerSound, registerSoundShortcuts, renderSoundShortcutSlots, startKeyCapture, cancelKeyCapture, setShortcutSound, setShortcutsEnabled, clearShortcut } from "./sounds";
 import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
-import { handleResolveClickUp, handleClearClickUpTask, handleSaveToClickUp, handleSetGroomMode, openTaskHistory, setNoNeedTask } from "./clickup";
+import { handleResolveClickUp, handleClearClickUpTask, handleSaveToClickUp, handleSetGroomMode, openTaskHistory, setNoNeedTask, handleNoNeedTestToggle, handleHotFixToggle } from "./clickup";
 import { initInfoTips } from "./infoTips";
 import { state } from "./state";
 import { FEATURES } from "./config";
@@ -276,10 +277,20 @@ function bindEvents(): void {
   btnGroomModePre.addEventListener("click", () => handleSetGroomMode("pre"));
   btnGroomModeGroom.addEventListener("click", () => handleSetGroomMode("groom"));
   btnTaskHistory.addEventListener("click", () => void openTaskHistory());
-  // req 13 — No Need Task: ซ่อนแถบเตือนให้ดึง task ทันที (ไม่แตะข้อมูลห้อง)
+  // req 13 — No Need Task: ซ่อนแถบเตือนให้ดึง task ทันที (sync ทั้งห้องใน setNoNeedTask)
   noNeedTaskCheckbox.addEventListener("change", () => setNoNeedTask(noNeedTaskCheckbox.checked));
-  // req 14 — No Need Test: re-render ปุ่มบันทึกทันที (QA readiness/label)
-  noNeedTestCheckbox.addEventListener("change", refreshSaveButtonState);
+  // req 14 — No Need Test: sync ทั้งห้อง + เคลียร์ point QA ทันทีที่ติ๊ก
+  // (state.noNeedTest ตั้ง optimistic ก่อนเพื่อให้ปุ่มบันทึก/label เปลี่ยนทันทีไม่รอ tick)
+  noNeedTestCheckbox.addEventListener("change", () => {
+    state.noNeedTest = noNeedTestCheckbox.checked;
+    refreshSaveButtonState();
+    void handleNoNeedTestToggle(noNeedTestCheckbox.checked);
+  });
+  // Hot Fix — sync ทั้งห้อง (ตอนบันทึกจะติด tag "hot fix" บนการ์ด)
+  hotFixCheckbox.addEventListener("change", () => {
+    state.hotFix = hotFixCheckbox.checked;
+    void handleHotFixToggle(hotFixCheckbox.checked);
+  });
   // req 19 — ไอคอน ⓘ tooltip ข้าง checkbox ทั้งสอง (hover/แตะ/keyboard)
   initInfoTips();
   clickupUrlInput.addEventListener("keydown", (e) => {

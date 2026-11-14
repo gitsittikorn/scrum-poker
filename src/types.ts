@@ -55,6 +55,13 @@ export interface RoomData {
   /** "Groom ไม่มี Task" — admin (PO/deputy) ติ๊กเพื่อซ่อนแถบเตือน "ยังไม่ได้เลือกการ์ด"
    *  sync ทั้งห้องแบบ real-time (เดิมเป็น preference รายเครื่อง) */
   noNeedTask?: boolean;
+  /** "No Need Test" — admin ติ๊กเพื่อตัด QA ออกจากรอบนี้: QA ไม่ต้องใส่ point
+   *  (การ์ดล็อค + เคลียร์ point เดิม + ไม่ nudge) · ตั้งต่อ task — reset เมื่อ
+   *  ดึง task ใหม่ / ล้าง task / บันทึกจบรอบ */
+  noNeedTest?: boolean;
+  /** "Hot Fix" — ติ๊กแยกจาก No Need Test ได้ (อย่างเดียว/คู่กัน) เมื่อบันทึก
+   *  Point ระบบเพิ่ม tag "hot fix" บนการ์ด ClickUp · ตั้งต่อ task เหมือนกัน */
+  hotFix?: boolean;
 }
 
 /** โหมดการ groom ของห้อง — PO สลับเองผ่าน toggle บน banner ClickUp */
