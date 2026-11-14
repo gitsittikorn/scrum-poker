@@ -722,6 +722,18 @@ export function updateUI(roomData: RoomData): void {
   updateTaskRequiredReminder(roomData);
 
   // แถบสถานะ default คือแสดง — ซ่อนเฉพาะกรณี "โหวตแล้ว" ใน branch ล่าง
+  // Task gate — ห้อง poker ที่ต้องมี task (ยังไม่ได้ติ๊ก "Groom ไม่มี Task") แต่ PO
+  // ยังไม่ดึง task = ล็อคการ์ดห้ามคลิก point กันโหวตก่อนรู้ task แล้ว nudge
+  // "เพื่อนสมาชิกรอคุณอยู่" ขึ้นผิดจังหวะ — banner เขียนอยู่แล้วว่า "กรุณาดึง Task
+  // ก่อนดำเนินการโหวต" ตอนนี้บังคับจริง · ปลดล็อคแบบ real-time เมื่อ PO ดึง task
+  // สำเร็จ หรือ admin ติ๊ก Groom ไม่มี Task (sync ทั้งห้อง) · ห้อง Wheel/admin
+  // ไม่เกี่ยวกับ ClickUp จึงไม่ล็อค
+  const taskGate =
+    FEATURES.clickup &&
+    !state.isWheelRoom &&
+    state.currentRoom !== ADMIN_ROOM &&
+    !roomData.noNeedTask &&
+    !roomData.activeTask;
   votingStatus.style.display = "";
   if (locked && revealed) {
     statusDot.className = "status-dot locked";
@@ -744,26 +756,24 @@ export function updateUI(roomData: RoomData): void {
     statusDot.className = "status-dot locked";
     statusText.textContent = "Voting locked";
     if (isPO()) btnReveal.style.display = "none";
+  } else if (taskGate) {
+    cancelUnlockTimer();
+    // ยังไม่ได้ดึงการ์ด — แจ้งในแถวสถานะ (ที่เดียวกับ "Voting locked") ให้สมาชิก
+    // รู้ว่าการ์ดกดไม่ได้เพราะรอ PO ดึง task ไม่ใช่ระบบพัง
+    statusDot.className = "status-dot";
+    statusText.textContent = "🔒 ยังไม่ได้ดึงการ์ด — รอ PO ดึง Task จาก ClickUp ก่อนโหวต";
+    const existing = document.getElementById("btn-revote");
+    if (existing) existing.remove();
   } else {
     cancelUnlockTimer();
-    // เช็ค record จริง — เดิม `?.vote !== null` ทำให้ record หายชั่วขณะ (snapshot
-    // ก่อน join เขียนเสร็จ) ถือว่า "โหวตแล้ว" แล้วซ่อนแถบสถานะไปเฉย ๆ
-    const me = state.currentUser ? users[state.currentUser.uid] : undefined;
-    const hasVoted = state.currentUser && me != null && me.vote != null;
-    if (hasVoted) {
-      // โหวตแล้ว — ซ่อนแถบสถานะทั้งแถวเพื่อคืนพื้นที่หน้าจอ
-      // (การ์ดที่โหวตอยู่มี highlight + การ์ดผู้เล่นมี ✅ อยู่แล้ว)
-      votingStatus.style.display = "none";
-    } else {
-      votingStatus.style.display = "";
-      statusDot.className = "status-dot";
-      statusText.textContent = "Select your estimate";
-    }
+    // ไม่ล็อคและไม่รอ task = ซ่อนแถบสถานะไปเลย (เดิมแสดง "Select your estimate"
+    // รกเกินจำเป็น — สถานะโหวตเห็นจาก ✅ / highlight บนการ์ดผู้เล่นอยู่แล้ว)
+    votingStatus.style.display = "none";
     const existing = document.getElementById("btn-revote");
     if (existing) existing.remove();
   }
 
-  const disableVoting = locked;
+  const disableVoting = locked || taskGate;
   document.querySelectorAll(".poker-card").forEach((el) => {
     el.classList.toggle("disabled", disableVoting);
   });
@@ -785,8 +795,9 @@ export function updateUI(roomData: RoomData): void {
   // point · deputy (เช่น Dev Cing) มี role เป็น dev ก็นับเป็น dev ตาม role จริง ไม่ใช่ po
   // No Need Test ทำงาน → QA ไม่ต้องโหวต = ไม่นับกลุ่ม QA (นิยามเดียวกับ qaReady ตอน reveal)
   // คำนวณจาก snapshot จริงทุก tick → ไม่เตือนผิดคน หยุดทันทีเมื่อโหวต (ไม่ทำงานตอน lock/reveal)
+  // Task gate ล็อคอยู่ = โหวตไม่ได้อยู่แล้ว ไม่ nudge ใครทั้งนั้นจนกว่าจะมี task
   const lastVoterUids = new Set<string>();
-  if (!locked && !revealed) {
+  if (!locked && !revealed && !taskGate) {
     const noNeedTest = isNoNeedTestChecked();
     const pendingByRole = new Map<string, [string, User][]>();
     for (const entry of userList) {
