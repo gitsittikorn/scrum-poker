@@ -1204,6 +1204,9 @@ button.task-history-po.active {
   opacity: 0.3;
   cursor: not-allowed;
   transform: none !important;
+  /* ปิดคลิกจริง (locked / รอ task / No Need Test ล็อค QA) — ไม่งั้น click ยังมุด
+     เข้า handler ได้; คีย์บอร์ด Enter ยังโดน guard ใน handleVote คุมอยู่อีกชั้น */
+  pointer-events: none;
 }
 
 .poker-card .card-label {

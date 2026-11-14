@@ -83,11 +83,11 @@ const {
   handleSaveToClickUp,
 } = await import("../clickup");
 const { state } = await import("../state");
-const { updateUI, handleReveal } = await import("../voting");
+const { updateUI, handleReveal, handleVote, handleCustomVote } = await import("../voting");
 const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow, clickupInputRow, hotFixCheckbox } = await import("../dom");
 const { showToast, showNotVotedModal } = await import("../ui");
 const { initInfoTips } = await import("../infoTips");
-const { update: updateMock } = await import("../firebase");
+const { update: updateMock, set: setMock } = await import("../firebase");
 import type { ActiveTask, RoomData, User } from "../types";
 
 const ROOM = "Cold";
@@ -338,6 +338,63 @@ describe("req 14 — ปุ่มบันทึก (renderSaveButton ผ่า�
     expect(btnSaveClickup.disabled).toBe(false); // QA ไม่นับ readiness แล้ว
     expect(btnSaveClickup.textContent).toContain("Dev 3");
     expect(btnSaveClickup.textContent).toContain("QA no need test");
+  });
+});
+
+describe("req 14 — No Need Test ล็อคการโหวตของ QA (guard ใน handleVote/handleCustomVote)", () => {
+  /** ห้องมี task ยังไม่ reveal + สลับ noNeedTest — เครื่อง QA กดการ์ดต้องโดน guard
+   *  (.disabled เป็นแค่ UI — คลิก/Enter ยังมุดเข้า handler ได้ ต้องกันที่ logic) */
+  const qaRoom = (noNeedTest: boolean): RoomData => ({
+    ...noTaskRoom(),
+    noNeedTest,
+    activeTask,
+    users: {
+      po1: user({ name: "Yam", role: "po" }),
+      dev1: user({ name: "Tien", role: "dev" }),
+      qa1: user({ name: "Run", role: "qa" }),
+    },
+  });
+
+  it("QA กดการ์ด/custom ตอน noNeedTest — ไม่เขียน vote ลง DB + toast แจ้ง", async () => {
+    state.currentRole = "qa";
+    state.currentUid = "qa1";
+    state.currentUser = { uid: "qa1", name: "Run", realName: "Run" };
+    state.selectedCard = null;
+    h.store.room = qaRoom(true);
+
+    await handleVote("5");
+    const input = Object.assign(document.createElement("input"), { value: "3" });
+    await handleCustomVote(input);
+
+    expect(setMock).not.toHaveBeenCalled(); // ไม่มีการเขียน vote ลง Firebase เลย
+    expect(showToast).toHaveBeenCalledWith(expect.stringContaining("No Need Test"));
+    expect(state.selectedCard).toBeNull(); // ไม่มี highlight การ์ดค้าง (ไม่ optimistic)
+  });
+
+  it("dev ในห้อง noNeedTest โหวตได้ปกติ · QA กลับมาโหวตได้เมื่อ uncheck", async () => {
+    // dev ไม่โดน guard — ห้อง noNeedTest ก็ตาม
+    state.currentRole = "dev";
+    state.currentUid = "dev1";
+    state.currentUser = { uid: "dev1", name: "Tien", realName: "Tien" };
+    h.store.room = qaRoom(true);
+    await handleVote("3");
+    expect(setMock).toHaveBeenCalledTimes(1);
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "rooms/Cold/users/dev1/vote" }),
+      "3",
+    );
+
+    // uncheck → QA โหวตใหม่ได้ตาม req 14 (เขียน vote ปกติ)
+    state.currentRole = "qa";
+    state.currentUid = "qa1";
+    state.currentUser = { uid: "qa1", name: "Run", realName: "Run" };
+    h.store.room = qaRoom(false);
+    await handleVote("5");
+    expect(setMock).toHaveBeenCalledTimes(2);
+    expect(setMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ path: "rooms/Cold/users/qa1/vote" }),
+      "5",
+    );
   });
 });
 

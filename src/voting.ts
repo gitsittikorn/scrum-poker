@@ -40,9 +40,10 @@ let customCardEnabled = false;
 /** คำอธิบายใต้การ์ด Custom ที่ super admin ตั้งไว้ (settings/pokerCustomCardDesc)
  *  ว่าง = ใช้ข้อความ default "Custom (Enter)" */
 let customCardDesc = "";
-/** Tracks the room's locked state so a live card re-render can re-apply `.disabled`
- *  without waiting for the next room-data tick. */
-let cardsLocked = false;
+/** สถานะ disabled ล่าสุดของการ์ด (locked / รอ task / No Need Test ล็อค QA) —
+ *  เก็บไว้ให้ renderCards ตอน re-render กลางคัน (super admin แก้ config การ์ด)
+ *  ใส่ `.disabled` กลับได้ทันที ไม่ต้องรอ room tick ถัดไป */
+let cardsDisabled = false;
 
 /** Uids currently "in room" (record exists, not intentionally left) across updateUI
  *  ticks — used to detect join/leave and play in.mp3/out.mp3.
@@ -218,12 +219,15 @@ export function renderCards(): void {
     cardsContainer.appendChild(el);
   }
 
-  // Re-apply locked + selected state so a live re-render (admin changed cards)
-  // doesn't flash an un-locked / un-selected set before the next room-data tick.
-  if (cardsLocked) {
+  // Re-apply disabled + selected state so a live re-render (admin changed cards)
+  // doesn't flash an enabled / un-selected set before the next room-data tick.
+  if (cardsDisabled) {
     document
       .querySelectorAll(".poker-card")
       .forEach((el) => el.classList.add("disabled"));
+    document.querySelectorAll(".custom-point-input").forEach((el) => {
+      (el as HTMLInputElement).disabled = true;
+    });
   }
   applyCardSelection();
 }
@@ -291,14 +295,33 @@ export function initPokerCardsListener(): void {
 }
 
 // ===== Voting Actions =====
+/** เช็คก่อนเขียน vote — อ่านสถานะห้องล่าสุดจาก DB ตอนกดจริง
+ *  (.disabled บนการ์ดเป็นแค่ชั้น UI — คีย์บอร์ด Enter หรือ event ที่มุดเข้ามา
+ *  ยังไปถึง handler ได้ ต้องกันที่ logic เสมอ)
+ *  คืน true = โหวตต่อไม่ได้ (toast บอกเหตุผลแล้วในฟังก์ชัน)
+ *  req 14 — No Need Test: QA ถูกตัดออกจากรอบนี้ อ่าน role จาก users ในห้อง
+ *  โดยตรง (ค่าจริงล่าสุด ไม่ใช้ state ฝั่งเครื่อง กันกรณี room tick ยังไม่มาถึง) */
+async function voteBlocked(): Promise<boolean> {
+  const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
+  if (!roomSnap.exists()) return true; // ห้องถูกลบไปแล้ว — ไม่มีที่ให้เขียน vote
+  const roomVal = roomSnap.val() as RoomData;
+  if (roomVal.locked) {
+    showToast("Voting is locked");
+    return true;
+  }
+  const myRole = state.currentUser
+    ? roomVal.users?.[state.currentUser.uid]?.role
+    : null;
+  if (roomVal.noNeedTest === true && myRole === "qa") {
+    showToast("🚫 No Need Test — ไม่ต้องใส่ point รอบนี้");
+    return true;
+  }
+  return false;
+}
+
 export async function handleVote(value: string): Promise<void> {
   if (!state.currentRoom || !state.currentUser) return;
-
-  const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
-  if (roomSnap.exists() && (roomSnap.val() as RoomData).locked) {
-    showToast("Voting is locked");
-    return;
-  }
+  if (await voteBlocked()) return;
 
   state.selectedCardCustom = false;
   state.selectedCard = value;
@@ -324,11 +347,7 @@ export async function handleCustomVote(input: HTMLInputElement): Promise<void> {
     showToast("❌ ระบุตัวเลข (ทศนิยมไม่เกิน 1 ตำแหน่ง)");
     return;
   }
-  const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
-  if (roomSnap.exists() && (roomSnap.val() as RoomData).locked) {
-    showToast("Voting is locked");
-    return;
-  }
+  if (await voteBlocked()) return;
   const value = String(parseFloat(raw)); // ".5" → "0.5", "5." → "5"
   state.selectedCardCustom = true;
   state.selectedCard = value;
@@ -713,7 +732,6 @@ export function updateUI(roomData: RoomData): void {
   const users = roomData.users || {};
   const revealed = roomData.revealed || false;
   const locked = roomData.locked || false;
-  cardsLocked = locked;
   // mirror สถานะ No Need Test จากห้อง (ใช้ร่วมทุกเครื่อง — checkbox มีแค่ฝั่ง admin
   // การอ่านจาก roomData ทำให้เครื่อง QA/dev รู้สถานะนี้ด้วย: ล็อคการ์ด QA ฯลฯ)
   state.noNeedTest = roomData.noNeedTest === true;
@@ -803,6 +821,7 @@ export function updateUI(roomData: RoomData): void {
   }
 
   const disableVoting = locked || taskGate || qaGate;
+  cardsDisabled = disableVoting; // renderCards ใช้ re-apply ตอน re-render กลางคัน
   document.querySelectorAll(".poker-card").forEach((el) => {
     el.classList.toggle("disabled", disableVoting);
   });
