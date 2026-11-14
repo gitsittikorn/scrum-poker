@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Scrum Poker</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🃏</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='c1' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2300d4ff'/><stop offset='1' stop-color='%230099cc'/></linearGradient><linearGradient id='c2' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23a855f7'/><stop offset='1' stop-color='%237c3aed'/></linearGradient><linearGradient id='c3' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23ec4899'/><stop offset='1' stop-color='%23f43f5e'/></linearGradient></defs><g transform='rotate(-14 31 55)'><rect x='10' y='28' width='42' height='54' rx='8' fill='url(%23c1)'/><text x='31' y='66' font-family='Arial,sans-serif' font-size='28' font-weight='900' fill='%23fff' text-anchor='middle'>T</text></g><g transform='rotate(14 69 55)'><rect x='48' y='28' width='42' height='54' rx='8' fill='url(%23c3)'/><text x='69' y='66' font-family='Arial,sans-serif' font-size='28' font-weight='900' fill='%23fff' text-anchor='middle'>M</text></g><g><rect x='29' y='20' width='42' height='54' rx='8' fill='url(%23c2)'/><text x='50' y='58' font-family='Arial,sans-serif' font-size='28' font-weight='900' fill='%23fff' text-anchor='middle'>Q</text></g></svg>">
 </head>
 <body>
   <div id="app">
@@ -95,7 +95,7 @@
       <!-- ClickUp Task Banner — PO วางลิงก์ task, ทุกคนเห็น task ปัจจุบันแบบ real-time -->
       <section id="clickup-banner" class="clickup-banner hidden">
         <div id="task-required-reminder" class="task-required-reminder hidden">
-          🃏 ยังไม่ได้เลือกการ์ด — กรุณาดึง Task จาก ClickUp ก่อนดำเนินการโหวต
+          ยังไม่ได้เลือกการ์ด — กรุณาดึง Task จาก ClickUp ก่อนดำเนินการโหวต
         </div>
         <div id="clickup-input-row" class="clickup-input-row hidden">
           <span class="clickup-label">🔗 Task</span>
@@ -722,7 +722,7 @@
               <label>Feature Flags</label>
               <div class="toggle-group">
                 <label class="toggle-label" id="toggle-label-poker">
-                  <span class="toggle-text">🃏 Poker</span>
+                  <span class="toggle-text">Poker</span>
                   <input type="checkbox" id="feature-poker" checked aria-label="Poker feature toggle">
                   <span class="toggle-switch" role="switch" aria-checked="true"></span>
                   <span class="admin-only-badge hidden">🔒 admin only</span>
@@ -784,7 +784,7 @@
             </div>
 
             <div class="settings-divider"></div>
-            <div class="settings-section-title">🃏 การ์ด Poker (ทุกห้อง)</div>
+            <div class="settings-section-title">การ์ด Poker (ทุกห้อง)</div>
             <small class="form-hint">ปล่อย point ว่าง = ซ่อนการ์ดนั้น · บันทึกแล้วทุกห้องเห็นทันที · ต้องมี point อย่างน้อย 1 ช่อง</small>
             <div id="poker-cards-config" class="pc-config">
               <div class="pc-row">

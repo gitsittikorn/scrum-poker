@@ -487,7 +487,7 @@ export function showNotVotedModal(names: string): void {
   const header = document.createElement("div");
   header.className = "modal-header";
   const h2 = document.createElement("h2");
-  h2.textContent = "🃏 รอคนกด point";
+  h2.textContent = "รอคนกด point";
   header.appendChild(h2);
 
   const body = document.createElement("div");

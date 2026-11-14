@@ -221,7 +221,7 @@ let taskReminderScrolled = false;
  *  แถบที่ซ่อนไว้จะไม่กลับมาหลัง uncheck จนกว่าจะมีคนขยับห้อง) */
 let lastReminderRoomData: RoomData | null = null;
 
-/** แถบ "🃏 ยังไม่ได้เลือกการ์ด — กรุณาดึง Task จาก ClickUp ก่อนดำเนินการโหวต"
+/** แถบ "ยังไม่ได้เลือกการ์ด — กรุณาดึง Task จาก ClickUp ก่อนดำเนินการโหวต"
  *  แสดงเฉพาะ admin ของห้อง (PO + deputy เช่น Dev Cing — ตาม isRoomAdmin)
  *  สมาชิกทั่วไปไม่เห็น (banner ถูกซ่อนอยู่แล้วสำหรับ non-admin ที่ไม่มี task)
  *  แสดงตั้งแต่ยังไม่มี task (จะได้ดึงก่อนเริ่มโหวต) และเน้นย้ำเมื่อมีคนเริ่มโหวต

@@ -21,7 +21,7 @@ const ROOM = process.env.E2E_ROOM || "Cold";
 // "no need test" อยู่แล้ว) — override ได้ตอน sprint list หมุนไปลิสต์ใหม่
 const LIST_ID = process.env.E2E_LIST_ID || "1100670000009686"; // CES Team → Kitsune Sprint
 const RULE = "━".repeat(20);
-const HEADER = "🃏 SCRUM POKER | POINT UPDATE";
+const HEADER = "SCRUM POKER | POINT UPDATE";
 const TOKEN = readFileSync(join(ROOT, "backend", ".env"), "utf8")
   .match(/CLICKUP_API_TOKEN="?([^"\r\n]+)"?/)?.[1]?.trim();
 
@@ -233,7 +233,7 @@ async function joinAs(browser, { name, role, room }) {
       console.log("    comment ที่ได้:\n" + lines.map((l) => "      | " + l).join("\n"));
       if (lines[0] === RULE && lines[lines.length - 1] === RULE) ok("req 20: เส้นคั่นหัว/ท้ายครบ");
       else fail("req 20: เส้นคั่นหัว/ท้ายไม่ครบ");
-      if (lines[1] === HEADER) ok("req 20: header 🃏 SCRUM POKER | POINT UPDATE");
+      if (lines[1] === HEADER) ok("req 20: header SCRUM POKER | POINT UPDATE");
       else fail(`req 20: header ผิด → "${lines[1]}"`);
       if (/^📅 \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(lines[2] ?? "")) {
         ok(`req 20: timestamp เวลาไทย → ${lines[2]}`);
@@ -242,8 +242,8 @@ async function joinAs(browser, { name, role, room }) {
       }
       if (text.includes("QA: no need test")) ok('req 14.3/20: comment มี "QA: no need test"');
       else fail("comment ไม่มี QA: no need test");
-      if (lines[lines.length - 2] === testTask.name) {
-        ok("req 20: ชื่อการ์ดท้ายสุดก่อนเส้นคั่นปิด");
+      if (lines[lines.length - 2] === `📌 การ์ด: ${testTask.name}`) {
+        ok("req 20: ชื่อการ์ด (มี title) ท้ายสุดก่อนเส้นคั่นปิด");
       } else {
         fail(`ชื่อการ์ดตำแหน่งผิด → "${lines[lines.length - 2]}"`);
       }

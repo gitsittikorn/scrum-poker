@@ -19,7 +19,7 @@ const attendees: [string, User][] = [
 
 // req 20 — เส้นคั่น 20 ตัวตาม requirement + หัวข้อกลาง
 const RULE = "━".repeat(20);
-const HEADER = "🃏 SCRUM POKER | POINT UPDATE";
+const HEADER = "SCRUM POKER | POINT UPDATE";
 
 describe("buildGroomingComment (รูปแบบ comment ที่ส่งไป ClickUp)", () => {
   it("req 20 — เส้นคั่นหัว/ท้าย + หัวข้อ + โหมด + คะแนน (point เป็น null = ไม่มีบรรทัดนั้น)", () => {
@@ -56,8 +56,8 @@ describe("buildGroomingComment (รูปแบบ comment ที่ส่งไ
     const attIdx = lines.indexOf("Attendees");
     expect(attIdx).toBeGreaterThan(0);
     expect(lines[attIdx - 1]).toBe("");
-    // ก่อนชื่อการ์ด
-    const cardIdx = lines.indexOf("Task A");
+    // ก่อนชื่อการ์ด (มี title "📌 การ์ด:" นำหน้า)
+    const cardIdx = lines.indexOf("📌 การ์ด: Task A");
     expect(cardIdx).toBeGreaterThan(0);
     expect(lines[cardIdx - 1]).toBe("");
   });
@@ -97,7 +97,7 @@ describe("buildGroomingComment (รูปแบบ comment ที่ส่งไ
     const c = buildGroomingComment("groom", "3", "5", attendees, null, "Update Value from API", new Date());
     const lines = c.split("\n");
     expect(lines[lines.length - 1]).toBe(RULE); // เส้นคั่นปิด
-    expect(lines[lines.length - 2]).toBe("Update Value from API"); // ชื่อการ์ดก่อนเส้นคั่น
+    expect(lines[lines.length - 2]).toBe("📌 การ์ด: Update Value from API"); // ชื่อการ์ด (มี title) ก่อนเส้นคั่น
     // ข้อมูลเดิมยังอยู่ครบ (หัวข้อ/คะแนน/attendees ก่อนชื่อการ์ดเสมอ)
     expect(lines[0]).toBe(RULE);
     expect(lines[1]).toBe(HEADER);
@@ -141,7 +141,7 @@ describe("buildGroomingComment (รูปแบบ comment ที่ส่งไ
     expect(c).toContain("QA: Run"); // attendees ฝั่ง QA ยังแสดง
     const lines = c.split("\n");
     expect(lines[lines.length - 1]).toBe(RULE);
-    expect(lines[lines.length - 2]).toBe("Task A"); // ชื่อการ์ดยังท้ายสุดก่อนเส้นคั่น
+    expect(lines[lines.length - 2]).toBe("📌 การ์ด: Task A"); // ชื่อการ์ด (มี title) ยังท้ายสุดก่อนเส้นคั่น
     // โหมด pre ก็ใช้ pattern เดียวกันได้ (ส่ง string "no need test" แทนช่วง)
     const pre = buildGroomingComment("pre", "1-3", "no need test", attendees, null, "Task A", new Date());
     expect(pre).toContain("Dev: 1-3");

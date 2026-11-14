@@ -103,7 +103,7 @@ flowchart TD
     H1 -->|"ไม่"| H3["เขียน field Dev + QA<br/>(ต้อง unanimous ต่อ role)"]
     H2 --> I["comment สรุปทันทีที่ field สำเร็จ"]
     H3 --> I
-    I --> I1["รูปแบบ comment (req 20):<br/>━ เส้นคั่น + 🃏 SCRUM POKER | POINT UPDATE<br/>+ 📅 เวลาไทย Asia/Bangkok + โหมด<br/>+ Dev/QA + Attendees + ชื่อการ์ด + ━"]
+    I --> I1["รูปแบบ comment (req 20):<br/>━ เส้นคั่น + SCRUM POKER | POINT UPDATE<br/>+ 📅 เวลาไทย Asia/Bangkok + โหมด<br/>+ Dev/QA + Attendees + 📌 การ์ด: ชื่อการ์ด + ━"]
 
     H2 --> J{"No Need Test<br/>ติ๊กอยู่?"}
     H3 --> J

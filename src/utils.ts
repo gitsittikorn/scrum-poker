@@ -162,7 +162,7 @@ const BANGKOK_TZ = "Asia/Bangkok";
 /** req 20 — เส้นคั่นหัว/ท้าย comment + หัวข้อกลาง (แยกแต่ละรอบการบันทึก
  *  point บนการ์ดให้เห็นชัด โดยเฉพาะตอนแก้ไข point แล้วบันทึกซ้ำหลายครั้ง) */
 const COMMENT_RULE = "━".repeat(20);
-const COMMENT_HEADER = "🃏 SCRUM POKER | POINT UPDATE";
+const COMMENT_HEADER = "SCRUM POKER | POINT UPDATE";
 
 /** req 20 — เวลาไทย "DD/MM/YYYY HH:mm" จาก Date ใด ๆ
  *  ใช้ Intl timeZone เพื่อให้ถูกต้องแม้เครื่องผู้กดบันทึกอยู่ timezone อื่น */
@@ -192,7 +192,7 @@ const ATTENDEE_ROLES: { keys: string[]; label: string }[] = [
  *  ("3" ตอน groom / "1-3" ตอน pre-groom / "no need test" ตอนติ๊ก No Need Test)
  *  req 20 — โครงร่างเดียวกันทุกครั้ง (บันทึกครั้งแรกหรือแก้ไขแล้วบันทึกซ้ำ):
  *    ━━━━━━━━━━━━━━━━━━━━
- *    🃏 SCRUM POKER | POINT UPDATE
+ *    SCRUM POKER | POINT UPDATE
  *    📅 DD/MM/YYYY HH:mm   ← เวลาไทย Asia/Bangkok ณ ตอนกดบันทึกจริง
  *    ✅ Grooming / 🌱 Pre-Grooming
  *    (ว่าง 1 บรรทัด)
@@ -200,12 +200,13 @@ const ATTENDEE_ROLES: { keys: string[]; label: string }[] = [
  *    (ว่าง 1 บรรทัด)
  *    Attendees + ชื่อแยกตาม role
  *    (ว่าง 1 บรรทัด)
- *    ชื่อการ์ด
+ *    📌 การ์ด: ชื่อการ์ด
  *    ━━━━━━━━━━━━━━━━━━━━
  *  Attendees บรรทัดเดียวต่อ role ชื่อคั่นด้วย comma (ข้าม role ที่ไม่มีคน)
  *  ใช้ชื่อจริง (realName จาก member list) — ชื่อเล่นแสดงแค่ในห้อง poker
  *  PO ที่เป็นคนกดบันทึก (savedByUid) จะมี "(owner)" ต่อท้ายชื่อ
  *  cardName = ชื่อการ์ด ClickUp ที่โหวต — วางท้ายสุดก่อนเส้นคั่นปิด (req 20 ข้อ 7)
+ *  พร้อม title "📌 การ์ด:" นำหน้า เพราะชื่อการ์ดเปล่า ๆ ลอยอยู่ล่างสุดคนอ่านไม่รู้ว่าคืออะไร
  *  now = เวลาที่กดบันทึก (inject ได้เพื่อให้ test ตรวจ format แบบ deterministic) */
 export function buildGroomingComment(
   mode: GroomMode,
@@ -242,7 +243,8 @@ export function buildGroomingComment(
     lines.push(`${label}: ${names.join(", ")}`);
   }
   // req 20 ข้อ 7 — ชื่อการ์ดอยู่ท้ายสุดของเนื้อหา ก่อนเส้นคั่นปิด comment
-  if (cardName) lines.push("", cardName);
+  // มี title "📌 การ์ด:" นำหน้า ให้รู้ว่าบรรทัดนี้คือชื่อการ์ดที่โหวต
+  if (cardName) lines.push("", `📌 การ์ด: ${cardName}`);
   lines.push(COMMENT_RULE);
   return lines.join("\n");
 }

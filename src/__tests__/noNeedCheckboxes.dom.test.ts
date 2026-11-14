@@ -252,8 +252,8 @@ describe("req 14 — บันทึก ClickUp แบบ No Need Test (flow จ
     // req 20 — ชื่อการ์ดเป็นเนื้อหาบรรทัดสุดท้าย ก่อนเส้นคั่นปิด + มี header ใหม่
     const lines = String(save!.body.comment).trimEnd().split("\n");
     expect(lines[lines.length - 1]).toBe("━".repeat(20));
-    expect(lines[lines.length - 2]).toBe("Card A");
-    expect(lines[1]).toBe("🃏 SCRUM POKER | POINT UPDATE");
+    expect(lines[lines.length - 2]).toBe("📌 การ์ด: Card A");
+    expect(lines[1]).toBe("SCRUM POKER | POINT UPDATE");
 
     const tag = fetchCall("add-tag"); // req 14.1 — ติด tag บนการ์ด
     expect(tag).toBeDefined();
