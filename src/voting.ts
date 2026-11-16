@@ -1,5 +1,5 @@
 import { db, ref, set, get, update, serverTimestamp, onValue } from "./firebase";
-import { state, isPO, isRoomAdmin } from "./state";
+import { state, isRoomAdmin } from "./state";
 import type { User, RoomData, Role, GroupedUsers, CardDef } from "./types";
 import {
   cardsContainer,
@@ -474,10 +474,10 @@ async function doReset(): Promise<void> {
   showToast("Reset complete");
 }
 
-/** PO: ล้างตัวนับพูดทั้งห้อง (reset round) — ทุกคนกลับเป็น 0
- *  ใช้ตอน PO อยากเริ่มรอบการหมุนเวียนผู้พูดใหม่ด้วยมือ */
+/** admin ของห้อง (PO + deputy): ล้างตัวนับพูดทั้งห้อง (reset round) — ทุกคนกลับเป็น 0
+ *  ใช้ตอนอยากเริ่มรอบการหมุนเวียนผู้พูดใหม่ด้วยมือ */
 export async function handleClearSpeakerCounts(): Promise<void> {
-  if (!state.currentRoom || !isPO()) return;
+  if (!state.currentRoom || !isRoomAdmin()) return;
   await update(ref(db, `rooms/${state.currentRoom}`), { speakerCounts: null });
   showToast("🎤 ล้างตัวนับพูดแล้ว (เริ่มรอบใหม่)");
 }
@@ -635,13 +635,13 @@ function detectJoinLeave(users: Record<string, User>): void {
  *  จาก clickup.ts (ช่วงนั้นอาจไม่มี room tick ใหม่ ปุ่มจะค้างถ้าไม่มีข้อมูลไว้ render) */
 let lastRoomData: RoomData | null = null;
 
-/** ปุ่มบันทึก ClickUp (PO เท่านั้น — หลัง reveal และมี task ปัจจุบัน)
+/** ปุ่มบันทึก ClickUp (admin ของห้อง — PO + deputy, หลัง reveal และมี task ปัจจุบัน)
  *  แยกจาก updateUI เพื่อเรียกซ้ำได้ทันทีเมื่อสถานะบันทึกเปลี่ยน (onSaveStateChange)
  *  req 14 — No Need Test: QA ถูกตัดออกจากรอบบันทึก (ไม่บังคับ unanimous)
  *  label แสดง "QA no need test" แทนค่า/✗ ของ QA */
 function renderSaveButton(roomData: RoomData): void {
   const showSaveBtn =
-    isPO() &&
+    isRoomAdmin() &&
     FEATURES.clickup &&
     state.currentRoom !== ADMIN_ROOM &&
     (roomData.revealed || false) &&
@@ -714,13 +714,12 @@ export function updateUI(roomData: RoomData): void {
 
   detectJoinLeave(users);
 
-  // Reveal/Reset — admin ของห้อง (PO + deputy เช่น Dev Cing ตาม isRoomAdmin) ใช้ได้เหมือนกัน
+  // Reveal/Reset/ลบห้อง — admin ของห้อง (PO + deputy เช่น Dev Cing) ใช้ได้เหมือนกันทุกอย่าง
   const adminVisible = isRoomAdmin() ? "" : "none";
   btnReveal.style.display = adminVisible;
   btnReset.style.display = adminVisible;
-  // ลบห้องยังเป็นสิทธิ์ของ PO เท่านั้น — deputy ไม่ได้ตาม
   const btnDeleteRoom = document.getElementById("btn-delete-room") as HTMLButtonElement;
-  if (btnDeleteRoom) btnDeleteRoom.style.display = isPO() ? "" : "none";
+  if (btnDeleteRoom) btnDeleteRoom.style.display = adminVisible;
 
   // ClickUp task banner (ทุกคน) + ปุ่มบันทึกคะแนน (PO เท่านั้น — หลัง reveal และมี task ปัจจุบัน)
   lastRoomData = roomData;

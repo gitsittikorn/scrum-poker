@@ -1,5 +1,5 @@
 import { db, ref, get, update } from "./firebase";
-import { state, isPO, isRoomAdmin, isSuperAdmin } from "./state";
+import { state, isRoomAdmin, isSuperAdmin } from "./state";
 import {
   toastEl,
   settingsModal,
@@ -407,12 +407,12 @@ export function applyFeatureFlags(): void {
   const anyFeature = FEATURES.chat || FEATURES.react || FEATURES.sound || FEATURES.wheel;
   bottomBar?.classList.toggle("hidden", !anyFeature);
 
-  // Delete room button — PO only
+  // Delete room button — admin ของห้อง (PO + deputy เช่น Dev Cing)
   const deleteWrapper = document.getElementById("delete-room-wrapper");
-  if (deleteWrapper) deleteWrapper.style.display = isPO() ? "" : "none";
-  // Clear speaker-counts button — PO only (rotation logic is always on, so always available to PO)
+  if (deleteWrapper) deleteWrapper.style.display = isRoomAdmin() ? "" : "none";
+  // Clear speaker-counts button — admin ของห้อง (rotation เปิดอยู่เสมอสำหรับ admin)
   const speakerClearWrapper = document.getElementById("speaker-clear-wrapper");
-  if (speakerClearWrapper) speakerClearWrapper.style.display = (isPO() && FEATURES.speakerRotate) ? "" : "none";
+  if (speakerClearWrapper) speakerClearWrapper.style.display = (isRoomAdmin() && FEATURES.speakerRotate) ? "" : "none";
 }
 
 export async function openDbReport(): Promise<void> {

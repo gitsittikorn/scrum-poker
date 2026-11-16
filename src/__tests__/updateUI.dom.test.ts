@@ -378,7 +378,7 @@ describe("renderCards — การ์ดปกติยังคงทำงา
   });
 });
 
-describe("Dev Cing (deputy) — Reveal/Reset/เตะ/Unlock เหมือน PO (แต่ไม่ใช่ลบห้อง/บันทึก)", () => {
+describe("Dev Cing (deputy) — สิทธิ์เหมือน PO ทุกอย่าง: Reveal/Reset/เตะ/Unlock/ลบห้อง/บันทึก", () => {
   /** ห้อง PO + Cing(deputy) + dev ทั่วไป — มองจากเครื่องของ Cing */
   const deputyView = (over: Partial<RoomData> = {}): RoomData =>
     room(
@@ -406,10 +406,10 @@ describe("Dev Cing (deputy) — Reveal/Reset/เตะ/Unlock เหมือน
     expect(cardOf("dev2")!.querySelector(".btn-kick")).toBeNull(); // การ์ดตัวเองไม่มีปุ่มเตะ
   });
 
-  it("สิทธิ์ที่ยังเป็น PO เท่านั้น: ไม่เห็นปุ่มลบห้อง และปุ่มบันทึก ClickUp (แม้ reveal + มี task)", () => {
+  it("ลบห้อง + บันทึก ClickUp ก็ได้เหมือน PO: เห็นปุ่มลบห้อง และปุ่มบันทึก (หลัง reveal + มี task)", () => {
     updateUI(deputyView({ revealed: true, locked: true }));
-    expect(btnDeleteRoom.style.display).toBe("none");
-    expect(btnSaveClickup.style.display).toBe("none");
+    expect(btnDeleteRoom.style.display).toBe("");
+    expect(btnSaveClickup.style.display).toBe("");
   });
 
   it("หลัง reveal (locked): ปุ่ม Reveal ซ่อน + ปุ่ม Auto-unlock กดได้ (ไม่ disabled เหมือน PO)", () => {
