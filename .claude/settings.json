@@ -10,7 +10,22 @@
       "Bash(gcloud --version)",
       "Bash(gcloud config *)",
       "Bash(gcloud auth *)",
-      "Bash(git -C /c/TQM/all-automate/scum-poker log --all --since=\"2026-11-13 17:00:00 +0000\" --until=\"2026-11-15 17:00:00 +0000\" --pretty=format:\"%h | %ad | %an | %d %s\" --date=iso-local)"
+      "Bash(git -C /c/TQM/all-automate/scum-poker log --all --since=\"2026-11-13 17:00:00 +0000\" --until=\"2026-11-15 17:00:00 +0000\" --pretty=format:\"%h | %ad | %an | %d %s\" --date=iso-local)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker log --all --date=iso -20 --pretty=format:\"%h | %ad | %cd | %an | %s\")",
+      "Bash(git -C /c/TQM/all-automate/scum-poker log --all --date=iso --since=\"2026-11-14 00:00:00 +0700\" --until=\"2026-11-16 00:00:00 +0700\" --pretty=format:\"%h | %ad | %an | %s\")",
+      "Bash(git -C /c/TQM/all-automate/scum-poker branch -a -v)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker for-each-ref --format=\"%\\(refname:short\\) %\\(committerdate:iso\\)\" refs/heads refs/remotes)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker log -5 --date=iso --pretty=format:\"%h | %ad | %s\" 5e590ce~1)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker show 5e590ce -- src/voting.ts src/constants.ts src/state.ts src/ui.ts)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker show 5e590ce -- src/clickup.ts src/wheel.ts src/utils.ts)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker show 5e590ce -- src/utils.ts)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker show 5e590ce -- src/wheel.ts src/app.ts src/room.ts)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker show c025026 -- src/infoTips.ts src/index.html src/voting.ts)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker show c025026 -- src/clickup.ts)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker show 0aa085f -- src/chat.ts src/reactions.ts src/room.ts)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker show 0aa085f -- src/voting.ts src/ui.ts src/sounds.ts src/wheel.ts)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker show b0de869 -- src/clickup.ts src/room.ts)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker show --stat --format=\"%s\" be0981e)"
     ]
   }
 }
