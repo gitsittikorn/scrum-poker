@@ -16,7 +16,7 @@
 | `src/app.ts` | Entry point: `init()` + `bindEvents()` — thin orchestrator |
 | `src/types.ts` | All TypeScript interfaces (User, RoomData, ChatMessage, etc.) |
 | `src/constants.ts` | CARDS, EMOJIS, APP_VERSION, TOAST_DURATION, etc. |
-| `src/state.ts` | Shared mutable state object (`state.currentRoom`, `state.currentUser`, etc.) + `isPO()` + `isRoomAdmin()` (PO + deputy "ส่วนตั้งค่า" ตาม realName/uid จาก constants) |
+| `src/state.ts` | Shared mutable state object (`state.currentRoom`, `state.currentUser`, etc.) + `isPO()` + `isRoomAdmin()` (PO + deputy เช่น Dev Cing: ส่วนตั้งค่า + reveal/reset/unlock/เตะ เหมือน PO ตาม realName/uid จาก constants — ลบห้อง/บันทึก ClickUp ยังเป็น PO เท่านั้น) |
 | `src/dom.ts` | DOM element references + `$()` helper |
 | `src/utils.ts` | Pure helpers: `escapeHtml`, `formatChatTime` |
 | `src/ui.ts` | Theme, toast, settings modal, firework effect |

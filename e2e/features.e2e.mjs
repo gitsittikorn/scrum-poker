@@ -123,6 +123,17 @@ async function joinAs(browser, { name, role, room, realName }) {
     if (!earlyLastVoter) ok("req 2: ยังเหลือหลายคน = ยังไม่เตือนใคร");
     else fail("req 2: เตือนทั้งที่ยังเหลือหลายคน");
 
+    // Task gate: ห้องยังไม่มี task → การ์ดถูกล็อค — PO ติ๊ก "Groom ไม่มี Task"
+    // ชั่วคราวเพื่อปลดล็อคการ์ดให้โหวตได้ (จะ untick คืนก่อน req 6)
+    await po.page.click("#no-need-task");
+    for (const p of [dev1.page, cing.page]) {
+      await p.waitForFunction(
+        () => !document.querySelector(".poker-card")?.classList.contains("disabled"),
+        null,
+        { timeout: 10000 },
+      );
+    }
+
     // dev1 + Cing โหวต → เหลือ dev2 คนเดียว = last voter
     await dev1.page.click('.poker-card:not(.custom-card)');
     await cing.page.click('.poker-card:not(.custom-card)');
@@ -136,11 +147,20 @@ async function joinAs(browser, { name, role, room, realName }) {
     }
 
     // dev2 โหวต → แจ้งเตือนหยุดทันทีทุกหน้า
+    await dev2.page.waitForFunction(
+      () => !document.querySelector(".poker-card")?.classList.contains("disabled"),
+      null,
+      { timeout: 10000 },
+    );
     await dev2.page.click('.poker-card:not(.custom-card)');
     for (const [tag, p] of [["PO", po.page], ["dev1", dev1.page]]) {
       await p.waitForSelector(".participant-card.last-voter", { state: "detached", timeout: 10000 });
       ok(`req 2: ${tag} เห็นแจ้งเตือนหยุดหลัง dev2 โหวต`);
     }
+
+    // untick "Groom ไม่มี Task" คืน — req 6 ต้องการ reminder ทำงานตอนไม่มี task
+    await po.page.click("#no-need-task");
+    await po.page.waitForTimeout(1200); // รอ flag sync ทั้งห้อง
 
     // ── req 4: wheel outside click ──
     await po.page.click("#btn-wheel");
@@ -162,7 +182,9 @@ async function joinAs(browser, { name, role, room, realName }) {
     // เปิดใหม่ → คลิกนอก panel (พื้นที่เนื้อหาหลัก) → ปิด
     await po.page.click("#btn-wheel");
     await po.page.waitForSelector("#wheel-panel.open", { timeout: 10000 });
-    await po.page.click(".section-title");
+    // คลิกนอก panel ด้วยพิกัดฝั่งขวาของจอ — panel สไลด์ออกจากซ้ายกว้าง 640px
+    // บังทั้ง .section-title / .room-info / คอลัมน์ซ้ายทั้งหมด (จุดคลิกเดิมโดนบัง)
+    await po.page.mouse.click(1000, 400);
     await po.page.waitForFunction(
       () => !document.getElementById("wheel-panel")?.classList.contains("open"),
       null,

@@ -87,7 +87,7 @@ const {
   handleClearClickUpTask,
 } = await import("../clickup");
 const { state } = await import("../state");
-const { updateUI, handleReveal, handleVote, handleCustomVote } = await import("../voting");
+const { updateUI, handleReveal, handleVote, handleCustomVote, handleKick } = await import("../voting");
 const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow, clickupInputRow, hotFixCheckbox } = await import("../dom");
 const { showToast, showNotVotedModal, showConfirmModal } = await import("../ui");
 const { initInfoTips } = await import("../infoTips");
@@ -791,5 +791,62 @@ describe("Reveal กับ No Need Test — modal เตือนคนยัง
     h.store.room = votingRoom(false);
     await handleReveal();
     expect(vi.mocked(showNotVotedModal)).toHaveBeenCalledWith("Run");
+  });
+});
+
+describe("Dev Cing (deputy) — handler Reveal/เตะ ทำงานจริงเหมือน PO", () => {
+  /** ห้องโหวตครบทุกคน (deputy ต้องโหวตด้วยเพราะเป็น dev) — พร้อม reveal ได้ */
+  const allVotedRoom = (): RoomData => ({
+    createdAt: 0,
+    revealed: false,
+    locked: false,
+    autoUnlockSeconds: 30,
+    activeTask,
+    users: {
+      po1: user({ name: "Yam", realName: "Yam", role: "po" }),
+      dev2: user({ name: "Cing", realName: "Cing", role: "dev", vote: "3" }),
+      qa1: user({ name: "Run", realName: "Run", role: "qa", vote: "5" }),
+    },
+  });
+
+  /** ตั้งตัวตนของเครื่องนี้ก่อนเรียก handler */
+  const asViewer = (uid: string, name: string, realName: string): void => {
+    state.currentRole = "dev";
+    state.currentUid = uid;
+    state.currentUser = { uid, name, realName };
+  };
+
+  it("deputy reveal ได้ — เขียน revealed จริงลงห้อง", async () => {
+    asViewer("dev2", "Cing", "Cing");
+    h.store.room = allVotedRoom();
+
+    await handleReveal();
+
+    expect(vi.mocked(showNotVotedModal)).not.toHaveBeenCalled();
+    const calls = vi.mocked(updateMock).mock.calls;
+    const payload = calls[calls.length - 1]?.[1] as Record<string, unknown> | undefined;
+    expect(payload?.revealed).toBe(true);
+  });
+
+  it("deputy เตะคนอื่นออกจากห้องได้ — เขียน kicked flag จริง", async () => {
+    asViewer("dev2", "Cing", "Cing");
+    h.store.room = allVotedRoom();
+
+    await handleKick("qa1", "Run");
+
+    const calls = vi.mocked(updateMock).mock.calls;
+    const payload = calls[calls.length - 1]?.[1] as Record<string, unknown> | undefined;
+    expect(payload?.["kicked/qa1"]).toBe(true);
+    expect(payload?.["users/qa1/left"]).toBe(true);
+  });
+
+  it("dev ทั่วไป เรียก Reveal/เตะ ตรง ๆ — guard กันไว้ ไม่เขียนอะไรลง Firebase", async () => {
+    asViewer("dev3", "Bell", "Bell");
+    h.store.room = allVotedRoom();
+
+    await handleReveal();
+    await handleKick("qa1", "Run");
+
+    expect(updateMock).not.toHaveBeenCalled();
   });
 });

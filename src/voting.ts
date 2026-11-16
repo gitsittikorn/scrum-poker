@@ -1,5 +1,5 @@
 import { db, ref, set, get, update, serverTimestamp, onValue } from "./firebase";
-import { state, isPO } from "./state";
+import { state, isPO, isRoomAdmin } from "./state";
 import type { User, RoomData, Role, GroupedUsers, CardDef } from "./types";
 import {
   cardsContainer,
@@ -360,9 +360,9 @@ export async function handleCustomVote(input: HTMLInputElement): Promise<void> {
   showToast("✅ โหวต: " + value);
 }
 
-// ===== Kick User (PO only) =====
+// ===== Kick User (PO + deputy เช่น Dev Cing — ตาม isRoomAdmin) =====
 export async function handleKick(targetUid: string, targetName: string): Promise<void> {
-  if (!state.currentRoom || !isPO()) return;
+  if (!state.currentRoom || !isRoomAdmin()) return;
   // Mark offline + left (instead of removing the record) so the user stays
   // in the Wheel for history. `kicked` flag still lets the client detect it
   // and leave the room. On rejoin, joinRoom() clears both flags.
@@ -381,7 +381,7 @@ export async function handleKick(targetUid: string, targetName: string): Promise
 let roomActionInFlight = false;
 
 export async function handleReveal(): Promise<void> {
-  if (!state.currentRoom || !isPO() || roomActionInFlight) return;
+  if (!state.currentRoom || !isRoomAdmin() || roomActionInFlight) return;
   roomActionInFlight = true;
   try {
     await doReveal();
@@ -452,7 +452,7 @@ async function doReveal(): Promise<void> {
 }
 
 export async function handleReset(): Promise<void> {
-  if (!state.currentRoom || !isPO() || roomActionInFlight) return;
+  if (!state.currentRoom || !isRoomAdmin() || roomActionInFlight) return;
   roomActionInFlight = true;
   try {
     await doReset();
@@ -714,11 +714,13 @@ export function updateUI(roomData: RoomData): void {
 
   detectJoinLeave(users);
 
-  const adminVisible = isPO() ? "" : "none";
+  // Reveal/Reset — admin ของห้อง (PO + deputy เช่น Dev Cing ตาม isRoomAdmin) ใช้ได้เหมือนกัน
+  const adminVisible = isRoomAdmin() ? "" : "none";
   btnReveal.style.display = adminVisible;
   btnReset.style.display = adminVisible;
+  // ลบห้องยังเป็นสิทธิ์ของ PO เท่านั้น — deputy ไม่ได้ตาม
   const btnDeleteRoom = document.getElementById("btn-delete-room") as HTMLButtonElement;
-  if (btnDeleteRoom) btnDeleteRoom.style.display = adminVisible;
+  if (btnDeleteRoom) btnDeleteRoom.style.display = isPO() ? "" : "none";
 
   // ClickUp task banner (ทุกคน) + ปุ่มบันทึกคะแนน (PO เท่านั้น — หลัง reveal และมี task ปัจจุบัน)
   lastRoomData = roomData;
@@ -752,8 +754,8 @@ export function updateUI(roomData: RoomData): void {
   if (locked && revealed) {
     statusDot.className = "status-dot locked";
     statusText.textContent = "Voting locked — Results revealed";
-    if (isPO()) btnReveal.style.display = "none";
-    // ทุกคนเห็นปุ่ม Unlock (แสดง countdown) — แต่กดได้เฉพาะ PO
+    if (isRoomAdmin()) btnReveal.style.display = "none";
+    // ทุกคนเห็นปุ่ม Unlock (แสดง countdown) — แต่กดได้เฉพาะ admin ของห้อง (PO + deputy)
     addRevoteButton();
     const revealTime = roomData.revealTime ?? null;
     // ทุกคนรัน countdown (ไม่ใช่แค่ PO) — restart เมื่อ revealTime เปลี่ยน
@@ -769,7 +771,7 @@ export function updateUI(roomData: RoomData): void {
   } else if (locked) {
     statusDot.className = "status-dot locked";
     statusText.textContent = "Voting locked";
-    if (isPO()) btnReveal.style.display = "none";
+    if (isRoomAdmin()) btnReveal.style.display = "none";
   } else if (taskGate) {
     cancelUnlockTimer();
     // ยังไม่ได้ดึงการ์ด — แจ้งในแถวสถานะ (ที่เดียวกับ "Voting locked") ให้สมาชิก
@@ -960,7 +962,7 @@ export function updateUI(roomData: RoomData): void {
     if (lastVoterUids.has(uid)) {
       card.appendChild(buildLastVoterLabel());
     }
-    if (isPO() && uid !== state.currentUid) {
+    if (isRoomAdmin() && uid !== state.currentUid) {
       card.appendChild(buildKickButton(uid, user));
     }
     card.appendChild(statusDot);
@@ -1063,11 +1065,11 @@ export function updateUI(roomData: RoomData): void {
           micRow.remove();
         }
 
-        // Sync kick button: add/remove based on whether the current viewer is PO.
-        // The confirm modal reads the name from the DOM at click time, so there's
-        // no inline text to keep in sync here.
+        // Sync kick button: add/remove based on whether the current viewer is
+        // room admin (PO + deputy เช่น Dev Cing). The confirm modal reads the
+        // name from the DOM at click time, so there's no inline text to sync.
         const kickBtn = existing.querySelector<HTMLElement>(".btn-kick");
-        const shouldHaveKick = isPO() && uid !== state.currentUid;
+        const shouldHaveKick = isRoomAdmin() && uid !== state.currentUid;
         if (shouldHaveKick && !kickBtn) {
           const btn = buildKickButton(uid, user);
           if (statusDotEl) existing.insertBefore(btn, statusDotEl);
@@ -1130,18 +1132,24 @@ export function updateUI(roomData: RoomData): void {
 }
 
 function addRevoteButton(): void {
-  const existing = document.getElementById("btn-revote");
-  if (existing) return;
+  const existing = document.getElementById("btn-revote") as HTMLButtonElement | null;
+  // ปุ่มถูกสร้างค้างไว้แล้ว (เช่น ออกแล้วเข้าห้องใหม่ใน session เดียวกัน) — sync สิทธิ์
+  // ให้ตรงกับตัวตนปัจจุบัน เผื่อ role/realName เปลี่ยนไประหว่างนั้น
+  if (existing) {
+    existing.disabled = !isRoomAdmin();
+    return;
+  }
 
-  const canUnlock = isPO();
+  // Unlock ก่อนครบเวลา — สิทธิ์เดียวกับ Reveal (PO + deputy ตาม isRoomAdmin)
+  const canUnlock = isRoomAdmin();
   const revoteBtn = document.createElement("button");
   revoteBtn.id = "btn-revote";
   revoteBtn.className = "btn btn-revote";
   revoteBtn.textContent = "🔓 Auto-unlock…";
-  // non-PO เห็น countdown ในปุ่มเหมือนกัน แต่กดไม่ได้ (disabled)
+  // คนที่ไม่ใช่ admin ของห้องเห็น countdown ในปุ่มเหมือนกัน แต่กดไม่ได้ (disabled)
   if (!canUnlock) revoteBtn.disabled = true;
   revoteBtn.addEventListener("click", async () => {
-    if (!state.currentRoom || !isPO()) return;
+    if (!state.currentRoom || !isRoomAdmin()) return;
     cancelUnlockTimer();
     try {
       await update(ref(db, `rooms/${state.currentRoom}`), {
