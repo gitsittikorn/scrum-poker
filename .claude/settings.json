@@ -25,7 +25,10 @@
       "Bash(git -C /c/TQM/all-automate/scum-poker show 0aa085f -- src/chat.ts src/reactions.ts src/room.ts)",
       "Bash(git -C /c/TQM/all-automate/scum-poker show 0aa085f -- src/voting.ts src/ui.ts src/sounds.ts src/wheel.ts)",
       "Bash(git -C /c/TQM/all-automate/scum-poker show b0de869 -- src/clickup.ts src/room.ts)",
-      "Bash(git -C /c/TQM/all-automate/scum-poker show --stat --format=\"%s\" be0981e)"
+      "Bash(git -C /c/TQM/all-automate/scum-poker show --stat --format=\"%s\" be0981e)",
+      "Bash(pnpm install *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"=== TSC EXIT: $? ===\")"
     ]
   }
 }

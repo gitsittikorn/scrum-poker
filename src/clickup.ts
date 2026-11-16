@@ -1272,12 +1272,18 @@ async function doSaveToClickUp(): Promise<void> {
     }
   };
 
-  // การ์ดมีค่าเดิม → ยืนยันก่อนเขียนทับ (modal รองรับ multi-line ผ่าน white-space: pre-line)
-  // กดยืนยันแล้วครอบด้วย withSaveBusy อีกรอบ — handler หลักจบไปแล้ว ค่าเดิมจะได้มี loading เหมือนกัน
-  if (existing.dev != null || existing.qa != null) {
+  // ค่าเดิมที่นับว่า "เคยระบุจริง" = มีค่าและไม่ใช่ 0 — field ที่ยังไม่เคยตั้งใน ClickUp
+  // (null หรือ 0) ถือว่ายังว่าง: บันทึกได้เลย ไม่ต้องขึ้น modal "0 → x"
+  const oldDev = existing.dev != null && existing.dev !== 0 ? existing.dev : null;
+  const oldQa = existing.qa != null && existing.qa !== 0 ? existing.qa : null;
+
+  // การ์ดมีค่าเดิม (เฉพาะ role ที่กำลังจะบันทึก) → ยืนยันก่อนเขียนทับ
+  // (modal รองรับ multi-line ผ่าน white-space: pre-line) · กดยืนยันแล้วครอบด้วย
+  // withSaveBusy อีกรอบ — handler หลักจบไปแล้ว ค่าเดิมจะได้มี loading เหมือนกัน
+  if ((dev !== null && oldDev !== null) || (qa !== null && oldQa !== null)) {
     const changes: string[] = ["บันทึกทับค่าเดิมใน ClickUp ไหม?"];
-    if (dev !== null) changes.push(`Dev: ${fmt(existing.dev ?? 0)} → ${fmt(dev)}`);
-    if (qa !== null) changes.push(`QA: ${fmt(existing.qa ?? 0)} → ${fmt(qa)}`);
+    if (dev !== null && oldDev !== null) changes.push(`Dev: ${fmt(oldDev)} → ${fmt(dev)}`);
+    if (qa !== null && oldQa !== null) changes.push(`QA: ${fmt(oldQa)} → ${fmt(qa)}`);
     showConfirmModal({
       title: "การ์ดนี้มีค่าอยู่แล้ว",
       message: changes.join("\n"),
