@@ -22,6 +22,8 @@ import {
   btnTaskHistory,
   noNeedTaskCheckbox,
   noNeedTestCheckbox,
+  noNeedDevCheckbox,
+  noNeedUxCheckbox,
   hotFixCheckbox,
   clickupUrlInput,
   btnDeleteRoom,
@@ -66,7 +68,7 @@ import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, inser
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
 import { toggleSoundPicker, renderSoundPicker, handleSoundPickerOutsideClick, triggerSound, registerSoundShortcuts, renderSoundShortcutSlots, startKeyCapture, cancelKeyCapture, setShortcutSound, setShortcutsEnabled, clearShortcut } from "./sounds";
 import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
-import { handleResolveClickUp, handleClearClickUpTask, handleSaveToClickUp, handleSetGroomMode, openTaskHistory, setNoNeedTask, handleNoNeedTestToggle, handleHotFixToggle } from "./clickup";
+import { handleResolveClickUp, handleClearClickUpTask, handleSaveToClickUp, handleSetGroomMode, openTaskHistory, setNoNeedTask, handleNoNeedTestToggle, handleNoNeedDevToggle, handleNoNeedUxToggle, handleHotFixToggle } from "./clickup";
 import { initInfoTips } from "./infoTips";
 import { state } from "./state";
 import { FEATURES } from "./config";
@@ -285,6 +287,17 @@ function bindEvents(): void {
     state.noNeedTest = noNeedTestCheckbox.checked;
     refreshSaveButtonState();
     void handleNoNeedTestToggle(noNeedTestCheckbox.checked);
+  });
+  // No Need Dev — เหมือน No Need Test แต่ฝั่ง Dev (บันทึก ClickUp ไม่ติด tag)
+  noNeedDevCheckbox.addEventListener("change", () => {
+    state.noNeedDev = noNeedDevCheckbox.checked;
+    refreshSaveButtonState();
+    void handleNoNeedDevToggle(noNeedDevCheckbox.checked);
+  });
+  // No Need UX/UI — เหมือน No Need Dev แต่ฝั่ง UX/UI (ไม่มีผลกับการบันทึก ClickUp)
+  noNeedUxCheckbox.addEventListener("change", () => {
+    state.noNeedUx = noNeedUxCheckbox.checked;
+    void handleNoNeedUxToggle(noNeedUxCheckbox.checked);
   });
   // Hot Fix — sync ทั้งห้อง (ตอนบันทึกจะติด tag "hot fix" บนการ์ด)
   hotFixCheckbox.addEventListener("change", () => {

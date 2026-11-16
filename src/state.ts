@@ -21,6 +21,13 @@ export const state = {
    *  ติ๊กโดย admin: QA ไม่ต้องใส่ point รอบนี้ — การ์ด QA ถูกล็อค + ไม่ nudge QA
    *  ตั้งค่าต่อ task (reset เมื่อดึง task ใหม่/ล้าง task/บันทึกจบรอบ) */
   noNeedTest: false,
+  /** "No Need Dev" — mirror ของ rooms/{roomId}/noNeedDev (sync ทั้งห้อง real-time)
+   *  เหมือน noNeedTest แต่ฝั่ง Dev: การ์ด Dev ถูกล็อค + เคลียร์ point + ไม่ nudge
+   *  บันทึก ClickUp ไม่เขียน Dev field — และไม่ติด tag (ต่างจาก No Need Test) */
+  noNeedDev: false,
+  /** "No Need UX/UI" — mirror ของ rooms/{roomId}/noNeedUx (sync ทั้งห้อง real-time)
+   *  เหมือน noNeedDev แต่ฝั่ง UX/UI — ไม่มีผลกับการบันทึก ClickUp และไม่ติด tag */
+  noNeedUx: false,
   /** "Hot Fix" — mirror ของ rooms/{roomId}/hotFix (sync ทั้งห้อง real-time)
    *  ติ๊กแล้ว เมื่อบันทึก Point ระบบติด tag "hot fix" บนการ์ด ClickUp
    *  ใช้ร่วมกับ No Need Test ได้ (เลือกอย่างเดียวหรือทั้งคู่) */

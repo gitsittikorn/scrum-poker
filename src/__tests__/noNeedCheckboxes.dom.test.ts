@@ -81,6 +81,8 @@ const {
   updateTaskRequiredReminder,
   setNoNeedTask,
   handleNoNeedTestToggle,
+  handleNoNeedDevToggle,
+  handleNoNeedUxToggle,
   handleHotFixToggle,
   renderTaskBanner,
   handleSaveToClickUp,
@@ -89,7 +91,7 @@ const {
 } = await import("../clickup");
 const { state } = await import("../state");
 const { updateUI, handleReveal, handleVote, handleCustomVote, handleKick } = await import("../voting");
-const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow, clickupInputRow, hotFixCheckbox, groomModeControls } = await import("../dom");
+const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedDevCheckbox, noNeedUxCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow, clickupInputRow, hotFixCheckbox, groomModeControls } = await import("../dom");
 const { showToast, showNotVotedModal, showConfirmModal } = await import("../ui");
 const { initInfoTips } = await import("../infoTips");
 const { update: updateMock, set: setMock } = await import("../firebase");
@@ -170,10 +172,16 @@ beforeEach(() => {
   state.currentUser = { uid: "po1", name: "Yam", realName: "Yam" };
   state.noNeedTask = false;
   state.noNeedTest = false;
+  state.noNeedDev = false;
+  state.noNeedUx = false;
   state.hotFix = false;
   noNeedTaskCheckbox.checked = false;
   noNeedTestCheckbox.checked = false;
   noNeedTestCheckbox.disabled = true;
+  noNeedDevCheckbox.checked = false;
+  noNeedDevCheckbox.disabled = true;
+  noNeedUxCheckbox.checked = false;
+  noNeedUxCheckbox.disabled = true;
   // reset ธง episode การ scroll ใน clickup.ts (เรียกด้วยสถานะไม่ active สักครั้ง)
   updateTaskRequiredReminder(revealedRoom());
 });
@@ -253,6 +261,23 @@ describe("req 14 — No Need Test (สถานะ checkbox ผูกกับ t
     renderTaskBanner(null, "groom"); // task ถูกล้าง
     expect(hotFixCheckbox.checked).toBe(false);
     expect(hotFixCheckbox.disabled).toBe(true);
+  });
+
+  it("No Need Dev / No Need UX/UI — ผูกกับ task เหมือน No Need Test (default unchecked + disabled)", () => {
+    expect(noNeedDevCheckbox.checked).toBe(false);
+    expect(noNeedDevCheckbox.disabled).toBe(true);
+    expect(noNeedUxCheckbox.checked).toBe(false);
+    expect(noNeedUxCheckbox.disabled).toBe(true);
+    renderTaskBanner(activeTask, "groom"); // ดึงสำเร็จ → enabled
+    expect(noNeedDevCheckbox.disabled).toBe(false);
+    expect(noNeedUxCheckbox.disabled).toBe(false);
+    noNeedDevCheckbox.checked = true;
+    noNeedUxCheckbox.checked = true;
+    renderTaskBanner(null, "groom"); // task ถูกล้าง → unchecked + disabled
+    expect(noNeedDevCheckbox.checked).toBe(false);
+    expect(noNeedDevCheckbox.disabled).toBe(true);
+    expect(noNeedUxCheckbox.checked).toBe(false);
+    expect(noNeedUxCheckbox.disabled).toBe(true);
   });
 });
 
@@ -453,8 +478,8 @@ describe("req 14 — No Need Test ล็อคการโหวตของ QA 
 });
 
 describe("เคลียร์ task ✕ = reset ข้อมูลรอบโหวตทันที (handleClearClickUpTask)", () => {
-  it("ล้าง task + noNeedTest/hotFix + โหวตทุกคน + revealed/locked กลับค่าว่าง ใน update เดียว (atomic)", async () => {
-    h.store.room = { ...revealedRoom(true), noNeedTest: true, hotFix: true };
+  it("ล้าง task + noNeedTest/noNeedDev/noNeedUx/hotFix + โหวตทุกคน + revealed/locked กลับค่าว่าง ใน update เดียว (atomic)", async () => {
+    h.store.room = { ...revealedRoom(true), noNeedTest: true, noNeedDev: true, noNeedUx: true, hotFix: true };
 
     await handleClearClickUpTask();
 
@@ -463,6 +488,8 @@ describe("เคลียร์ task ✕ = reset ข้อมูลรอบโ�
     expect(payload).toMatchObject({
       activeTask: null,
       noNeedTest: false,
+      noNeedDev: false,
+      noNeedUx: false,
       hotFix: false,
       revealed: false,
       locked: false,
@@ -500,11 +527,13 @@ describe("เคลียร์ task ✕ = reset ข้อมูลรอบโ�
 // ── req 16: สิทธิ์การเห็น/ใช้งาน — PO + Dev Cing (deputy) เท่านั้น ───────────
 
 describe("req 16 — Permission & Visibility (เห็นเฉพาะ PO + Dev Cing)", () => {
-  it("PO เห็น checkbox ทั้งสองและใช้งานได้", () => {
+  it("PO เห็น checkbox ทั้งหมดและใช้งานได้", () => {
     renderTaskBanner(activeTask, "groom");
     expect(noNeedToggles.classList.contains("hidden")).toBe(false);
     expect(noNeedTaskCheckbox.disabled).toBe(false);
     expect(noNeedTestCheckbox.disabled).toBe(false); // มี task → enabled
+    expect(noNeedDevCheckbox.disabled).toBe(false);
+    expect(noNeedUxCheckbox.disabled).toBe(false);
   });
 
   it("Dev Cing (deputy — realName จาก member list ตาม PO_DEPUTY_REAL_NAMES) เห็นและใช้ได้ + ดึงการ์ดได้เหมือน PO", () => {
@@ -530,10 +559,16 @@ describe("req 16 — Permission & Visibility (เห็นเฉพาะ PO + D
       expect(noNeedToggles.classList.contains("hidden")).toBe(true); // ไม่เห็น
       expect(clickupInputRow.classList.contains("hidden")).toBe(true); // ดึงการ์ดไม่ได้
       expect(noNeedTestCheckbox.disabled).toBe(true); // แม้มี task ก็ใช้ไม่ได้
+      expect(noNeedDevCheckbox.disabled).toBe(true);
+      expect(noNeedUxCheckbox.disabled).toBe(true);
       // แก้ DOM มือ (devtools) → tick ถัดไปต้องถูก force รีเซ็ต
       noNeedTestCheckbox.checked = true;
+      noNeedDevCheckbox.checked = true;
+      noNeedUxCheckbox.checked = true;
       renderTaskBanner(activeTask, "groom");
       expect(noNeedTestCheckbox.checked).toBe(false);
+      expect(noNeedDevCheckbox.checked).toBe(false);
+      expect(noNeedUxCheckbox.checked).toBe(false);
       // เรียกตรง ๆ ผ่าน console — guard ต้องกันไว้ ไม่แตะ state
       setNoNeedTask(true);
       expect(state.noNeedTask).toBe(false);
@@ -550,23 +585,34 @@ const TIP_TEXTS = {
     "ใช้สำหรับการโหวตประเมิน Point โดยไม่จำเป็นต้องดึง Task จาก ClickUp ระบบจะซ่อนการแจ้งเตือนให้ดึง Task ให้ทุกคนในห้อง และสามารถดำเนินการโหวตได้ตามปกติ โดยไม่มีการบันทึก Point ไปยัง ClickUp Task",
   test:
     "ใช้สำหรับ Task ที่ไม่จำเป็นต้องให้ QA ทดสอบ เมื่อบันทึก Point ระบบจะเพิ่ม Tag 'no need test' ใน ClickUp โดยไม่อัปเดต QA Point ใน Custom Field และระบุ 'QA: no need test' ใน Comment แทนคะแนน QA",
+  dev:
+    "ใช้สำหรับ Task ที่ไม่ต้องการ point จากฝั่ง Dev เมื่อติ๊กระบบจะเคลียร์ point ของ Dev ทุกคนและไม่บังคับให้ Dev โหวตในรอบนี้ โดยไม่บันทึก Dev Point ลง Custom Field (Comment ระบุ 'Dev: no need dev' แทนคะแนน Dev) และไม่เพิ่ม Tag ใน ClickUp",
+  ux:
+    "ใช้สำหรับ Task ที่ไม่ต้องการ point จากฝั่ง UX/UI เมื่อติ๊กระบบจะเคลียร์ point ของ UX/UI ทุกคนและไม่บังคับให้ UX/UI โหวตในรอบนี้ และไม่เพิ่ม Tag ใน ClickUp",
   hotfix:
     "ใช้กับ Task ที่เป็น Hot Fix — เมื่อบันทึก Point ระบบจะเพิ่ม Tag 'hot fix' ใน ClickUp เลือกอย่างเดียวหรือร่วมกับ No Need Test ก็ได้",
 } as const;
 
-const tipBtn = (which: "task" | "test" | "hotfix"): HTMLButtonElement =>
-  noNeedToggles.querySelector(
-    `.no-need-toggle:nth-child(${which === "task" ? 1 : which === "test" ? 2 : 3}) .info-tip`,
-  ) as HTMLButtonElement;
+/** ลำดับ checkbox ใน DOM: Groom ไม่มี Task(1) · No Need Test(2) · No Need Dev(3) · No Need UX/UI(4) · Hot Fix(5) */
+const TIP_ORDER: { key: keyof typeof TIP_TEXTS; nth: number }[] = [
+  { key: "task", nth: 1 },
+  { key: "test", nth: 2 },
+  { key: "dev", nth: 3 },
+  { key: "ux", nth: 4 },
+  { key: "hotfix", nth: 5 },
+];
 
-describe("req 19 — Tooltip ⓘ อธิบาย Groom ไม่มี Task / No Need Test / Hot Fix", () => {
-  it("มีไอคอน info ครบทั้งสาม checkbox พร้อมข้อความ tooltip ตาม requirement ภาษาไทย", () => {
+const tipBtn = (which: "task" | "test" | "dev" | "ux" | "hotfix"): HTMLButtonElement =>
+  noNeedToggles.querySelector(`.no-need-toggle:nth-child(${TIP_ORDER.find((t) => t.key === which)!.nth}) .info-tip`) as HTMLButtonElement;
+
+describe("req 19 — Tooltip ⓘ อธิบาย Groom ไม่มี Task / No Need Test / No Need Dev / No Need UX/UI / Hot Fix", () => {
+  it("มีไอคอน info ครบทั้งห้า checkbox พร้อมข้อความ tooltip ตาม requirement ภาษาไทย", () => {
     const btns = noNeedToggles.querySelectorAll(".info-tip");
-    expect(btns).toHaveLength(3);
+    expect(btns).toHaveLength(5);
     const bubbles = noNeedToggles.querySelectorAll(".info-tip-bubble");
-    expect(bubbles[0].textContent).toBe(TIP_TEXTS.task);
-    expect(bubbles[1].textContent).toBe(TIP_TEXTS.test);
-    expect(bubbles[2].textContent).toBe(TIP_TEXTS.hotfix);
+    TIP_ORDER.forEach(({ key, nth }) => {
+      expect(bubbles[nth - 1].textContent).toBe(TIP_TEXTS[key]);
+    });
     // tooltip เป็นส่วนหนึ่งของ toggle → ซ่อน/แสดงตามสิทธิ์ admin ของห้อง (req 19 ข้อ 7)
     state.currentRole = "qa";
     state.currentUid = "qa9";
@@ -718,6 +764,199 @@ describe("No Need Test toggle — sync ทั้งห้อง (rooms/{roomId}/
     state.currentUser = { uid: "qa9", name: "ใครก็ได้", realName: "คนอื่น" };
     await handleNoNeedTestToggle(true);
     expect(updateMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── No Need Dev / No Need UX/UI: เหมือน No Need Test แต่ไม่ติด tag ใน ClickUp ──
+
+/** ห้อง reveal มี task + dev 2 คนโหวตไม่ตรงกัน (3/8) + qa ตรงกัน (5) + ux โหวตแล้ว */
+const revealedRoomDevSplit = (): RoomData => ({
+  ...revealedRoom(false),
+  users: {
+    ...revealedRoom(false).users,
+    dev2: user({ name: "Bell", realName: "Bell", role: "dev", vote: "8" }),
+    ux1: user({ name: "Fai", realName: "Fai", role: "ux", vote: "2" }),
+  },
+});
+
+describe("No Need Dev toggle — sync ทั้งห้อง + เคลียร์ point เฉพาะ Dev", () => {
+  const toggleCall = () =>
+    vi.mocked(updateMock).mock.calls.find(
+      ([, p]) => p != null && typeof p === "object" && "noNeedDev" in (p as object),
+    );
+
+  it("ติ๊ก → เขียน noNeedDev:true + เคลียร์ vote เฉพาะ Dev (qa/ux/PO ไม่ถูกแตะ)", async () => {
+    h.store.room = revealedRoomDevSplit(); // dev1=3, dev2=8, qa=5, ux=2
+    await handleNoNeedDevToggle(true);
+    const call = toggleCall();
+    expect(call).toBeDefined();
+    const payload = call![1] as Record<string, unknown>;
+    expect(payload.noNeedDev).toBe(true);
+    expect(payload["users/dev1/vote"]).toBeNull();
+    expect(payload["users/dev2/vote"]).toBeNull();
+    expect(payload["users/qa1/vote"]).toBeUndefined();
+    expect(payload["users/ux1/vote"]).toBeUndefined();
+  });
+
+  it("uncheck → เขียน noNeedDev:false เท่านั้น (ไม่แตะโหวตใคร)", async () => {
+    await handleNoNeedDevToggle(false);
+    expect(toggleCall()![1]).toEqual({ noNeedDev: false });
+  });
+
+  it("คนที่ไม่มีสิทธิ์ (dev ทั่วไป) เรียกตรง ๆ → ไม่เขียนอะไรลง Firebase", async () => {
+    state.currentRole = "dev";
+    state.currentUid = "dev9";
+    state.currentUser = { uid: "dev9", name: "ใครก็ได้", realName: "คนอื่น" };
+    await handleNoNeedDevToggle(true);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("No Need UX/UI toggle — sync ทั้งห้อง + เคลียร์ point เฉพาะ UX/UI", () => {
+  const toggleCall = () =>
+    vi.mocked(updateMock).mock.calls.find(
+      ([, p]) => p != null && typeof p === "object" && "noNeedUx" in (p as object),
+    );
+
+  it("ติ๊ก → เขียน noNeedUx:true + เคลียร์ vote เฉพาะ UX/UI (dev/qa ไม่ถูกแตะ)", async () => {
+    h.store.room = revealedRoomDevSplit();
+    await handleNoNeedUxToggle(true);
+    const call = toggleCall();
+    expect(call).toBeDefined();
+    const payload = call![1] as Record<string, unknown>;
+    expect(payload.noNeedUx).toBe(true);
+    expect(payload["users/ux1/vote"]).toBeNull();
+    expect(payload["users/dev1/vote"]).toBeUndefined();
+    expect(payload["users/qa1/vote"]).toBeUndefined();
+  });
+
+  it("uncheck → เขียน noNeedUx:false เท่านั้น", async () => {
+    await handleNoNeedUxToggle(false);
+    expect(toggleCall()![1]).toEqual({ noNeedUx: false });
+  });
+});
+
+describe("บันทึก ClickUp แบบ No Need Dev — ไม่ส่ง Dev field, comment 'Dev: no need dev', ไม่ติด tag", () => {
+  it("checked + dev โหวตไม่ตรงกัน: บันทึก QA ได้ + dev เป็น null + ไม่มี add-tag เลย + reset noNeedDev", async () => {
+    h.store.room = revealedRoomDevSplit(); // dev 3/8 ไม่ตรง — No Need Dev ตัด Dev ออก
+    noNeedDevCheckbox.disabled = false;
+    noNeedDevCheckbox.checked = true;
+
+    await handleSaveToClickUp();
+
+    const save = fetchCall("save-points");
+    expect(save).toBeDefined();
+    expect(save!.body.dev).toBeNull(); // ไม่บันทึก/ไม่ทับ Dev field
+    expect(save!.body.qa).toBe(5); // QA บันทึกตามปกติ
+    expect(String(save!.body.comment)).toContain("Dev: no need dev");
+    expect(String(save!.body.comment)).toContain("QA: 5");
+    // ความต่างจาก No Need Test: ไม่ติด tag ใด ๆ ใน ClickUp
+    expect(fetchCall("add-tag")).toBeUndefined();
+    // reset รอบโหวต — noNeedDev กลับ false พร้อม task
+    const reset = resetUpdateCall();
+    expect(reset).toBeTruthy();
+    expect((reset![1] as Record<string, unknown>).noNeedDev).toBe(false);
+    expect((reset![1] as Record<string, unknown>).noNeedUx).toBe(false);
+  });
+
+  it("ทั้ง No Need Dev + No Need Test ติ๊กอยู่ → ไม่มีค่าเหลือให้บันทึก (dev=null, qa=null) → toast เตือน", async () => {
+    h.store.room = revealedRoomDevSplit();
+    noNeedDevCheckbox.disabled = false;
+    noNeedDevCheckbox.checked = true;
+    noNeedTestCheckbox.disabled = false;
+    noNeedTestCheckbox.checked = true;
+
+    await handleSaveToClickUp();
+
+    expect(fetchCall("save-points")).toBeUndefined();
+    expect(vi.mocked(showToast)).toHaveBeenCalledWith(expect.stringContaining("ไม่มีโหวตจาก Dev/QA"));
+  });
+
+  it("Hot Fix ร่วมกับ No Need Dev → ติดแค่ tag 'hot fix' (ฝั่ง Dev ยังไม่ติด tag)", async () => {
+    h.store.room = revealedRoomDevSplit();
+    noNeedDevCheckbox.disabled = false;
+    noNeedDevCheckbox.checked = true;
+    state.hotFix = true;
+    await handleSaveToClickUp();
+    const tags = h.calls.fetch.filter((c) => c.path.includes("add-tag")).map((c) => c.body.tag);
+    expect(tags).toEqual(["hot fix"]);
+  });
+});
+
+describe("ปุ่มบันทึก + Reveal + guard โหวต ของ No Need Dev / No Need UX/UI", () => {
+  /** ห้องมี task ยังไม่ reveal — dev 2 คนโหวตต่างกัน qa/ux ยังไม่ใส่ */
+  const votingRoomDevSplit = (flags: Partial<RoomData>): RoomData => ({
+    ...noTaskRoom(),
+    activeTask,
+    ...flags,
+    users: {
+      po1: user({ name: "Yam", role: "po" }),
+      dev1: user({ name: "Tien", role: "dev", vote: "3" }),
+      dev2: user({ name: "Bell", role: "dev", vote: "8" }),
+      qa1: user({ name: "Run", role: "qa" }), // ยังไม่ใส่
+      ux1: user({ name: "Fai", role: "ux" }), // ยังไม่ใส่
+    },
+  });
+
+  it("dev โหวตไม่ตรงกัน: ปุ่ม disabled · ติ๊ก No Need Dev → enabled + label 'Dev no need dev'", () => {
+    // qa โหวตแล้ว (ตรงกันคนเดียว) — เหลือ dev 3/8 เป็นอุปสรรคเดียว
+    const room = {
+      ...votingRoomDevSplit({}),
+      revealed: true,
+      locked: true,
+      users: { ...votingRoomDevSplit({}).users, qa1: user({ name: "Run", role: "qa", vote: "5" }) },
+    };
+    updateUI(room);
+    expect(btnSaveClickup.disabled).toBe(true); // dev 3/8 ไม่ตรง
+    noNeedDevCheckbox.disabled = false;
+    noNeedDevCheckbox.checked = true;
+    updateUI({ ...room, noNeedDev: true });
+    expect(btnSaveClickup.disabled).toBe(false); // Dev ไม่นับ readiness แล้ว
+    expect(btnSaveClickup.textContent).toContain("Dev no need dev");
+    expect(btnSaveClickup.textContent).toContain("QA 5");
+  });
+
+  it("No Need Dev + No Need Test + No Need UX/UI ครบ → reveal ผ่านแม้ dev/qa/ux ยังไม่โหวต", async () => {
+    h.store.room = votingRoomDevSplit({ noNeedDev: true, noNeedTest: true, noNeedUx: true });
+    await handleReveal();
+    expect(vi.mocked(showNotVotedModal)).not.toHaveBeenCalled();
+    expect(updateMock).toHaveBeenCalled();
+  });
+
+  it("ไม่ได้ติ๊กอะไร → modal เตือนครบทั้ง Run และ Fai (พฤติกรรมเดิม)", async () => {
+    h.store.room = votingRoomDevSplit({});
+    await handleReveal();
+    expect(vi.mocked(showNotVotedModal)).toHaveBeenCalledWith(expect.stringContaining("Run"));
+  });
+
+  it("dev กดการ์ดตอน noNeedDev — ไม่เขียน vote + toast · ux กดตอน noNeedUx — เหมือนกัน", async () => {
+    // dev โดน guard ของ noNeedDev
+    state.currentRole = "dev";
+    state.currentUid = "dev1";
+    state.currentUser = { uid: "dev1", name: "Tien", realName: "Tien" };
+    state.selectedCard = null;
+    h.store.room = votingRoomDevSplit({ noNeedDev: true });
+    await handleVote("3");
+    expect(setMock).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith(expect.stringContaining("No Need Dev"));
+
+    // ux โดน guard ของ noNeedUx
+    state.currentRole = "ux";
+    state.currentUid = "ux1";
+    state.currentUser = { uid: "ux1", name: "Fai", realName: "Fai" };
+    h.store.room = votingRoomDevSplit({ noNeedUx: true });
+    const input = Object.assign(document.createElement("input"), { value: "2" });
+    await handleCustomVote(input);
+    expect(setMock).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith(expect.stringContaining("No Need UX/UI"));
+
+    // qa ไม่โดน guard ของ noNeedDev (คนละ role)
+    state.currentRole = "qa";
+    state.currentUid = "qa1";
+    state.currentUser = { uid: "qa1", name: "Run", realName: "Run" };
+    h.store.room = votingRoomDevSplit({ noNeedDev: true });
+    await handleVote("5");
+    expect(setMock).toHaveBeenCalledTimes(1);
   });
 });
 

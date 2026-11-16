@@ -90,6 +90,11 @@ members/{pushId}/ — name, role ("po"|"dev"|"qa"|"ux")  ← ถาวร อย
 - **Real Name (ClickUp identity)**: ฟอร์มหน้าแรก = ชื่อในวงการ + Role + ชื่อสำหรับระบุตัวตนใน ClickUp (dropdown กรองตาม role จาก member list — บังคับเฉพาะ Kitsune/Phoenix/Raiju/UXUI/Cold/ColdJiab; Wheel/TQM1/TQM2/admin ใช้ฟอร์มเดิม) → ClickUp attendees ใช้ `realName ?? name`, ห้อง poker/wheel ในห้อง poker แสดงชื่อเล่น, ห้อง Wheel แสดงชื่อจริงจาก member list
 - **Member list (super admin tab Member)**: 5 คอลัมน์ PO/Dev/QA/UX/UI/Monkey King เพิ่ม/ลบ/แก้ไข เรียง a-z — เก็บถาวรที่ `members/` ไม่โดนลบตอนเคลียร์ข้อมูลทั้งหมด; `mk` (Monkey King) เป็น bucket ทีมสำหรับห้อง Wheel เท่านั้น ไม่ใช่ role จริง (คนหนึ่งมี entry ซ้อน 2 คอลัมน์; All ใน wheel dedupe ชื่อ); แก้/ลบระหว่างเซสชัน คนในห้องใช้ชื่อ snapshot จนจบเซสชัน; ห้อง Wheel ดึง entries จากตรงนี้แยกตาม role (dropdown All/PO/Dev/QA/UX/UI/Monkey King) และ**ไม่แสดง section ดึง task ClickUp**
 - **Roles**: PO (admin), Dev, QA, UX/UI — PO can reveal/reset/delete
+- **No Need checkboxes (admin ของห้อง)**: ผูกกับ task ปัจจุบัน (default unchecked + disabled จนกว่าจะดึง task, reset เมื่อดึงใหม่/เคลียร์/บันทึกจบรอบ — sync ทั้งห้องผ่าน `rooms/{roomId}/<flag>`):
+  - **No Need Test** (`noNeedTest`) — ตัด QA: การ์ดล็อค + เคลียร์ point QA + reveal/save ไม่นับ QA + comment "QA: no need test" + **ติด tag "no need test" ใน ClickUp**
+  - **No Need Dev** (`noNeedDev`) — เหมือนกันแต่ฝั่ง Dev + comment "Dev: no need dev" + **ไม่ติด tag** (backend ไม่เขียน/ไม่ทับ Dev custom field เมื่อส่ง `dev: null`)
+  - **No Need UX/UI** (`noNeedUx`) — เหมือนกันแต่ฝั่ง UX/UI (ไม่มีผลกับ ClickUp — UX ไม่มี custom field) + **ไม่ติด tag**
+  - ตอนติ๊ก: เคลียร์ point ของ role นั้นทันที (atomic กับการเขียน flag) · deputy (Dev Cing) ก็ถูกล็อคการ์ดเมื่อ No Need Dev ทำงาน (โหวตในฐานะ dev)
 - **Voting**: 12 predefined cards + custom input, real-time via Firebase
 - **Results**: Average per role, consensus check, speaker picker (min/max voter per group)
 - **Chat Panel**: Side panel (right), real-time messages, typing indicator, system messages (join/leave/reveal/reset)
@@ -112,7 +117,7 @@ members/{pushId}/ — name, role ("po"|"dev"|"qa"|"ux")  ← ถาวร อย
 - สลับโหมด **Groom / Pre-Groom** (toggle + `handleSetGroomMode`)
 - **บันทึก point ลง ClickUp** (ปุ่ม + `handleSaveToClickUp`)
 - ดึง/เคลียร์ task ClickUp · นำ task เก่ามา groom ใหม่ · ล้างประวัติ task ทั้งหมด
-- Toggle No Need Task / No Need Test / Hot Fix
+- Toggle No Need Task / No Need Test / No Need Dev / No Need UX/UI / Hot Fix
 - **ลบห้อง** (bottom bar + ใน settings) · ล้างตัวนับพูด (speaker rotate)
 - เห็นแถบเตือน "ยังไม่ได้เลือกการ์ด" (task-required reminder)
 

@@ -59,6 +59,14 @@ export interface RoomData {
    *  (การ์ดล็อค + เคลียร์ point เดิม + ไม่ nudge) · ตั้งต่อ task — reset เมื่อ
    *  ดึง task ใหม่ / ล้าง task / บันทึกจบรอบ */
   noNeedTest?: boolean;
+  /** "No Need Dev" — เหมือน noNeedTest แต่สำหรับฝั่ง Dev: ไม่ต้องใส่ point +
+   *  เคลียร์ point เดิม · บันทึก ClickUp ไม่เขียน/ไม่ทับ Dev custom field
+   *  และ **ไม่ติด tag บนการ์ด** (ต่างจาก No Need Test — ใช้ comment "Dev: no need dev" อย่างเดียว) */
+  noNeedDev?: boolean;
+  /** "No Need UX/UI" — เหมือน noNeedDev แต่สำหรับฝั่ง UX/UI: ไม่ต้องใส่ point +
+   *  เคลียร์ point เดิม · ไม่มีผลกับการบันทึก ClickUp (UX ไม่มี custom field อยู่แล้ว)
+   *  และ **ไม่ติด tag บนการ์ด** */
+  noNeedUx?: boolean;
   /** "Hot Fix" — ติ๊กแยกจาก No Need Test ได้ (อย่างเดียว/คู่กัน) เมื่อบันทึก
    *  Point ระบบเพิ่ม tag "hot fix" บนการ์ด ClickUp · ตั้งต่อ task เหมือนกัน */
   hotFix?: boolean;
