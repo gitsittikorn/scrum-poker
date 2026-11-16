@@ -61,6 +61,7 @@ document.body.innerHTML = html
 
 const { updateUI, initPokerCardsListener } = await import("../voting");
 const { state } = await import("../state");
+const { btnReveal, btnReset, btnDeleteRoom, btnSaveClickup } = await import("../dom");
 import type { ActiveTask, RoomData, User } from "../types";
 
 /** ดันค่า settings ผ่าน onValue callback ที่ mock เก็บไว้ (จำลอง Firebase tick) */
@@ -374,5 +375,57 @@ describe("renderCards — การ์ดปกติยังคงทำงา
     const cards = document.querySelectorAll(".poker-card:not(.custom-card)");
     expect(cards.length).toBeGreaterThan(0);
     expect((cards[0] as HTMLElement).dataset.value).toBe("0.5");
+  });
+});
+
+describe("Dev Cing (deputy) — Reveal/Reset/เตะ/Unlock เหมือน PO (แต่ไม่ใช่ลบห้อง/บันทึก)", () => {
+  /** ห้อง PO + Cing(deputy) + dev ทั่วไป — มองจากเครื่องของ Cing */
+  const deputyView = (over: Partial<RoomData> = {}): RoomData =>
+    room(
+      {
+        po1: user({ name: "Yam", role: "po" }),
+        dev2: user({ name: "Cing", role: "dev" }),
+        dev3: user({ name: "Bell", role: "dev" }),
+      },
+      over,
+    );
+
+  beforeEach(() => {
+    state.currentRole = "dev";
+    state.currentUid = "dev2"; // เครื่องของ Cing (realName อยู่ใน PO_DEPUTY_REAL_NAMES)
+    state.currentUser = { uid: "dev2", name: "Cing", realName: "Cing" };
+    document.getElementById("btn-revote")?.remove(); // ปุ่มถูกสร้างค้างจากเคสก่อนหน้า
+  });
+
+  it("เห็นปุ่ม Reveal/Reset + ปุ่มเตะบนการ์ดคนอื่น (ไม่เตะตัวเอง)", () => {
+    updateUI(deputyView());
+    expect(btnReveal.style.display).toBe("");
+    expect(btnReset.style.display).toBe("");
+    expect(cardOf("po1")!.querySelector(".btn-kick")).toBeTruthy();
+    expect(cardOf("dev3")!.querySelector(".btn-kick")).toBeTruthy();
+    expect(cardOf("dev2")!.querySelector(".btn-kick")).toBeNull(); // การ์ดตัวเองไม่มีปุ่มเตะ
+  });
+
+  it("สิทธิ์ที่ยังเป็น PO เท่านั้น: ไม่เห็นปุ่มลบห้อง และปุ่มบันทึก ClickUp (แม้ reveal + มี task)", () => {
+    updateUI(deputyView({ revealed: true, locked: true }));
+    expect(btnDeleteRoom.style.display).toBe("none");
+    expect(btnSaveClickup.style.display).toBe("none");
+  });
+
+  it("หลัง reveal (locked): ปุ่ม Reveal ซ่อน + ปุ่ม Auto-unlock กดได้ (ไม่ disabled เหมือน PO)", () => {
+    updateUI(deputyView({ revealed: true, locked: true }));
+    expect(btnReveal.style.display).toBe("none");
+    const revote = document.getElementById("btn-revote") as HTMLButtonElement;
+    expect(revote).toBeTruthy();
+    expect(revote.disabled).toBe(false);
+  });
+
+  it("dev ทั่วไป (realName ไม่อยู่ใน deputy list) — ยังไม่เห็น Reveal/Reset/เตะ ตามเดิม", () => {
+    state.currentUid = "dev3";
+    state.currentUser = { uid: "dev3", name: "Bell", realName: "Bell" };
+    updateUI(deputyView());
+    expect(btnReveal.style.display).toBe("none");
+    expect(btnReset.style.display).toBe("none");
+    expect(cardOf("po1")!.querySelector(".btn-kick")).toBeNull();
   });
 });

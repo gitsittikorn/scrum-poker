@@ -87,9 +87,9 @@ const {
   handleClearClickUpTask,
 } = await import("../clickup");
 const { state } = await import("../state");
-const { updateUI, handleReveal, handleVote, handleCustomVote } = await import("../voting");
+const { updateUI, handleReveal, handleVote, handleCustomVote, handleKick } = await import("../voting");
 const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow, clickupInputRow, hotFixCheckbox } = await import("../dom");
-const { showToast, showNotVotedModal } = await import("../ui");
+const { showToast, showNotVotedModal, showConfirmModal } = await import("../ui");
 const { initInfoTips } = await import("../infoTips");
 const { update: updateMock, set: setMock } = await import("../firebase");
 import type { ActiveTask, RoomData, User } from "../types";
@@ -321,6 +321,55 @@ describe("req 14 — บันทึก ClickUp แบบ No Need Test (flow จ
     expect(String(save!.body.comment)).toContain("QA: 5");
     expect(String(save!.body.comment)).not.toContain("no need test");
     expect(fetchCall("add-tag")).toBeUndefined(); // ไม่มี tag เมื่อไม่ได้ติ๊ก
+  });
+});
+
+describe("บันทึกทับ — modal ยืนยันเฉพาะเมื่อการ์ดเคยระบุ point จริง (0/null = ยังไม่เคยระบุ)", () => {
+  it("ค่าเดิมว่าง (0 หรือ null): บันทึกเลย ไม่ขึ้น modal ไม่โชว์ '0 → x'", async () => {
+    h.store.room = revealedRoom(false); // dev=3, qa=5
+    h.store.responses["check-existing"] = { data: { dev: 0, qa: null } };
+
+    await handleSaveToClickUp();
+
+    expect(vi.mocked(showConfirmModal)).not.toHaveBeenCalled();
+    const save = fetchCall("save-points");
+    expect(save).toBeDefined();
+    expect(save!.body.dev).toBe(3);
+    expect(save!.body.qa).toBe(5);
+  });
+
+  it("เคยระบุไว้ (1): ขึ้น modal 'Dev: 1 → 3' และบันทึกจริงหลังกดยืนยัน", async () => {
+    h.store.room = revealedRoom(false); // dev=3, qa=5
+    h.store.responses["check-existing"] = { data: { dev: 1, qa: null } };
+
+    await handleSaveToClickUp();
+
+    const modal = vi.mocked(showConfirmModal).mock.calls[0]?.[0];
+    expect(modal).toBeTruthy();
+    expect(String(modal!.message)).toContain("Dev: 1 → 3");
+    // QA ยังไม่เคยระบุ → ไม่ต้องขึ้นบรรทัด "QA: 0 → 5"
+    expect(String(modal!.message)).not.toContain("QA:");
+    expect(fetchCall("save-points")).toBeUndefined(); // ยังไม่บันทึกจนกดยืนยัน
+
+    await (modal!.onConfirm as () => Promise<void>)();
+
+    const save = fetchCall("save-points");
+    expect(save).toBeDefined();
+    expect(save!.body.dev).toBe(3);
+    expect(save!.body.qa).toBe(5);
+  });
+
+  it("ผสม — Dev ยังว่างแต่ QA เคยระบุ: modal มีแต่บรรทัด QA ไม่มี 'Dev: 0 → 3'", async () => {
+    h.store.room = revealedRoom(false); // dev=3, qa=5
+    h.store.responses["check-existing"] = { data: { dev: null, qa: 5 } };
+
+    await handleSaveToClickUp();
+
+    const modal = vi.mocked(showConfirmModal).mock.calls[0]?.[0];
+    expect(modal).toBeTruthy();
+    expect(String(modal!.message)).toContain("QA: 5 → 5");
+    expect(String(modal!.message)).not.toContain("Dev:");
+    expect(fetchCall("save-points")).toBeUndefined(); // รอยืนยันก่อน
   });
 });
 
@@ -742,5 +791,62 @@ describe("Reveal กับ No Need Test — modal เตือนคนยัง
     h.store.room = votingRoom(false);
     await handleReveal();
     expect(vi.mocked(showNotVotedModal)).toHaveBeenCalledWith("Run");
+  });
+});
+
+describe("Dev Cing (deputy) — handler Reveal/เตะ ทำงานจริงเหมือน PO", () => {
+  /** ห้องโหวตครบทุกคน (deputy ต้องโหวตด้วยเพราะเป็น dev) — พร้อม reveal ได้ */
+  const allVotedRoom = (): RoomData => ({
+    createdAt: 0,
+    revealed: false,
+    locked: false,
+    autoUnlockSeconds: 30,
+    activeTask,
+    users: {
+      po1: user({ name: "Yam", realName: "Yam", role: "po" }),
+      dev2: user({ name: "Cing", realName: "Cing", role: "dev", vote: "3" }),
+      qa1: user({ name: "Run", realName: "Run", role: "qa", vote: "5" }),
+    },
+  });
+
+  /** ตั้งตัวตนของเครื่องนี้ก่อนเรียก handler */
+  const asViewer = (uid: string, name: string, realName: string): void => {
+    state.currentRole = "dev";
+    state.currentUid = uid;
+    state.currentUser = { uid, name, realName };
+  };
+
+  it("deputy reveal ได้ — เขียน revealed จริงลงห้อง", async () => {
+    asViewer("dev2", "Cing", "Cing");
+    h.store.room = allVotedRoom();
+
+    await handleReveal();
+
+    expect(vi.mocked(showNotVotedModal)).not.toHaveBeenCalled();
+    const calls = vi.mocked(updateMock).mock.calls;
+    const payload = calls[calls.length - 1]?.[1] as Record<string, unknown> | undefined;
+    expect(payload?.revealed).toBe(true);
+  });
+
+  it("deputy เตะคนอื่นออกจากห้องได้ — เขียน kicked flag จริง", async () => {
+    asViewer("dev2", "Cing", "Cing");
+    h.store.room = allVotedRoom();
+
+    await handleKick("qa1", "Run");
+
+    const calls = vi.mocked(updateMock).mock.calls;
+    const payload = calls[calls.length - 1]?.[1] as Record<string, unknown> | undefined;
+    expect(payload?.["kicked/qa1"]).toBe(true);
+    expect(payload?.["users/qa1/left"]).toBe(true);
+  });
+
+  it("dev ทั่วไป เรียก Reveal/เตะ ตรง ๆ — guard กันไว้ ไม่เขียนอะไรลง Firebase", async () => {
+    asViewer("dev3", "Bell", "Bell");
+    h.store.room = allVotedRoom();
+
+    await handleReveal();
+    await handleKick("qa1", "Run");
+
+    expect(updateMock).not.toHaveBeenCalled();
   });
 });

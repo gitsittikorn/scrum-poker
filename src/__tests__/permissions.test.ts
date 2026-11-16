@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { state, isPO, isRoomAdmin } from "../state";
 import { PO_DEPUTY_REAL_NAMES, PO_DEPUTY_UIDS } from "../constants";
 
-describe("isRoomAdmin (req Dev Cing Permission — ส่วนตั้งค่าเดียวกับ PO)", () => {
+describe("isRoomAdmin (req Dev Cing Permission — ตั้งค่า + reveal/reset/unlock/เตะ เหมือน PO)", () => {
   beforeEach(() => {
     state.currentRole = null;
     state.currentUser = null;
@@ -18,13 +18,13 @@ describe("isRoomAdmin (req Dev Cing Permission — ส่วนตั้งค�
     expect(isRoomAdmin()).toBe(true);
   });
 
-  it("Dev ที่ชื่อจริง (realName จาก member list) อยู่ใน deputy list = ได้สิทธิ์ส่วนตั้งค่า", () => {
+  it("Dev ที่ชื่อจริง (realName จาก member list) อยู่ใน deputy list = ได้สิทธิ์ admin ของห้อง", () => {
     expect(PO_DEPUTY_REAL_NAMES.length).toBeGreaterThan(0);
     const deputyName = PO_DEPUTY_REAL_NAMES[0];
     state.currentRole = "dev";
     state.currentUser = { uid: "u2", name: "ชื่อเล่นอะไรก็ได้", realName: deputyName };
-    expect(isPO()).toBe(false); // ไม่ใช่ PO — สิทธิ์ reveal/reset ฯลฯ ไม่ได้
-    expect(isRoomAdmin()).toBe(true); // ได้เฉพาะส่วนตั้งค่า
+    expect(isPO()).toBe(false); // ไม่ใช่ PO — ลบห้อง/บันทึก ClickUp ไม่ได้
+    expect(isRoomAdmin()).toBe(true); // ตั้งค่า + reveal/reset/unlock/เตะ ได้เหมือน PO
   });
 
   it("Dev คนอื่น (realName ไม่อยู่ใน list / ไม่มี realName) = ไม่ได้สิทธิ์เพิ่ม", () => {
