@@ -1,5 +1,5 @@
 import { db, ref, get, update, onValue, off } from "./firebase";
-import type { FeaturePermissions, MemberRole } from "./types";
+import type { FeaturePermissions } from "./types";
 import {
   superAdminPanel,
   superAdminRoomTabs,
@@ -41,7 +41,7 @@ const FEATURE_KEYS: (keyof FeaturePermissions)[] = [
 ];
 
 const FEATURE_LABELS: Record<keyof FeaturePermissions, string> = {
-  poker: "🃏 Poker",
+  poker: "Poker",
   chat: "💬 Chat",
   react: "😀 React",
   sound: "🔊 Sound",
@@ -51,7 +51,7 @@ const FEATURE_LABELS: Record<keyof FeaturePermissions, string> = {
 };
 
 const FEATURE_ICONS: Record<keyof FeaturePermissions, string> = {
-  poker: "🃏",
+  poker: "",
   chat: "💬",
   react: "😀",
   sound: "🔊",
@@ -275,7 +275,7 @@ function renderMemberColumns(): void {
       rows.appendChild(empty);
     }
     for (const [id, m] of entries) {
-      rows.appendChild(buildMemberRow(id, m.name, code));
+      rows.appendChild(buildMemberRow(id, m.name));
     }
 
     const addRow = document.createElement("div");
@@ -311,7 +311,7 @@ function renderMemberColumns(): void {
 }
 
 /** One member row — name span + inline edit (✏️) + delete (✕) */
-function buildMemberRow(id: string, name: string, role: MemberRole): HTMLElement {
+function buildMemberRow(id: string, name: string): HTMLElement {
   const row = document.createElement("div");
   row.className = "member-row";
   row.dataset.id = id;

@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Scrum Poker</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🃏</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='c1' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2300d4ff'/><stop offset='1' stop-color='%230099cc'/></linearGradient><linearGradient id='c2' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23a855f7'/><stop offset='1' stop-color='%237c3aed'/></linearGradient><linearGradient id='c3' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23ec4899'/><stop offset='1' stop-color='%23f43f5e'/></linearGradient></defs><g transform='rotate(-14 31 55)'><rect x='10' y='28' width='42' height='54' rx='8' fill='url(%23c1)'/><text x='31' y='66' font-family='Arial,sans-serif' font-size='28' font-weight='900' fill='%23fff' text-anchor='middle'>T</text></g><g transform='rotate(14 69 55)'><rect x='48' y='28' width='42' height='54' rx='8' fill='url(%23c3)'/><text x='69' y='66' font-family='Arial,sans-serif' font-size='28' font-weight='900' fill='%23fff' text-anchor='middle'>M</text></g><g><rect x='29' y='20' width='42' height='54' rx='8' fill='url(%23c2)'/><text x='50' y='58' font-family='Arial,sans-serif' font-size='28' font-weight='900' fill='%23fff' text-anchor='middle'>Q</text></g></svg>">
 </head>
 <body>
   <div id="app">
@@ -58,7 +58,7 @@
           </div>
 
           <div class="form-group" id="realname-group" style="display:none">
-            <label for="realname-select">ชื่อสำหรับระบุตัวตนใน ClickUp</label>
+            <label for="realname-select">ชื่อที่แสดงใน comment ClickUp</label>
             <select id="realname-select">
               <option value="">-- เลือกชื่อ --</option>
             </select>
@@ -94,6 +94,9 @@
 
       <!-- ClickUp Task Banner — PO วางลิงก์ task, ทุกคนเห็น task ปัจจุบันแบบ real-time -->
       <section id="clickup-banner" class="clickup-banner hidden">
+        <div id="task-required-reminder" class="task-required-reminder hidden">
+          ยังไม่ได้เลือกการ์ด — กรุณาดึง Task จาก ClickUp ก่อนดำเนินการโหวต
+        </div>
         <div id="clickup-input-row" class="clickup-input-row hidden">
           <span class="clickup-label">🔗 Task</span>
           <input
@@ -117,6 +120,28 @@
           </div>
           <span id="groom-mode-badge" class="groom-mode-badge hidden" title="ห้องนี้อยู่โหมด Pre-Groom (lead)">🌱 Pre-Groom</span>
           <button type="button" id="btn-task-history" class="btn btn-task-history" title="ประวัติการดึง task ของห้องนี้">🕘 History</button>
+          <!-- Groom ไม่มี Task / No Need Test — เห็นเฉพาะ admin ของห้อง (PO + deputy) · ตัวแรก sync ทั้งห้องผ่าน rooms/{roomId}/noNeedTask -->
+          <!-- req 19 — ไอคอน ⓘ เปิด tooltip อธิบาย: hover (desktop) / แตะ (mobile) / Tab focus + Esc (keyboard) -->
+          <span id="no-need-toggles" class="no-need-toggles hidden">
+            <span class="no-need-toggle">
+              <label class="no-need-label">
+                <input type="checkbox" id="no-need-task"> Groom ไม่มี Task
+              </label>
+              <button type="button" class="info-tip" aria-expanded="false" aria-label="ดูคำอธิบาย Groom ไม่มี Task">ⓘ<span class="info-tip-bubble" role="tooltip">ใช้สำหรับการโหวตประเมิน Point โดยไม่จำเป็นต้องดึง Task จาก ClickUp ระบบจะซ่อนการแจ้งเตือนให้ดึง Task ให้ทุกคนในห้อง และสามารถดำเนินการโหวตได้ตามปกติ โดยไม่มีการบันทึก Point ไปยัง ClickUp Task</span></button>
+            </span>
+            <span class="no-need-toggle">
+              <label class="no-need-label">
+                <input type="checkbox" id="no-need-test" disabled> No Need Test
+              </label>
+              <button type="button" class="info-tip" aria-expanded="false" aria-label="ดูคำอธิบาย No Need Test">ⓘ<span class="info-tip-bubble" role="tooltip">ใช้สำหรับ Task ที่ไม่จำเป็นต้องให้ QA ทดสอบ เมื่อบันทึก Point ระบบจะเพิ่ม Tag 'no need test' ใน ClickUp โดยไม่อัปเดต QA Point ใน Custom Field และระบุ 'QA: no need test' ใน Comment แทนคะแนน QA</span></button>
+            </span>
+            <span class="no-need-toggle">
+              <label class="no-need-label">
+                <input type="checkbox" id="hot-fix" disabled> Hot Fix
+              </label>
+              <button type="button" class="info-tip" aria-expanded="false" aria-label="ดูคำอธิบาย Hot Fix">ⓘ<span class="info-tip-bubble" role="tooltip">ใช้กับ Task ที่เป็น Hot Fix — เมื่อบันทึก Point ระบบจะเพิ่ม Tag 'hot fix' ใน ClickUp เลือกอย่างเดียวหรือร่วมกับ No Need Test ก็ได้</span></button>
+            </span>
+          </span>
         </div>
         <div id="clickup-task-row" class="clickup-task-row hidden">
           <a id="clickup-task-display" class="clickup-task" target="_blank" rel="noopener noreferrer">
@@ -149,7 +174,7 @@
       <div id="member-manage-page" class="member-manage-page hidden">
         <div class="super-admin-header">
           <span class="super-admin-title">👥 Member</span>
-          <span class="super-admin-subtitle">รายชื่อสำหรับระบุตัวตนใน ClickUp + ห้อง Wheel — ข้อมูลถาวร ไม่หายเวลาเคลียร์ข้อมูลทั้งหมด</span>
+          <span class="super-admin-subtitle">รายชื่อที่แสดงใน comment ClickUp + ห้อง Wheel — ข้อมูลถาวร ไม่หายเวลาเคลียร์ข้อมูลทั้งหมด</span>
         </div>
         <div id="member-columns" class="member-columns"></div>
       </div>
@@ -431,7 +456,7 @@
         <!-- Voting Status -->
         <div id="voting-status" class="voting-status">
           <span class="status-dot"></span>
-          <span class="status-text">เลือกคะแนนของคุณ</span>
+          <span class="status-text">🔒 ยังไม่ได้ดึงการ์ด — รอ PO ดึง Task จาก ClickUp ก่อนโหวต</span>
         </div>
 
         <!-- Cards Section -->
@@ -703,7 +728,7 @@
               <label>Feature Flags</label>
               <div class="toggle-group">
                 <label class="toggle-label" id="toggle-label-poker">
-                  <span class="toggle-text">🃏 Poker</span>
+                  <span class="toggle-text">Poker</span>
                   <input type="checkbox" id="feature-poker" checked aria-label="Poker feature toggle">
                   <span class="toggle-switch" role="switch" aria-checked="true"></span>
                   <span class="admin-only-badge hidden">🔒 admin only</span>
@@ -765,7 +790,7 @@
             </div>
 
             <div class="settings-divider"></div>
-            <div class="settings-section-title">🃏 การ์ด Poker (ทุกห้อง)</div>
+            <div class="settings-section-title">การ์ด Poker (ทุกห้อง)</div>
             <small class="form-hint">ปล่อย point ว่าง = ซ่อนการ์ดนั้น · บันทึกแล้วทุกห้องเห็นทันที · ต้องมี point อย่างน้อย 1 ช่อง</small>
             <div id="poker-cards-config" class="pc-config">
               <div class="pc-row">
@@ -789,6 +814,7 @@
                 <span class="toggle-switch" role="switch" aria-checked="false"></span>
                 <span class="toggle-text">✏️ แสดงการ์ด Custom (ให้ผู้ใช้กรอก point เอง)</span>
               </label>
+              <input type="text" id="poker-custom-desc" class="custom-desc-input" maxlength="30" placeholder='คำอธิบายใต้การ์ด Custom (ว่าง = "Custom (Enter)")' autocomplete="off" aria-label="คำอธิบายใต้การ์ด Custom">
             </div>
             <button id="btn-super-admin-reset-cards" class="btn btn-secondary" style="width:100%;margin-bottom:8px">🔄 ใช้ค่า default</button>
             <button id="btn-super-admin-save-cards" class="btn btn-primary" style="width:100%">💾 บันทึกการ์ด Poker</button>

@@ -1,3 +1,6 @@
+packages:
+  - backend
+
 allowBuilds:
   '@firebase/util': true
   esbuild: true

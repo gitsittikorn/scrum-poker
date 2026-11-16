@@ -934,6 +934,28 @@ function setupEventDelegation(): void {
       document.body.style.userSelect = "";
     }, { signal });
   }
+
+  // ── Outside click / Escape ปิด wheel (เฉพาะห้อง poker — ห้อง Wheel เป็นเนื้อหาหลัก) ──
+  // คลิกนอก panel = ปิด · คลิกใน panel ไม่ปิด · มี modal เปิดอยู่ไม่ปิด (modal จัดการเอง)
+  // ปุ่ม 🎡 ที่ bottom bar ก็ไม่ปิด — click นั้น bubble มาถึงที่นี่เอง (มิฉะนั้นเปิดแล้วปิดทันที)
+  document.addEventListener("click", (e) => {
+    if (!isOpen || state.isWheelRoom) return;
+    const target = e.target as HTMLElement;
+    if (wheelPanel.contains(target)) return;
+    if (target.closest("#btn-wheel")) return;
+    if (document.querySelector(".modal-overlay.active")) return;
+    forceCloseWheel();
+  }, { signal });
+
+  // Escape ปิด wheel — ไม่แย่งจาก modal/settings ที่เปิดอยู่ (จัดการ Esc เองก่อน)
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !isOpen || state.isWheelRoom) return;
+    if (document.querySelector(".modal-overlay.active")) return;
+    const settingsOpen = document.getElementById("settings-modal")?.classList.contains("active");
+    if (settingsOpen) return;
+    e.preventDefault();
+    forceCloseWheel();
+  }, { signal });
 }
 
 // ── Public API ─────────────────────────────────────────────────────
@@ -992,6 +1014,11 @@ async function initWheel(): Promise<void> {
   // We only restore PO's customization (duplicate count, manual adds) when the
   // room's member set is unchanged since the last visit (matched by fingerprint).
   const freshMembers = await fetchMembers();
+  // ระหว่างรอ member list ผู้ใช้อาจออกห้องไปแล้ว (destroyWheel รีเซ็ต hasInitialized)
+  // ต้องเลิกตรงนี้ — เดิมไหลต่อไป re-bind delegation listener บน AbortController
+  // ใหม่ที่ไม่มีใคร abort อีก (DOM listener leak) + วาดวงล้อจากข้อมูลห้องเก่า
+  // (pattern เดียวกับ initWheelManual ที่ guard หลัง whenMembersReady)
+  if (!hasInitialized) return;
   memberFingerprint = fingerprintOf(freshMembers);
   const saved = loadWheelState();
   if (saved && saved.entries.length > 0 && saved.memberFingerprint === memberFingerprint) {
@@ -1098,7 +1125,9 @@ export function handleShuffle(): void {
 
 export function handleReset(): void {
   if (isSpinning) return;
-  restartEntries();
+  // restartEntries เป็น async (get + เขียน Firebase) — จับ error กัน unhandled
+  // rejection ตอน network พังแล้ววงล้อเงียบ ๆ ไม่ reset
+  restartEntries().catch((err) => console.error("[wheel] reset entries failed:", err));
 }
 
 export function handleClear(): void {

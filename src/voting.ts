@@ -25,7 +25,8 @@ import { escapeHtml, hasConfiguredCards, rangeFor, unanimousFor } from "./utils"
 import { showToast, showNotVotedModal, showConfirmModal } from "./ui";
 import { sendSystemMessage } from "./chat";
 import { playSound } from "./sounds";
-import { renderTaskBanner, isSaveInFlight, onSaveStateChange } from "./clickup";
+import { renderTaskBanner, isSaveInFlight, onSaveStateChange, updateTaskRequiredReminder } from "./clickup";
+import { buildRoundResetUpdates, resetLocalVoteUi } from "./roomReset";
 
 let unlockCountdownId: ReturnType<typeof setInterval> | null = null;
 let countdownRemaining = 0;
@@ -37,9 +38,13 @@ let currentCards: CardDef[] = DEFAULT_POKER_CARDS;
 /** Whether the super admin enabled the custom-input card (settings/pokerCustomCard).
  *  When true, renderCards appends a Custom card after the fixed cards. */
 let customCardEnabled = false;
-/** Tracks the room's locked state so a live card re-render can re-apply `.disabled`
- *  without waiting for the next room-data tick. */
-let cardsLocked = false;
+/** คำอธิบายใต้การ์ด Custom ที่ super admin ตั้งไว้ (settings/pokerCustomCardDesc)
+ *  ว่าง = ใช้ข้อความ default "Custom (Enter)" */
+let customCardDesc = "";
+/** สถานะ disabled ล่าสุดของการ์ด (locked / รอ task / No Need Test ล็อค QA) —
+ *  เก็บไว้ให้ renderCards ตอน re-render กลางคัน (super admin แก้ config การ์ด)
+ *  ใส่ `.disabled` กลับได้ทันที ไม่ต้องรอ room tick ถัดไป */
+let cardsDisabled = false;
 
 /** Uids currently "in room" (record exists, not intentionally left) across updateUI
  *  ticks — used to detect join/leave and play in.mp3/out.mp3.
@@ -192,9 +197,11 @@ export function renderCards(): void {
     el.setAttribute("role", "button");
     el.setAttribute("tabindex", "0");
     el.setAttribute("aria-label", "โหวตค่ากำหนดเอง");
+    // คำอธิบายใต้การ์ด = ที่ super admin ตั้งไว้ (real-time) · ว่าง = default
+    const customLabel = customCardDesc ? escapeHtml(customCardDesc) : "Custom<br>(Enter)";
     el.innerHTML = `
       <input type="number" class="custom-point-input" placeholder="…" min="0" step="0.1" inputmode="decimal" aria-label="point กำหนดเอง">
-      <span class="card-label">Custom<br>(Enter)</span>
+      <span class="card-label">${customLabel}</span>
     `;
     const input = el.querySelector<HTMLInputElement>(".custom-point-input")!;
     input.addEventListener("keydown", (e: KeyboardEvent) => {
@@ -213,12 +220,15 @@ export function renderCards(): void {
     cardsContainer.appendChild(el);
   }
 
-  // Re-apply locked + selected state so a live re-render (admin changed cards)
-  // doesn't flash an un-locked / un-selected set before the next room-data tick.
-  if (cardsLocked) {
+  // Re-apply disabled + selected state so a live re-render (admin changed cards)
+  // doesn't flash an enabled / un-selected set before the next room-data tick.
+  if (cardsDisabled) {
     document
       .querySelectorAll(".poker-card")
       .forEach((el) => el.classList.add("disabled"));
+    document.querySelectorAll(".custom-point-input").forEach((el) => {
+      (el as HTMLInputElement).disabled = true;
+    });
   }
   applyCardSelection();
 }
@@ -277,17 +287,42 @@ export function initPokerCardsListener(): void {
     customCardEnabled = !!snap.val();
     renderCards();
   });
+  // คำอธิบายใต้การ์ด Custom — แก้ที่หน้า super admin แล้วทุกห้องเห็นใหม่ทันที
+  onValue(ref(db, "settings/pokerCustomCardDesc"), (snap) => {
+    const v = snap.val();
+    customCardDesc = typeof v === "string" ? v.trim() : "";
+    renderCards();
+  });
 }
 
 // ===== Voting Actions =====
+/** เช็คก่อนเขียน vote — อ่านสถานะห้องล่าสุดจาก DB ตอนกดจริง
+ *  (.disabled บนการ์ดเป็นแค่ชั้น UI — คีย์บอร์ด Enter หรือ event ที่มุดเข้ามา
+ *  ยังไปถึง handler ได้ ต้องกันที่ logic เสมอ)
+ *  คืน true = โหวตต่อไม่ได้ (toast บอกเหตุผลแล้วในฟังก์ชัน)
+ *  req 14 — No Need Test: QA ถูกตัดออกจากรอบนี้ อ่าน role จาก users ในห้อง
+ *  โดยตรง (ค่าจริงล่าสุด ไม่ใช้ state ฝั่งเครื่อง กันกรณี room tick ยังไม่มาถึง) */
+async function voteBlocked(): Promise<boolean> {
+  const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
+  if (!roomSnap.exists()) return true; // ห้องถูกลบไปแล้ว — ไม่มีที่ให้เขียน vote
+  const roomVal = roomSnap.val() as RoomData;
+  if (roomVal.locked) {
+    showToast("Voting is locked");
+    return true;
+  }
+  const myRole = state.currentUser
+    ? roomVal.users?.[state.currentUser.uid]?.role
+    : null;
+  if (roomVal.noNeedTest === true && myRole === "qa") {
+    showToast("🚫 No Need Test — ไม่ต้องใส่ point รอบนี้");
+    return true;
+  }
+  return false;
+}
+
 export async function handleVote(value: string): Promise<void> {
   if (!state.currentRoom || !state.currentUser) return;
-
-  const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
-  if (roomSnap.exists() && (roomSnap.val() as RoomData).locked) {
-    showToast("Voting is locked");
-    return;
-  }
+  if (await voteBlocked()) return;
 
   state.selectedCardCustom = false;
   state.selectedCard = value;
@@ -313,11 +348,7 @@ export async function handleCustomVote(input: HTMLInputElement): Promise<void> {
     showToast("❌ ระบุตัวเลข (ทศนิยมไม่เกิน 1 ตำแหน่ง)");
     return;
   }
-  const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
-  if (roomSnap.exists() && (roomSnap.val() as RoomData).locked) {
-    showToast("Voting is locked");
-    return;
-  }
+  if (await voteBlocked()) return;
   const value = String(parseFloat(raw)); // ".5" → "0.5", "5." → "5"
   state.selectedCardCustom = true;
   state.selectedCard = value;
@@ -345,8 +376,21 @@ export async function handleKick(targetUid: string, targetName: string): Promise
   showToast(`เตะ ${targetName} ออกจากห้องแล้ว`);
 }
 
+/** กัน double-click ของ Reveal/Reset — ทั้งคู่เป็น get→update ถ้ากดซ้อนจะได้สอง
+ *  revealTime/speakers คนละชุดเขียนทับกัน (countdown เด้ง ลำโพงเปลี่ยนกลางอากาศ) */
+let roomActionInFlight = false;
+
 export async function handleReveal(): Promise<void> {
-  if (!state.currentRoom || !isPO()) return;
+  if (!state.currentRoom || !isPO() || roomActionInFlight) return;
+  roomActionInFlight = true;
+  try {
+    await doReveal();
+  } finally {
+    roomActionInFlight = false;
+  }
+}
+
+async function doReveal(): Promise<void> {
   // อ่านทั้งห้องเพื่อเอา users + speakerCounts ใน round-trip เดียว
   const roomSnap = await get(ref(db, `rooms/${state.currentRoom}`));
   if (!roomSnap.exists()) return;
@@ -357,9 +401,19 @@ export async function handleReveal(): Promise<void> {
   // Check if all non-PO users who haven't intentionally left have voted.
   // Offline users (tab close/unload) still count — they remain in the room
   // and PO can kick them if they don't come back.
+  // (ผู้คุมห้อง = po + admin ตาม isPO — ให้ตรงกับ pendingVoters ใน updateUI
+  //  ไม่งั้น super admin ที่นั่งดูอยู่ block การ reveal โดยไม่เคยถูกเตือน)
+  // No Need Test ทำงาน → QA ไม่ต้องใส่ point รอบนี้ = ไม่ถูกนับเป็น "ยังไม่โหวต"
+  // (อ่านจาก flag ของห้องโดยตรง — นิยามเดียวกับ nudge/qaReady ไม่งั้น PO reveal
+  //  ไม่ได้เพราะ modal เตือนให้ QA ใส่ point ทั้งที่ไม่ต้องใส่)
+  const noNeedTest = roomVal.noNeedTest === true;
   const notVoted = userList.filter(
     ([, user]) =>
-      user.role !== "po" && user.left !== true && user.vote == null,
+      user.role !== "po" &&
+      user.role !== "admin" &&
+      user.left !== true &&
+      user.vote == null &&
+      !(noNeedTest && user.role === "qa"),
   );
   if (notVoted.length > 0) {
     const names = notVoted.map(([, u]) => u.name).join(", ");
@@ -398,43 +452,25 @@ export async function handleReveal(): Promise<void> {
 }
 
 export async function handleReset(): Promise<void> {
-  if (!state.currentRoom || !isPO()) return;
+  if (!state.currentRoom || !isPO() || roomActionInFlight) return;
+  roomActionInFlight = true;
+  try {
+    await doReset();
+  } finally {
+    roomActionInFlight = false;
+  }
+}
+
+async function doReset(): Promise<void> {
   cancelUnlockTimer();
 
-  const [usersSnap, countsSnap] = await Promise.all([
-    get(ref(db, `rooms/${state.currentRoom}/users`)),
-    get(ref(db, `rooms/${state.currentRoom}/speakerCounts`)),
-  ]);
-  if (usersSnap.exists()) {
-    const updates: Record<string, unknown> = {};
-    const users = usersSnap.val() as Record<string, User>;
-    Object.entries(users).forEach(([uid]) => {
-      updates[`users/${uid}/vote`] = null;
-    });
-    updates["revealed"] = false;
-    updates["locked"] = false;
-    updates["revealTime"] = null;
-    updates["drinkers"] = null; // Firebase field kept as "drinkers"
-    // เคลียร์ count เฉพาะตอน "รอบจบ" = ทุกคนที่โหวต (non-PO, non-left, เลข) เคยพูด ≥1 ครั้ง
-    // ถ้ายังไม่ครบ = reset เพื่อโหวตใหม่เรื่องเดิม → คง count ไว้ให้ anti-streak ทำงานต่อ
-    const counts: Record<string, number> = countsSnap.val() ?? {};
-    const allSpoken = Object.entries(users).every(([uid, u]) => {
-      if (u.role === "po" || u.left === true) return true;
-      if (isNaN(parseFloat(u.vote ?? ""))) return true;
-      return (counts[uid] ?? 0) >= 1;
-    });
-    if (allSpoken) updates["speakerCounts"] = null;
+  // payload ล้างรอบโหวต (ใช้ร่วมกับ "เคลียร์ task" — ดู roomReset.ts)
+  const updates = await buildRoundResetUpdates();
+  if (updates) {
     await update(ref(db, `rooms/${state.currentRoom}`), updates);
   }
 
-  state.selectedCardCustom = false;
-  state.selectedCard = null;
-  document
-    .querySelectorAll(".poker-card")
-    .forEach((el) => el.classList.remove("selected"));
-  document.querySelectorAll(".custom-point-input").forEach((el) => {
-    (el as HTMLInputElement).value = "";
-  });
+  resetLocalVoteUi();
   showToast("Reset complete");
 }
 
@@ -600,7 +636,9 @@ function detectJoinLeave(users: Record<string, User>): void {
 let lastRoomData: RoomData | null = null;
 
 /** ปุ่มบันทึก ClickUp (PO เท่านั้น — หลัง reveal และมี task ปัจจุบัน)
- *  แยกจาก updateUI เพื่อเรียกซ้ำได้ทันทีเมื่อสถานะบันทึกเปลี่ยน (onSaveStateChange) */
+ *  แยกจาก updateUI เพื่อเรียกซ้ำได้ทันทีเมื่อสถานะบันทึกเปลี่ยน (onSaveStateChange)
+ *  req 14 — No Need Test: QA ถูกตัดออกจากรอบบันทึก (ไม่บังคับ unanimous)
+ *  label แสดง "QA no need test" แทนค่า/✗ ของ QA */
 function renderSaveButton(roomData: RoomData): void {
   const showSaveBtn =
     isPO() &&
@@ -616,6 +654,9 @@ function renderSaveButton(roomData: RoomData): void {
     btnSaveClickup.textContent = "…กำลังบันทึก";
     return;
   }
+  // state.noNeedTest = mirror จาก tick ล่าสุด (optimistic ตอน admin เพิ่งติ๊ก)
+  // roomData.noNeedTest = ค่าจากห้อง — OR รวมเพื่อให้ PO เห็น label ใหม่ทันทีไม่ต้องรอ tick
+  const noNeedTest = state.noNeedTest || roomData.noNeedTest === true;
   const groomMode = roomData.groomMode ?? "groom";
   const notLeft = Object.entries(roomData.users ?? {}).filter(([, u]) => !u.left);
   const devList = notLeft.filter(([, u]) => u.role === "dev");
@@ -624,9 +665,10 @@ function renderSaveButton(roomData: RoomData): void {
   if (groomMode === "pre") {
     // Pre-Groom: label แสดงช่วง min-max ที่จะคอมเม้นลงการ์ด
     const dev = rangeFor(devList);
-    const qa = rangeFor(qaList);
+    const qa = noNeedTest ? null : rangeFor(qaList);
     if (dev !== null) parts.push(`Dev ${dev}`);
-    if (qa !== null) parts.push(`QA ${qa}`);
+    if (noNeedTest) parts.push("QA no need test");
+    else if (qa !== null) parts.push(`QA ${qa}`);
     btnSaveClickup.textContent = parts.length
       ? `🌱 บันทึก Pre-Groom (${parts.join(" · ")})`
       : "🌱 บันทึก Pre-Groom";
@@ -634,17 +676,19 @@ function renderSaveButton(roomData: RoomData): void {
   } else {
     // Groom: ค่าเดียวเมื่อทุกคนใน role โหวตเท่ากัน · ✗ = role นั้นยังไม่ตรงกัน
     const dev = unanimousFor(devList);
-    const qa = unanimousFor(qaList);
+    const qa = noNeedTest ? null : unanimousFor(qaList);
     if (dev !== null) parts.push(`Dev ${dev}`);
     else if (devList.length > 0) parts.push("Dev ✗");
-    if (qa !== null) parts.push(`QA ${qa}`);
+    if (noNeedTest) parts.push("QA no need test");
+    else if (qa !== null) parts.push(`QA ${qa}`);
     else if (qaList.length > 0) parts.push("QA ✗");
     btnSaveClickup.textContent = parts.length
       ? `💾 บันทึก ClickUp (${parts.join(" · ")})`
       : "💾 บันทึก ClickUp";
     // ปุ่มกดไม่ได้จนกว่าทุก role ที่มีสมาชิกจะโหวตเท่ากันครบ (และมีค่าให้บันทึกอย่างน้อย 1 role)
     const devReady = devList.length === 0 || dev !== null;
-    const qaReady = qaList.length === 0 || qa !== null;
+    // noNeedTest → QA ไม่นับ readiness (ไม่ได้จะบันทึก point ของ QA อยู่แล้ว)
+    const qaReady = noNeedTest || qaList.length === 0 || qa !== null;
     btnSaveClickup.disabled = !(devReady && qaReady && (dev !== null || qa !== null));
   }
   btnSaveClickup.title = btnSaveClickup.disabled
@@ -652,11 +696,20 @@ function renderSaveButton(roomData: RoomData): void {
     : "";
 }
 
+/** req 14 — เรียกเมื่อ toggle checkbox No Need Test เพื่อ re-render ปุ่มบันทึกทันที
+ *  (label/disable ต้องสะท้อนว่า QA ถูกตัดออก ไม่ต้องรอ room tick ถัดไป) */
+export function refreshSaveButtonState(): void {
+  if (lastRoomData) renderSaveButton(lastRoomData);
+}
+
 export function updateUI(roomData: RoomData): void {
   const users = roomData.users || {};
   const revealed = roomData.revealed || false;
   const locked = roomData.locked || false;
-  cardsLocked = locked;
+  // mirror สถานะ No Need Test จากห้อง (ใช้ร่วมทุกเครื่อง — checkbox มีแค่ฝั่ง admin
+  // การอ่านจาก roomData ทำให้เครื่อง QA/dev รู้สถานะนี้ด้วย: ล็อคการ์ด QA ฯลฯ)
+  state.noNeedTest = roomData.noNeedTest === true;
+  state.hotFix = roomData.hotFix === true;
   const userList = Object.entries(users);
 
   detectJoinLeave(users);
@@ -671,8 +724,30 @@ export function updateUI(roomData: RoomData): void {
   lastRoomData = roomData;
   renderTaskBanner(roomData.activeTask ?? null, roomData.groomMode ?? "groom");
   renderSaveButton(roomData);
+  // เตือน PO ให้ดึง task เมื่อมีคนเริ่มโหวตแต่ยังไม่มี task (เรียกทุก tick — sync real-time)
+  updateTaskRequiredReminder(roomData);
 
   // แถบสถานะ default คือแสดง — ซ่อนเฉพาะกรณี "โหวตแล้ว" ใน branch ล่าง
+  // Task gate — ห้อง poker ที่ต้องมี task (ยังไม่ได้ติ๊ก "Groom ไม่มี Task") แต่ PO
+  // ยังไม่ดึง task = ล็อคการ์ดห้ามคลิก point กันโหวตก่อนรู้ task แล้ว nudge
+  // "เพื่อนสมาชิกรอคุณอยู่" ขึ้นผิดจังหวะ — banner เขียนอยู่แล้วว่า "กรุณาดึง Task
+  // ก่อนดำเนินการโหวต" ตอนนี้บังคับจริง · ปลดล็อคแบบ real-time เมื่อ PO ดึง task
+  // สำเร็จ หรือ admin ติ๊ก Groom ไม่มี Task (sync ทั้งห้อง) · ห้อง Wheel/admin
+  // ไม่เกี่ยวกับ ClickUp จึงไม่ล็อค
+  const taskGate =
+    FEATURES.clickup &&
+    !state.isWheelRoom &&
+    state.currentRoom !== ADMIN_ROOM &&
+    !roomData.noNeedTask &&
+    !roomData.activeTask;
+  // QA gate — No Need Test ทำงาน: เครื่องของ QA เองถูกล็อคการ์ด ไม่ต้องใส่ point
+  // รอบนี้ (point เดิมถูกเคลียร์ตอน admin ติ๊กแล้ว) — dev/PO ไม่กระทบ
+  const qaGate =
+    state.noNeedTest &&
+    state.currentRole === "qa" &&
+    FEATURES.clickup &&
+    !state.isWheelRoom &&
+    state.currentRoom !== ADMIN_ROOM;
   votingStatus.style.display = "";
   if (locked && revealed) {
     statusDot.className = "status-dot locked";
@@ -695,24 +770,32 @@ export function updateUI(roomData: RoomData): void {
     statusDot.className = "status-dot locked";
     statusText.textContent = "Voting locked";
     if (isPO()) btnReveal.style.display = "none";
+  } else if (taskGate) {
+    cancelUnlockTimer();
+    // ยังไม่ได้ดึงการ์ด — แจ้งในแถวสถานะ (ที่เดียวกับ "Voting locked") ให้สมาชิก
+    // รู้ว่าการ์ดกดไม่ได้เพราะรอ PO ดึง task ไม่ใช่ระบบพัง
+    statusDot.className = "status-dot";
+    statusText.textContent = "🔒 ยังไม่ได้ดึงการ์ด — รอ PO ดึง Task จาก ClickUp ก่อนโหวต";
+    const existing = document.getElementById("btn-revote");
+    if (existing) existing.remove();
+  } else if (qaGate) {
+    cancelUnlockTimer();
+    // No Need Test — QA ไม่ต้องใส่ point รอบนี้ (การ์ดถูกล็อคอยู่)
+    statusDot.className = "status-dot";
+    statusText.textContent = "🚫 No Need Test — ไม่ต้องใส่ point รอบนี้";
+    const existing = document.getElementById("btn-revote");
+    if (existing) existing.remove();
   } else {
     cancelUnlockTimer();
-    const hasVoted =
-      state.currentUser && users[state.currentUser.uid]?.vote !== null;
-    if (hasVoted) {
-      // โหวตแล้ว — ซ่อนแถบสถานะทั้งแถวเพื่อคืนพื้นที่หน้าจอ
-      // (การ์ดที่โหวตอยู่มี highlight + การ์ดผู้เล่นมี ✅ อยู่แล้ว)
-      votingStatus.style.display = "none";
-    } else {
-      votingStatus.style.display = "";
-      statusDot.className = "status-dot";
-      statusText.textContent = "Select your estimate";
-    }
+    // ไม่ล็อคและไม่รอ task = ซ่อนแถบสถานะไปเลย (เดิมแสดง "Select your estimate"
+    // รกเกินจำเป็น — สถานะโหวตเห็นจาก ✅ / highlight บนการ์ดผู้เล่นอยู่แล้ว)
+    votingStatus.style.display = "none";
     const existing = document.getElementById("btn-revote");
     if (existing) existing.remove();
   }
 
-  const disableVoting = locked;
+  const disableVoting = locked || taskGate || qaGate;
+  cardsDisabled = disableVoting; // renderCards ใช้ re-apply ตอน re-render กลางคัน
   document.querySelectorAll(".poker-card").forEach((el) => {
     el.classList.toggle("disabled", disableVoting);
   });
@@ -728,6 +811,30 @@ export function updateUI(roomData: RoomData): void {
 
   // Participants — diff-based update
   const grouped = groupUsers(userList);
+  // ── Last-voter nudge: "คนสุดท้ายที่ยังไม่โหวต" นับแยกตาม role — ห้ามรวมกัน
+  // แต่ละ role มี last voter ของตัวเอง: dev เหลือคนเดียว = การ์ด dev คนนั้นถูกเตือน
+  // แม้ QA/UX จะยังไม่โหวตอยู่กี่คนก็ตาม (และกลับกัน) — จะได้รู้ว่า role ไหนยังไม่ใส่
+  // point · deputy (เช่น Dev Cing) มี role เป็น dev ก็นับเป็น dev ตาม role จริง ไม่ใช่ po
+  // No Need Test ทำงาน → QA ไม่ต้องโหวต = ไม่นับกลุ่ม QA (นิยามเดียวกับ qaReady ตอน reveal)
+  // คำนวณจาก snapshot จริงทุก tick → ไม่เตือนผิดคน หยุดทันทีเมื่อโหวต (ไม่ทำงานตอน lock/reveal)
+  // Task gate ล็อคอยู่ = โหวตไม่ได้อยู่แล้ว ไม่ nudge ใครทั้งนั้นจนกว่าจะมี task
+  const lastVoterUids = new Set<string>();
+  if (!locked && !revealed && !taskGate) {
+    // อ่านจาก roomData (ไม่ใช่ checkbox ของเครื่องนี้) — เครื่อง QA/dev ก็ต้องรู้
+    const noNeedTest = roomData.noNeedTest === true;
+    const pendingByRole = new Map<string, [string, User][]>();
+    for (const entry of userList) {
+      const u = entry[1];
+      if (u.role === "po" || u.role === "admin" || u.left === true || u.vote != null) continue;
+      if (noNeedTest && u.role === "qa") continue;
+      const list = pendingByRole.get(u.role);
+      if (list) list.push(entry);
+      else pendingByRole.set(u.role, [entry]);
+    }
+    for (const list of pendingByRole.values()) {
+      if (list.length === 1) lastVoterUids.add(list[0][0]);
+    }
+  }
   const speakers = new Set<string>(
     roomData.drinkers ? Object.keys(roomData.drinkers) : []
   );
@@ -773,6 +880,14 @@ export function updateUI(roomData: RoomData): void {
     return c >= 1 ? `🎤 (${c})` : "";
   };
 
+  /** แถบเตือน "เพื่อนสมาชิกรอคุณอยู่" ของ last voter — animation เบา ไม่รบกวน */
+  const buildLastVoterLabel = (): HTMLElement => {
+    const label = document.createElement("div");
+    label.className = "last-voter-label";
+    label.textContent = "👀 เพื่อนสมาชิกรอคุณอยู่";
+    return label;
+  };
+
   /** Build the kick button — opens the reusable confirm modal on click. */
   const buildKickButton = (uid: string, user: User): HTMLElement => {
     const kickBtn = document.createElement("button");
@@ -801,7 +916,9 @@ export function updateUI(roomData: RoomData): void {
     const isOnline = user.online !== false;
     const card = document.createElement("div");
     card.className =
-      "participant-card slide-in" + (user.vote ? " voted" : "");
+      "participant-card slide-in" +
+      (user.vote ? " voted" : "") +
+      (lastVoterUids.has(uid) ? " last-voter" : "");
     card.dataset.uid = uid;
 
     const avatar = document.createElement("div");
@@ -839,6 +956,10 @@ export function updateUI(roomData: RoomData): void {
       speakerLabel.textContent = "📢 พูดเลยลูก";
       card.appendChild(speakerLabel);
     }
+    // Last-voter nudge — แถบเตือนใต้ชื่อ (เฉพาะตอนไม่ lock/reveal)
+    if (lastVoterUids.has(uid)) {
+      card.appendChild(buildLastVoterLabel());
+    }
     if (isPO() && uid !== state.currentUid) {
       card.appendChild(buildKickButton(uid, user));
     }
@@ -864,8 +985,25 @@ export function updateUI(roomData: RoomData): void {
       const existing = existingCards.get(uid);
 
       if (existing) {
-        const newClass = "participant-card" + (user.vote ? " voted" : "");
+        const newClass =
+          "participant-card" +
+          (user.vote ? " voted" : "") +
+          (lastVoterUids.has(uid) ? " last-voter" : "");
         if (existing.className !== newClass) existing.className = newClass;
+
+        // Last-voter nudge — เพิ่ม/ถอด label แบบ diff (class จัดการข้างบนแล้ว
+        // รวมใน newClass เพื่อไม่ให้โดนเขียนทับจน animation รีสตาร์ตทุก tick)
+        const lastVoterLabel = existing.querySelector<HTMLElement>(
+          ".last-voter-label"
+        );
+        if (lastVoterUids.has(uid) && !lastVoterLabel) {
+          existing.insertBefore(
+            buildLastVoterLabel(),
+            existing.querySelector(".participant-status")
+          );
+        } else if (!lastVoterUids.has(uid) && lastVoterLabel) {
+          lastVoterLabel.remove();
+        }
 
         // Sync name (handles rejoin with a new name under the same uid)
         const nameEl = existing.querySelector<HTMLElement>(".participant-name");
@@ -1005,13 +1143,20 @@ function addRevoteButton(): void {
   revoteBtn.addEventListener("click", async () => {
     if (!state.currentRoom || !isPO()) return;
     cancelUnlockTimer();
-    await update(ref(db, `rooms/${state.currentRoom}`), {
-      revealed: false,
-      locked: false,
-      revealTime: null,
-    });
-    revoteBtn.remove();
-    btnReveal.style.display = "";
+    try {
+      await update(ref(db, `rooms/${state.currentRoom}`), {
+        revealed: false,
+        locked: false,
+        revealTime: null,
+      });
+      revoteBtn.remove();
+      btnReveal.style.display = "";
+    } catch (err) {
+      // สลายล็อกไม่สำเร็จ — คืน countdown ต่อและแจ้ง ไม่ปล่อยปุ่มค้างเงียบ ๆ
+      console.error("[voting] unlock failed:", err);
+      updateCountdownDisplay();
+      showToast(`❌ สลายล็อกไม่สำเร็จ: ${(err as Error).message}`);
+    }
   });
   btnReveal.parentNode!.appendChild(revoteBtn);
 }

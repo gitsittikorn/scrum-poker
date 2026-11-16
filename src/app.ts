@@ -20,6 +20,9 @@ import {
   btnGroomModePre,
   btnGroomModeGroom,
   btnTaskHistory,
+  noNeedTaskCheckbox,
+  noNeedTestCheckbox,
+  hotFixCheckbox,
   clickupUrlInput,
   btnDeleteRoom,
   btnClearSpeakerCounts,
@@ -58,12 +61,13 @@ import { checkVersion, initAuth, autoRejoinFromUrl } from "./auth";
 import { handleJoinRoom, handleLeave, handleDeleteRoom, handleClearAllRooms, checkUrlRoom, setupBeforeUnload, startCleanupScheduler, listenForceRefresh, writeForceRefreshVersion } from "./room";
 import { db, ref, update } from "./firebase";
 import type { CardDef } from "./types";
-import { renderCards, initPokerCardsListener, handleReveal, handleReset, handleClearSpeakerCounts } from "./voting";
+import { renderCards, initPokerCardsListener, handleReveal, handleReset, handleClearSpeakerCounts, refreshSaveButtonState } from "./voting";
 import { toggleChat, sendChatMessage, handleChatTyping, toggleEmojiPicker, insertEmoji, setReply, cancelReply, handleEmojiPickerOutsideClick } from "./chat";
 import { toggleReactPicker, sendLiveReaction, toggleMessageReaction, showQuickReactions, closeQuickPopup, handleReactPickerOutsideClick, handleQuickPopupOutsideClick, animateFloatingEmoji } from "./reactions";
 import { toggleSoundPicker, renderSoundPicker, handleSoundPickerOutsideClick, triggerSound, registerSoundShortcuts, renderSoundShortcutSlots, startKeyCapture, cancelKeyCapture, setShortcutSound, setShortcutsEnabled, clearShortcut } from "./sounds";
 import { toggleWheel, handleSpin, handleShuffle, handleReset as handleWheelReset, handleClear, handleAddEntry } from "./wheel";
-import { handleResolveClickUp, handleClearClickUpTask, handleSaveToClickUp, handleSetGroomMode, openTaskHistory } from "./clickup";
+import { handleResolveClickUp, handleClearClickUpTask, handleSaveToClickUp, handleSetGroomMode, openTaskHistory, setNoNeedTask, handleNoNeedTestToggle, handleHotFixToggle } from "./clickup";
+import { initInfoTips } from "./infoTips";
 import { state } from "./state";
 import { FEATURES } from "./config";
 import { SUPER_ADMIN_NAME, DEFAULT_POKER_CARDS, REAL_NAME_ROOMS } from "./constants";
@@ -273,6 +277,22 @@ function bindEvents(): void {
   btnGroomModePre.addEventListener("click", () => handleSetGroomMode("pre"));
   btnGroomModeGroom.addEventListener("click", () => handleSetGroomMode("groom"));
   btnTaskHistory.addEventListener("click", () => void openTaskHistory());
+  // req 13 — No Need Task: ซ่อนแถบเตือนให้ดึง task ทันที (sync ทั้งห้องใน setNoNeedTask)
+  noNeedTaskCheckbox.addEventListener("change", () => setNoNeedTask(noNeedTaskCheckbox.checked));
+  // req 14 — No Need Test: sync ทั้งห้อง + เคลียร์ point QA ทันทีที่ติ๊ก
+  // (state.noNeedTest ตั้ง optimistic ก่อนเพื่อให้ปุ่มบันทึก/label เปลี่ยนทันทีไม่รอ tick)
+  noNeedTestCheckbox.addEventListener("change", () => {
+    state.noNeedTest = noNeedTestCheckbox.checked;
+    refreshSaveButtonState();
+    void handleNoNeedTestToggle(noNeedTestCheckbox.checked);
+  });
+  // Hot Fix — sync ทั้งห้อง (ตอนบันทึกจะติด tag "hot fix" บนการ์ด)
+  hotFixCheckbox.addEventListener("change", () => {
+    state.hotFix = hotFixCheckbox.checked;
+    void handleHotFixToggle(hotFixCheckbox.checked);
+  });
+  // req 19 — ไอคอน ⓘ tooltip ข้าง checkbox ทั้งสอง (hover/แตะ/keyboard)
+  initInfoTips();
   clickupUrlInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") handleResolveClickUp();
   });
@@ -306,7 +326,13 @@ function bindEvents(): void {
   document.getElementById("btn-super-admin-save-cleanup")?.addEventListener("click", async () => {
     const cleanupTime = cleanupTimeInput.value;
     if (cleanupTime) {
-      await update(ref(db, `settings`), { cleanupTime });
+      try {
+        await update(ref(db, `settings`), { cleanupTime });
+      } catch (err) {
+        console.error("[admin] save cleanup time failed:", err);
+        showToast(`❌ บันทึกไม่สำเร็จ: ${(err as Error).message}`);
+        return;
+      }
       closeSettings();
       showToast("💾 บันทึกเวลาเคลียร์ข้อมูลแล้ว");
     }
@@ -357,10 +383,20 @@ function bindEvents(): void {
       showToast("❌ ต้องกรอก point อย่างน้อย 1 ช่อง หรือเปิดการ์ด Custom — ห้ามลบทุกอย่าง");
       return;
     }
-    await update(ref(db, "settings"), {
-      pokerCards: cards,
-      pokerCustomCard: customOn,
-    });
+    // คำอธิบายใต้การ์ด Custom (ว่าง = ใช้ default "Custom (Enter)" ฝั่ง render)
+    const customDescInput = document.getElementById("poker-custom-desc") as HTMLInputElement | null;
+    const customDesc = customDescInput ? customDescInput.value.trim() : "";
+    try {
+      await update(ref(db, "settings"), {
+        pokerCards: cards,
+        pokerCustomCard: customOn,
+        pokerCustomCardDesc: customDesc,
+      });
+    } catch (err) {
+      console.error("[admin] save poker cards failed:", err);
+      showToast(`❌ บันทึกการ์ดไม่สำเร็จ: ${(err as Error).message}`);
+      return;
+    }
     closeSettings();
     showToast(`💾 บันทึกการ์ด Poker แล้ว (${filled} ใบ)`);
   });

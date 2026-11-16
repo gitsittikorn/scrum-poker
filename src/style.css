@@ -608,6 +608,126 @@ body {
   transform: translateY(-1px);
 }
 
+/* ===== No Need Task / No Need Test — checkbox ข้างปุ่ม History (req 13-14, 16) ===== */
+/* ครอบ checkbox ทั้งสอง — โชว์เฉพาะ admin ของห้อง (PO + deputy) คุมที่ renderTaskBanner */
+.no-need-toggles {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* req 19 — 1 toggle = label (checkbox) + ไอคอน ⓘ tooltip คู่กัน */
+.no-need-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.no-need-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition);
+}
+
+.no-need-label:hover {
+  color: var(--text-primary);
+}
+
+.no-need-toggle input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ติ๊กแล้วเน้นสี accent / disable (ยังไม่ดึง task) จางลง + กดไม่ได้
+ * จางเฉพาะ label — ไอคอน ⓘ ยังใช้งาน/อ่าน tooltip ได้ปกติแม้ checkbox disabled (req 19 ข้อ 8) */
+.no-need-toggle:has(input:checked) .no-need-label {
+  color: var(--accent);
+}
+
+.no-need-toggle:has(input:disabled) .no-need-label {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.no-need-toggle:has(input:disabled) input[type="checkbox"] {
+  cursor: not-allowed;
+}
+
+/* ===== Info tooltip (ⓘ) — req 19 =====
+ * ปุ่มกลมเล็กข้าง label: hover โชว์บน desktop · แตะ toggle บน mobile (.open จาก JS)
+ * · Tab โฟกัสโชว์ (:focus-visible) แล้วปิดด้วย Esc */
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+  transition: color var(--transition), border-color var(--transition);
+}
+
+.info-tip:hover,
+.info-tip:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.info-tip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ฟองข้อความ — absolute ใต้ไอคอน ชิดขอบขวาของไอคอน (toggles อยู่ท้ายแถว
+ * กางซ้ายเข้าในจอ กันล้นขอบ) · จำกัดความกว้างตาม viewport กันถูกตัด (req 19 ข้อ 4) */
+.info-tip-bubble {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 200;
+  width: max-content;
+  max-width: min(300px, 85vw);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.55;
+  white-space: normal;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none; /* ฟองไม่บล็อกคลิก element ข้างหลัง */
+}
+
+.info-tip:hover .info-tip-bubble,
+.info-tip:focus-visible .info-tip-bubble,
+.info-tip.open .info-tip-bubble {
+  display: block;
+}
+
 /* ===== Task History Modal — รายการเรียงเก่า → ใหม่ ===== */
 /* specificity สอง class ชนะ .modal-content (max-width 380px) ที่อยู่ท้ายไฟล์เสมอ */
 .modal-content.task-history-content {
@@ -1084,6 +1204,9 @@ button.task-history-po.active {
   opacity: 0.3;
   cursor: not-allowed;
   transform: none !important;
+  /* ปิดคลิกจริง (locked / รอ task / No Need Test ล็อค QA) — ไม่งั้น click ยังมุด
+     เข้า handler ได้; คีย์บอร์ด Enter ยังโดน guard ใน handleVote คุมอยู่อีกชั้น */
+  pointer-events: none;
 }
 
 .poker-card .card-label {
@@ -3993,5 +4116,71 @@ button.task-history-po.active {
   }
   .poker-card .card-label {
     font-size: 0.5rem;
+  }
+}
+
+/* ===== Last Voter Nudge (คนสุดท้ายที่ยังไม่โหวต — ทุกคนเห็นเหมือนกัน) ===== */
+.participant-card.last-voter {
+  border-color: var(--warning);
+  animation: last-voter-glow 1.6s ease-in-out infinite;
+}
+
+.last-voter-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--warning);
+  white-space: nowrap;
+  animation: last-voter-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes last-voter-glow {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 10px 1px var(--warning-glow); }
+}
+
+@keyframes last-voter-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ===== Task Required Reminder (เตือน PO ให้ดึง Task ก่อนโหวต) ===== */
+.task-required-reminder {
+  flex: 1 1 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: center;
+  animation: task-reminder-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes task-reminder-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--warning-glow); }
+  50% { box-shadow: 0 0 16px 2px var(--warning-glow); }
+}
+
+/* ===== Custom card description input (super admin settings) ===== */
+.custom-desc-input {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+/* Mobile — ย่อขนาดแถบเตือนให้พอดีจอเล็ก */
+@media (max-width: 640px) {
+  .last-voter-label {
+    font-size: 0.62rem;
+  }
+  .task-required-reminder {
+    font-size: 0.8rem;
+    padding: 8px 10px;
   }
 }
