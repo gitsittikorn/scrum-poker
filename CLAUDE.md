@@ -101,6 +101,25 @@ members/{pushId}/ — name, role ("po"|"dev"|"qa"|"ux")  ← ถาวร อย
 - **Auto-unlock**: Timer after reveal, configurable per room
 - **Themes**: Dark (default) / Light toggle
 
+## PO Access & Deputy (สิทธิ์ผู้ดูแลห้อง) — AI อ่านก่อนแตะเรื่องสิทธิ์
+> Requirement จากเจ้าของโปรเจกต์: **deputy ต้องได้สิทธิ์เหมือน PO ทุกอย่างในห้อง** — ถ้าเพิ่มสิทธิ์ใหม่ให้ PO ต้องให้ deputy ด้วยเสมอ
+
+**กลไก:** `isPO()` (role po/admin) ⊂ `isRoomAdmin()` (PO + deputy) — ฟีเจอร์ในห้อง poker ทุกอย่าง **gate ด้วย `isRoomAdmin()` เท่านั้น** (อย่าใช้ `isPO()` กับสิทธิ์ใหม่) · ตัวตน deputy ตรวจ uid จาก `PO_DEPUTY_UIDS` ก่อน แล้ว realName จาก `PO_DEPUTY_REAL_NAMES` (ต้อง join เป็น role **dev** เท่านั้น) — ทั้งคู่อยู่ที่ `src/constants.ts`
+
+**สิทธิ์ PO/deputy ครบทุกอย่าง (อัปเดต 2026-11-16):**
+- ส่วนตั้งค่า (settings modal): auto-unlock, การ์ด custom ทั้งห้อง
+- Reveal / Reset / Unlock ก่อนครบเวลา / เตะคนออก (ปุ่มบนการ์ดสมาชิก)
+- สลับโหมด **Groom / Pre-Groom** (toggle + `handleSetGroomMode`)
+- **บันทึก point ลง ClickUp** (ปุ่ม + `handleSaveToClickUp`)
+- ดึง/เคลียร์ task ClickUp · นำ task เก่ามา groom ใหม่ · ล้างประวัติ task ทั้งหมด
+- Toggle No Need Task / No Need Test / Hot Fix
+- **ลบห้อง** (bottom bar + ใน settings) · ล้างตัวนับพูด (speaker rotate)
+- เห็นแถบเตือน "ยังไม่ได้เลือกการ์ด" (task-required reminder)
+
+**เพิ่ม deputy คนใหม่:** แก้ `PO_DEPUTY_REAL_NAMES` (ชื่อจริงตาม member list) หรือ `PO_DEPUTY_UIDS` (ล็อกตามเครื่อง) ที่ `src/constants.ts` — สิทธิ์ทั้งหมดข้างบนมาอัตโนมัติ ไม่ต้องแต้จุดอื่น · ทดสอบ: `src/__tests__/permissions.test.ts` + describe "Dev Cing (deputy)" ใน noNeedCheckboxes/updateUI
+
+**ข้อสังเกต:** deputy ยังต้องโหวตเหมือน dev ปกติ (นับเป็นผู้โหวตใน reveal gate และ last-voter) · สิทธิ์เป็น client-side gate ทั้งหมด (DB ไม่มี rules แยกตาม role) · Super Admin console (`isSuperAdmin`) เป็นคนละระบบ ไม่เกี่ยวกับ PO
+
 ## Architecture Patterns
 - Shared state via `state` object in `state.ts` (no state library)
 - `onValue()` for room data, `onChildAdded` + `onChildChanged` for chat messages
