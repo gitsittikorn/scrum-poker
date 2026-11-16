@@ -148,6 +148,26 @@ const LINK_ICONS: Record<TaskLink["type"], string> = {
 /** icon ไม่มีแบรนด์ — ใช้สีโทน muted ตาม theme (เหมือนโซ่ลิงก์ generic) */
 const GENERIC_LINK_TYPES = new Set<TaskLink["type"]>(["link", "image", "file"]);
 
+/** task จาก tick ล่าสุดของ banner — ใช้ตรวจ transition (ถูกล้าง/สลับการ์ด) เพื่อ
+ *  เคลียร์ URL เดิมในช่อง input ของ "ทุกเครื่อง" (เดิมเคลียร์เฉพาะเครื่องผู้กด ✕/ผู้บันทึก
+ *  → URL การ์ดเก่าค้างบนจอ admin คนอื่น เช่น PO เมื่อ deputy เป็นคนเคลียร์/บันทึกจบรอบ) */
+let lastBannerTask: ActiveTask | null = null;
+
+/** เคลียร์ URL ในช่อง input เมื่อการ์ดที่ผูกกับ URL นั้นจบวงจร:
+ *  - การ์ดเดิมยังอยู่ (re-resolve รีเฟรชข้อมูล) → คง URL ไว้ให้กดซ้ำได้ตามเดิม
+ *  - การ์ดถูกล้าง (คนอื่นบันทึกจบรอบ/กด ✕) หรือสลับเป็นการ์ดอื่น แล้ว URL ในช่อง
+ *    ยังเป็นของการ์ดเก่า (ตรง url/taskId/customId) → เคลียร์
+ *  - URL ที่กำลังพิมพ์ใหม่หรือเป็นของการ์ดอื่น → ไม่แตะ (กันโดนเคลียร์ของที่พิมพ์ค้าง) */
+function syncUrlInputWithTask(prev: ActiveTask | null, next: ActiveTask | null): void {
+  const val = clickupUrlInput.value.trim();
+  if (!val || !prev) return;
+  if (next && next.taskId === prev.taskId) return; // การ์ดเดิม — ยังใช้ URL นี้อยู่
+  const ids = [prev.url, prev.taskId, prev.customId].filter(Boolean) as string[];
+  if (ids.some((id) => val === id || val.includes(id))) {
+    clickupUrlInput.value = "";
+  }
+}
+
 /** กัน rebuild DOM ทุก room tick — rebuild เฉพาะเมื่อชุดลิงก์เปลี่ยนจริง ๆ */
 let renderedLinksKey = "";
 
@@ -180,6 +200,10 @@ export function renderTaskBanner(task: ActiveTask | null, groomMode: GroomMode =
     clickupBanner.classList.add("hidden");
     return;
   }
+  // URL ในช่อง input เป็นของรายเครื่อง — เคลียร์ผ่าน transition ของ task แทน
+  // (รายละเอียดที่ syncUrlInputWithTask — ไม่แตะ value ทุก tick กันโดนเคลียร์ของที่พิมพ์อยู่)
+  syncUrlInputWithTask(lastBannerTask, task);
+  lastBannerTask = task;
   // req 14 — No Need Test ใช้ได้เฉพาะเมื่อมี task ปัจจุบัน (ดึงสำเร็จ = enabled
   // task ถูกล้าง/reset/บันทึกจบรอบ = unchecked + disabled) — sync ทุก room tick
   updateNoNeedTestCheckbox(task);

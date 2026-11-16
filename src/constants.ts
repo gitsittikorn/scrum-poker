@@ -33,8 +33,8 @@ export const PO_DEPUTY_UIDS: string[] = [];
 /** ห้อง super admin console (ไม่ใช่ห้อง poker) — ไม่แสดงฟีเจอร์ ClickUp */
 export const ADMIN_ROOM = "admin";
 
-/** Bump = เคลียร์ localStorage room → ทุกคนกลับไปหน้าแรกกรอกใหม่ (รอบนี้: checkbox No Need Dev / No Need UX/UI — ไม่ require point ฝั่งนั้น + เคลียร์ point เดิม, บันทึก ClickUp ไม่ติด tag) */
-export const APP_VERSION = "2026-11-16-v3";
+/** Bump = เคลียร์ localStorage room → ทุกคนกลับไปหน้าแรกกรอกใหม่ (รอบนี้: fix URL ค้างในช่อง input บนเครื่อง admin คนอื่น เมื่อ deputy เป็นคนเคลียร์ task/บันทึกจบรอบ) */
+export const APP_VERSION = "2026-11-16-v4";
 
 /** ห้องที่บังคับเลือก "ชื่อสำหรับระบุตัวตนใน ClickUp" ตอน join
  *  (Wheel/TQM1/TQM2/admin ใช้ฟอร์มเดิม — ไม่ต้องเลือก) */

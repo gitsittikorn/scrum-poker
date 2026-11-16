@@ -91,7 +91,7 @@ const {
 } = await import("../clickup");
 const { state } = await import("../state");
 const { updateUI, handleReveal, handleVote, handleCustomVote, handleKick } = await import("../voting");
-const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedDevCheckbox, noNeedUxCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow, clickupInputRow, hotFixCheckbox, groomModeControls } = await import("../dom");
+const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedDevCheckbox, noNeedUxCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow, clickupInputRow, clickupUrlInput, hotFixCheckbox, groomModeControls } = await import("../dom");
 const { showToast, showNotVotedModal, showConfirmModal } = await import("../ui");
 const { initInfoTips } = await import("../infoTips");
 const { update: updateMock, set: setMock } = await import("../firebase");
@@ -182,6 +182,7 @@ beforeEach(() => {
   noNeedDevCheckbox.disabled = true;
   noNeedUxCheckbox.checked = false;
   noNeedUxCheckbox.disabled = true;
+  clickupUrlInput.value = "";
   // reset ธง episode การ scroll ใน clickup.ts (เรียกด้วยสถานะไม่ active สักครั้ง)
   updateTaskRequiredReminder(revealedRoom());
 });
@@ -521,6 +522,55 @@ describe("เคลียร์ task ✕ = reset ข้อมูลรอบโ�
     const [, payload] = vi.mocked(updateMock).mock.calls[0];
     expect(payload).toMatchObject({ activeTask: null, noNeedTest: false, hotFix: false });
     expect(vi.mocked(showToast)).toHaveBeenCalledWith(expect.stringContaining("เคลียร์ task"));
+  });
+});
+
+// ── URL ในช่อง input เคลียร์บน "ทุกเครื่อง" เมื่อการ์ดจบวงจร (แจ้งเมื่อ PO พบว่า
+//    deputy เคลียร์ task แล้ว URL ยังค้างบนจอ PO — เดิมเคลียร์เฉพาะเครื่องผู้กด) ──
+
+describe("เคลียร์ URL ค้างในช่อง input บนทุกเครื่องเมื่อ task ถูกล้าง/สลับการ์ด (renderTaskBanner)", () => {
+  it("deputy บันทึกจบรอบ/กด ✕ (tick ส่ง task:null) → URL การ์ดเก่าบนเครื่อง PO ถูกเคลียร์", () => {
+    renderTaskBanner(activeTask, "groom"); // PO เคย resolve การ์ดนี้ — URL ค้างในช่อง (behavior เดิม)
+    clickupUrlInput.value = activeTask.url;
+    renderTaskBanner(null, "groom"); // เครื่องอื่นเคลียร์ task — tick ถึงเครื่อง PO
+    expect(clickupUrlInput.value).toBe("");
+  });
+
+  it("URL ที่พิมพ์ URL ของการ์ดอื่นไว้ — ไม่ถูกเคลียร์ (รอดึงการ์ดใหม่ต่อ)", () => {
+    renderTaskBanner(activeTask, "groom");
+    clickupUrlInput.value = "https://app.clickup.com/t/task-999";
+    renderTaskBanner(null, "groom");
+    expect(clickupUrlInput.value).toBe("https://app.clickup.com/t/task-999");
+  });
+
+  it("URL พิมพ์ค้างกลางคัน (ยังไม่ใช่การ์ดเดิมแบบเต็ม) — ไม่ถูกเคลียร์", () => {
+    renderTaskBanner(activeTask, "groom");
+    clickupUrlInput.value = "https://app.click"; // เริ่มพิมพ์การ์ดใหม่อยู่
+    renderTaskBanner(null, "groom");
+    expect(clickupUrlInput.value).toBe("https://app.click");
+  });
+
+  it("re-resolve การ์ดเดิม (taskId เดิม ชื่อใหม่) — คง URL ไว้ให้กดรีเฟรชซ้ำได้ตามเดิม", () => {
+    renderTaskBanner(activeTask, "groom");
+    clickupUrlInput.value = activeTask.url;
+    renderTaskBanner({ ...activeTask, name: "Card A (edited)" }, "groom");
+    expect(clickupUrlInput.value).toBe(activeTask.url);
+  });
+
+  it("สลับไปการ์ดอื่น (taskId ต่าง) — URL ของการ์ดเก่าที่ค้างถูกเคลียร์ แต่ของคนดึงการ์ดใหม่ไม่โดนแตะ", () => {
+    renderTaskBanner(activeTask, "groom");
+    // เครื่อง PO ยังมี URL การ์ดเก่าค้าง
+    clickupUrlInput.value = activeTask.url;
+    // deputy ดึงการ์ดใหม่บนเครื่องเขา → tick ส่งการ์ดใหม่มาถึงเครื่อง PO
+    renderTaskBanner({ ...activeTask, taskId: "task-2", url: "https://app.clickup.com/t/task-2" }, "groom");
+    expect(clickupUrlInput.value).toBe("");
+  });
+
+  it("แบบใส่ taskId ตรง ๆ แทน URL เต็ม — ก็ถูกเคลียร์เมื่อการ์ดจบ", () => {
+    renderTaskBanner(activeTask, "groom");
+    clickupUrlInput.value = "task-1";
+    renderTaskBanner(null, "groom");
+    expect(clickupUrlInput.value).toBe("");
   });
 });
 
