@@ -33,8 +33,8 @@ export const PO_DEPUTY_UIDS: string[] = [];
 /** ห้อง super admin console (ไม่ใช่ห้อง poker) — ไม่แสดงฟีเจอร์ ClickUp */
 export const ADMIN_ROOM = "admin";
 
-/** Bump = เคลียร์ localStorage room → ทุกคนกลับไปหน้าแรกกรอกใหม่ (รอบนี้: หน้า confirm บันทึก point ไม่โชว์ 0→x + Dev Cing deputy ได้สิทธิ์ reveal/reset/เตะเหมือน PO) */
-export const APP_VERSION = "2026-11-16-v1";
+/** Bump = เคลียร์ localStorage room → ทุกคนกลับไปหน้าแรกกรอกใหม่ (รอบนี้: Dev Cing deputy สิทธิ์เทียบเท่า PO ครบทุกอย่าง — เพิ่มโหมด Groom/Pre-Groom, บันทึก ClickUp, ลบห้อง, ล้างตัวนับพูด/ประวัติ) */
+export const APP_VERSION = "2026-11-16-v2";
 
 /** ห้องที่บังคับเลือก "ชื่อสำหรับระบุตัวตนใน ClickUp" ตอน join
  *  (Wheel/TQM1/TQM2/admin ใช้ฟอร์มเดิม — ไม่ต้องเลือก) */

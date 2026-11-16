@@ -85,10 +85,11 @@ const {
   renderTaskBanner,
   handleSaveToClickUp,
   handleClearClickUpTask,
+  handleSetGroomMode,
 } = await import("../clickup");
 const { state } = await import("../state");
 const { updateUI, handleReveal, handleVote, handleCustomVote, handleKick } = await import("../voting");
-const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow, clickupInputRow, hotFixCheckbox } = await import("../dom");
+const { noNeedTaskCheckbox, noNeedTestCheckbox, noNeedToggles, btnSaveClickup, clickupTaskRow, clickupInputRow, hotFixCheckbox, groomModeControls } = await import("../dom");
 const { showToast, showNotVotedModal, showConfirmModal } = await import("../ui");
 const { initInfoTips } = await import("../infoTips");
 const { update: updateMock, set: setMock } = await import("../firebase");
@@ -847,6 +848,50 @@ describe("Dev Cing (deputy) — handler Reveal/เตะ ทำงานจร�
     await handleReveal();
     await handleKick("qa1", "Run");
 
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("Dev Cing (deputy) — โหมด Groom/Pre-Groom เหมือน PO (toggle + handler)", () => {
+  /** ห้องมี task อยู่ — เงื่อนไขที่แถวโหมดแสดง */
+  const taskRoom = (): RoomData => ({
+    createdAt: 0,
+    revealed: false,
+    locked: false,
+    autoUnlockSeconds: 30,
+    activeTask,
+    users: {
+      po1: user({ name: "Yam", realName: "Yam", role: "po" }),
+      dev2: user({ name: "Cing", realName: "Cing", role: "dev" }),
+      dev3: user({ name: "Bell", realName: "Bell", role: "dev" }),
+    },
+  });
+
+  const asViewer = (uid: string, name: string, realName: string): void => {
+    state.currentRole = "dev";
+    state.currentUid = uid;
+    state.currentUser = { uid, name, realName };
+  };
+
+  it("deputy เห็น toggle โหมด (ไม่ถูกซ่อน) + สลับโหมดได้ — เขียน groomMode ลงห้องจริง", async () => {
+    asViewer("dev2", "Cing", "Cing");
+    updateUI(taskRoom());
+
+    expect(groomModeControls.classList.contains("hidden")).toBe(false);
+
+    await handleSetGroomMode("pre");
+    const calls = vi.mocked(updateMock).mock.calls;
+    const payload = calls[calls.length - 1]?.[1] as Record<string, unknown> | undefined;
+    expect(payload?.groomMode).toBe("pre");
+  });
+
+  it("dev ทั่วไป: toggle ถูกซ่อน + เรียกสลับโหมดตรง ๆ — guard กันไว้ ไม่เขียนอะไร", async () => {
+    asViewer("dev3", "Bell", "Bell");
+    updateUI(taskRoom());
+
+    expect(groomModeControls.classList.contains("hidden")).toBe(true);
+
+    await handleSetGroomMode("pre");
     expect(updateMock).not.toHaveBeenCalled();
   });
 });

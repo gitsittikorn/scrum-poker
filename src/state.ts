@@ -30,9 +30,9 @@ export const state = {
 export const isPO = (): boolean => state.currentRole === "po" || state.currentRole === "admin";
 
 /** ผู้ดูแลห้อง — PO ตาม role บวก deputy ที่กำหนดใน constants (ตรวจจาก uid
- *  ก่อน แล้วค่อย realName จาก member list): ใช้ส่วนตั้งค่า + reveal/reset/
- *  unlock ก่อนครบเวลา/เตะคนออกได้เหมือน PO · ส่วนลบห้องและบันทึก point
- *  ลง ClickUp ยังเป็นสิทธิ์ของ isPO() เท่านั้น */
+ *  ก่อน แล้วค่อย realName จาก member list): deputy ใช้ได้เหมือน PO ทุกอย่าง
+ *  ในห้อง — ส่วนตั้งค่า, reveal/reset/unlock, เตะ, สลับโหมด groom/pre,
+ *  บันทึก point ลง ClickUp, ลบห้อง, ล้างประวัติ/ตัวนับพูด */
 export const isRoomAdmin = (): boolean => {
   if (isPO()) return true;
   if (state.currentRole !== "dev" || !state.currentUser) return false;

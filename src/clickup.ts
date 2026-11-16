@@ -39,7 +39,7 @@ import { sendSystemMessage } from "./chat";
 import { buildGroomingComment, dedupeTaskLinks, formatDateTime, parseRange, rangeFor, safeHttpUrl, unanimousFor } from "./utils";
 import { FEATURES } from "./config";
 import { ADMIN_ROOM } from "./constants";
-import { isPO, isRoomAdmin, state } from "./state";
+import { isRoomAdmin, state } from "./state";
 import { buildRoundResetUpdates, resetLocalVoteUi } from "./roomReset";
 import type { ActiveTask, GroomMode, RoomData, TaskHistoryEntry, TaskLink, User } from "./types";
 
@@ -185,7 +185,6 @@ export function renderTaskBanner(task: ActiveTask | null, groomMode: GroomMode =
   // req 16 — checkbox ทั้งสองเห็นเฉพาะ admin ของห้อง (PO + deputy ตาม isRoomAdmin:
   // ตรวจ uid จาก PO_DEPUTY_UIDS ก่อน แล้ว realName จาก member list — ไม่ใช้ชื่อที่แสดง)
   noNeedToggles.classList.toggle("hidden", !isRoomAdmin());
-  const po = isPO();
   // ซ่อนทั้งอันเมื่อปิด flag / ไม่มี task และไม่ใช่ admin ของห้อง (PO + deputy)
   clickupBanner.classList.toggle("hidden", !isRoomAdmin() && !task);
   // input ดึงการ์ด — admin ของห้อง (PO + deputy เช่น Dev Cing) ดึงการ์ดได้เหมือน PO
@@ -193,14 +192,15 @@ export function renderTaskBanner(task: ActiveTask | null, groomMode: GroomMode =
   clickupInputRow.classList.toggle("hidden", !isRoomAdmin());
   btnClickupClear.classList.toggle("hidden", !task);
 
-  // แถวโหมด: toggle เฉพาะ PO · badge ตอน pre (non-PO) · ปุ่ม History เห็นทุกคน
+  // แถวโหมด: toggle เฉพาะ admin ของห้อง (PO + deputy — สลับโหมดเหมือน PO ทุกอย่าง)
+  // badge ตอน pre สำหรับสมาชิกทั่วไป · ปุ่ม History เห็นทุกคน
   groomModeRow.classList.remove("hidden");
-  groomModeControls.classList.toggle("hidden", !po);
-  if (po) {
+  groomModeControls.classList.toggle("hidden", !isRoomAdmin());
+  if (isRoomAdmin()) {
     btnGroomModePre.classList.toggle("active", groomMode === "pre");
     btnGroomModeGroom.classList.toggle("active", groomMode === "groom");
   }
-  groomModeBadge.classList.toggle("hidden", po || groomMode !== "pre");
+  groomModeBadge.classList.toggle("hidden", isRoomAdmin() || groomMode !== "pre");
 
   if (task) {
     clickupTaskRow.classList.remove("hidden");
@@ -490,9 +490,10 @@ export async function handleClearClickUpTask(): Promise<void> {
   showToast("🧹 เคลียร์ task แล้ว — reset รอบโหวต");
 }
 
-/** PO สลับโหมดห้อง groom/pre — เก็บใน Firebase ทุกคนเห็น real-time (ไม่ auto สลับกลับ) */
+/** admin ของห้อง (PO + deputy เช่น Dev Cing) สลับโหมด groom/pre — เก็บใน Firebase
+ *  ทุกคนเห็น real-time (ไม่ auto สลับกลับ) */
 export async function handleSetGroomMode(mode: GroomMode): Promise<void> {
-  if (!isPO() || !state.currentRoom) return;
+  if (!isRoomAdmin() || !state.currentRoom) return;
   try {
     await update(ref(db, `rooms/${state.currentRoom}`), { groomMode: mode });
   } catch (err) {
@@ -662,7 +663,7 @@ export async function openTaskHistory(): Promise<void> {
     name.className = "task-history-name";
     name.textContent = "Task";
     row.append(no, time, name);
-    if (isPO()) {
+    if (isRoomAdmin()) {
       // spacer กว้างเท่าปุ่ม reuse — จัดหัวคอลัมน์หลังจากนี้ให้ตรงแถวข้อมูล (มองไม่เห็น ไม่กดได้)
       const reuseSpacer = document.createElement("span");
       reuseSpacer.className = "btn-task-history-reuse task-history-spacer";
@@ -801,7 +802,7 @@ export async function openTaskHistory(): Promise<void> {
     labelEl.textContent = label;
     labelEl.title = title;
     row.append(emptyNo, emptyTime, labelEl);
-    if (isPO()) {
+    if (isRoomAdmin()) {
       // spacer กว้างเท่าปุ่ม reuse — จัดคอลัมน์ Dev/QA ให้ตรงแถวข้อมูล (มองไม่เห็น ไม่กดได้)
       const reuseSpacer = document.createElement("span");
       reuseSpacer.className = "btn-task-history-reuse task-history-spacer";
@@ -961,8 +962,8 @@ export async function openTaskHistory(): Promise<void> {
   };
   renderList();
 
-  // Footer ล่างขวา — ปุ่มล้างประวัติทั้งหมด (PO เท่านั้น และมีรายการให้ล้าง)
-  if (isPO() && entries.length > 0) {
+  // Footer ล่างขวา — ปุ่มล้างประวัติทั้งหมด (admin ของห้อง และมีรายการให้ล้าง)
+  if (isRoomAdmin() && entries.length > 0) {
     const footer = document.createElement("div");
     footer.className = "task-history-footer";
     const clearBtn = document.createElement("button");
@@ -1060,7 +1061,8 @@ async function addSelectedTags(taskId: string, noNeedTest: boolean, hotFix: bool
 }
 
 export async function handleSaveToClickUp(): Promise<void> {
-  if (!isPO() || !state.currentRoom || saveInFlight) return;
+  // admin ของห้อง (PO + deputy เช่น Dev Cing) บันทึก point ลง ClickUp ได้เหมือน PO
+  if (!isRoomAdmin() || !state.currentRoom || saveInFlight) return;
   await withSaveBusy(doSaveToClickUp);
 }
 
