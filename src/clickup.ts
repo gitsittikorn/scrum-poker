@@ -32,6 +32,8 @@ import {
   noNeedToggles,
   noNeedTaskCheckbox,
   noNeedTestCheckbox,
+  noNeedDevCheckbox,
+  noNeedUxCheckbox,
   hotFixCheckbox,
 } from "./dom";
 import { showConfirmModal, showToast, showSaveSplash, showWakeNotice } from "./ui";
@@ -181,6 +183,8 @@ export function renderTaskBanner(task: ActiveTask | null, groomMode: GroomMode =
   // req 14 — No Need Test ใช้ได้เฉพาะเมื่อมี task ปัจจุบัน (ดึงสำเร็จ = enabled
   // task ถูกล้าง/reset/บันทึกจบรอบ = unchecked + disabled) — sync ทุก room tick
   updateNoNeedTestCheckbox(task);
+  updateNoNeedDevCheckbox(task);
+  updateNoNeedUxCheckbox(task);
   updateHotFixCheckbox(task);
   // req 16 — checkbox ทั้งสองเห็นเฉพาะ admin ของห้อง (PO + deputy ตาม isRoomAdmin:
   // ตรวจ uid จาก PO_DEPUTY_UIDS ก่อน แล้ว realName จาก member list — ไม่ใช้ชื่อที่แสดง)
@@ -291,28 +295,42 @@ export function setNoNeedTask(checked: boolean): void {
   }
 }
 
-/** req 14 — sync สถานะ checkbox No Need Test ตาม task + flag ของห้อง (ทุก tick):
- *  มี task (ดึงสำเร็จ) → enabled + checked ตาม rooms/{roomId}/noNeedTest (mirror
- *  ที่ state.noNeedTest) · ไม่มี task (ยังไม่ดึง/ถูกล้าง/reset หลังบันทึก) → unchecked + disabled
- *  req 16 — ใช้ได้เฉพาะ admin ของห้อง: คนอื่นถูก force unchecked + disabled
- *  ทุก tick (แม้จะแก้ DOM มือผ่าน devtools ก็ถูกรีเซ็ตกลับ) */
-export function updateNoNeedTestCheckbox(task: ActiveTask | null): void {
+/** sync กลางของ checkbox ที่ผูกกับ task ปัจจุบัน (No Need Test / Dev / UX/UI / Hot Fix):
+ *  มี task (ดึงสำเร็จ) → enabled + checked ตาม flag ของห้อง (mirror ใน state)
+ *  ไม่มี task (ยังไม่ดึง/ถูกล้าง/reset หลังบันทึก) → unchecked + disabled
+ *  ใช้ได้เฉพาะ admin ของห้อง: คนอื่นถูก force unchecked + disabled ทุก tick
+ *  (แม้จะแก้ DOM มือผ่าน devtools ก็ถูกรีเซ็ตกลับ) */
+function syncTaskCheckbox(
+  box: HTMLInputElement,
+  mirror: boolean,
+  task: ActiveTask | null
+): void {
   const admin = isRoomAdmin();
-  noNeedTestCheckbox.disabled = !admin || !task;
-  if (!admin || !task) noNeedTestCheckbox.checked = false;
-  else if (noNeedTestCheckbox.checked !== state.noNeedTest) {
-    noNeedTestCheckbox.checked = state.noNeedTest;
+  box.disabled = !admin || !task;
+  if (!admin || !task) box.checked = false;
+  else if (box.checked !== mirror) {
+    box.checked = mirror;
   }
+}
+
+/** req 14 — sync สถานะ checkbox No Need Test ตาม task + flag ของห้อง (ทุก tick) */
+export function updateNoNeedTestCheckbox(task: ActiveTask | null): void {
+  syncTaskCheckbox(noNeedTestCheckbox, state.noNeedTest, task);
+}
+
+/** "No Need Dev" — sync ตาม task + flag ของห้อง (same pattern กับ No Need Test) */
+export function updateNoNeedDevCheckbox(task: ActiveTask | null): void {
+  syncTaskCheckbox(noNeedDevCheckbox, state.noNeedDev, task);
+}
+
+/** "No Need UX/UI" — sync ตาม task + flag ของห้อง (same pattern กับ No Need Test) */
+export function updateNoNeedUxCheckbox(task: ActiveTask | null): void {
+  syncTaskCheckbox(noNeedUxCheckbox, state.noNeedUx, task);
 }
 
 /** "Hot Fix" — sync สถานะ checkbox ตาม task + flag ของห้อง (same pattern กับ No Need Test) */
 export function updateHotFixCheckbox(task: ActiveTask | null): void {
-  const admin = isRoomAdmin();
-  hotFixCheckbox.disabled = !admin || !task;
-  if (!admin || !task) hotFixCheckbox.checked = false;
-  else if (hotFixCheckbox.checked !== state.hotFix) {
-    hotFixCheckbox.checked = state.hotFix;
-  }
+  syncTaskCheckbox(hotFixCheckbox, state.hotFix, task);
 }
 
 /** req 14 — สถานะ checkbox No Need Test ณ เวลาเรียก (อ่านสดจาก DOM ตอนกดบันทึกจริง
@@ -321,19 +339,30 @@ export function isNoNeedTestChecked(): boolean {
   return !noNeedTestCheckbox.disabled && noNeedTestCheckbox.checked;
 }
 
-/** toggle "No Need Test" โดย admin (change ของ checkbox):
- *  1. sync ทั้งห้อง — เขียน rooms/{roomId}/noNeedTest ให้ทุกเครื่องเห็นสถานะเดียวกัน
- *     (การ์ด QA ถูกล็อค + ข้อความ "ไม่ต้องใส่ point" บนเครื่อง QA ผ่าน updateUI)
- *  2. เมื่อ "ติ๊ก" = เคลียร์ point ของ QA ทุกคน (ที่ยังอยู่ในห้อง) ทันทีในคำสั่งเดียว
- *  uncheck = แค่เขียน flag กลับ (QA โหวตใหม่ได้ตามปกติ) */
-export async function handleNoNeedTestToggle(checked: boolean): Promise<void> {
+/** สถานะ checkbox No Need Dev ณ เวลาเรียก — same pattern กับ isNoNeedTestChecked */
+export function isNoNeedDevChecked(): boolean {
+  return !noNeedDevCheckbox.disabled && noNeedDevCheckbox.checked;
+}
+
+/** toggle กลางของ checkbox "No Need <role>" โดย admin (change ของ checkbox):
+ *  1. sync ทั้งห้อง — เขียน rooms/{roomId}/{flagKey} ให้ทุกเครื่องเห็นสถานะเดียวกัน
+ *     (การ์ดของ role นั้นถูกล็อค + ข้อความ "ไม่ต้องใส่ point" ผ่าน updateUI)
+ *  2. เมื่อ "ติ๊ก" = เคลียร์ point ของ role นั้นทุกคน (ที่ยังอยู่ในห้อง) ทันทีในคำสั่งเดียว
+ *  uncheck = แค่เขียน flag กลับ (โหวตใหม่ได้ตามปกติ)
+ *  req 16 — เปลี่ยนสถานะได้เฉพาะ admin ของห้อง (PO + deputy) */
+async function toggleNoNeedRole(
+  flagKey: "noNeedTest" | "noNeedDev" | "noNeedUx",
+  role: "qa" | "dev" | "ux",
+  label: string,
+  checked: boolean
+): Promise<void> {
   if (!isRoomAdmin() || !state.currentRoom) return;
-  const updates: Record<string, unknown> = { noNeedTest: checked };
+  const updates: Record<string, unknown> = { [flagKey]: checked };
   if (checked) {
     const snap = await get(ref(db, `rooms/${state.currentRoom}/users`));
     const users = (snap.val() as Record<string, User> | null) ?? {};
     for (const [uid, u] of Object.entries(users)) {
-      if (u?.role === "qa" && u.left !== true && u.vote != null) {
+      if (u?.role === role && u.left !== true && u.vote != null) {
         updates[`users/${uid}/vote`] = null;
       }
     }
@@ -341,8 +370,23 @@ export async function handleNoNeedTestToggle(checked: boolean): Promise<void> {
   try {
     await update(ref(db, `rooms/${state.currentRoom}`), updates);
   } catch {
-    showToast("⚠️ ตั้งค่า No Need Test ไม่สำเร็จ — ลองติ๊กอีกครั้ง");
+    showToast(`⚠️ ตั้งค่า ${label} ไม่สำเร็จ — ลองติ๊กอีกครั้ง`);
   }
+}
+
+/** toggle "No Need Test" — ตัด QA ออกจากรอบนี้ */
+export async function handleNoNeedTestToggle(checked: boolean): Promise<void> {
+  await toggleNoNeedRole("noNeedTest", "qa", "No Need Test", checked);
+}
+
+/** toggle "No Need Dev" — ตัด Dev ออกจากรอบนี้ (ไม่ติด tag ตอนบันทึก) */
+export async function handleNoNeedDevToggle(checked: boolean): Promise<void> {
+  await toggleNoNeedRole("noNeedDev", "dev", "No Need Dev", checked);
+}
+
+/** toggle "No Need UX/UI" — ตัด UX/UI ออกจากรอบนี้ (ไม่มีผลกับ ClickUp) */
+export async function handleNoNeedUxToggle(checked: boolean): Promise<void> {
+  await toggleNoNeedRole("noNeedUx", "ux", "No Need UX/UI", checked);
 }
 
 /** toggle "Hot Fix" โดย admin — sync ทั้งห้อง (rooms/{roomId}/hotFix)
@@ -369,8 +413,10 @@ async function applyResolvedTask(task: ResolvedTask): Promise<void> {
   const displayName = myDisplayName();
   const histRef = push(ref(db, `rooms/${state.currentRoom}/taskHistory`));
   await update(ref(db, `rooms/${state.currentRoom}`), {
-    // task ใหม่ = No Need Test / Hot Fix เริ่มใหม่ (unchecked) ตาม req 14
+    // task ใหม่ = No Need Test / Dev / UX/UI / Hot Fix เริ่มใหม่ (unchecked) ตาม req 14
     noNeedTest: false,
+    noNeedDev: false,
+    noNeedUx: false,
     hotFix: false,
     activeTask: {
       taskId: task.taskId,
@@ -472,11 +518,13 @@ export async function handleClearClickUpTask(): Promise<void> {
   try {
     // เคลียร์ task = จบรอบ → reset ข้อมูลรอบโหวตทันทีใน update เดียว (atomic):
     // โหวตคนทุกคน + revealed/locked/ลำโพง กลับสถานะว่าง พร้อม No Need Test /
-    // Hot Fix กลับ unchecked (ผูกกับ task ปัจจุบัน) — logic ล้างรอบอยู่ที่ roomReset.ts
+    // Dev / UX/UI / Hot Fix กลับ unchecked (ผูกกับ task ปัจจุบัน) — logic ล้างรอบอยู่ที่ roomReset.ts
     const roundUpdates = (await buildRoundResetUpdates()) ?? {};
     await update(ref(db, `rooms/${state.currentRoom}`), {
       activeTask: null,
       noNeedTest: false,
+      noNeedDev: false,
+      noNeedUx: false,
       hotFix: false,
       ...roundUpdates,
     });
@@ -1031,6 +1079,10 @@ function armWakeNotice(action: string): number {
  *  ใช้เป็นข้อความใน comment (QA: no need test) ด้วย — ต้องเป็นตัวเดียวกัน */
 const NO_NEED_TEST_TAG = "no need test";
 const HOT_FIX_TAG = "hot fix";
+/** ข้อความแทนคะแนน Dev ใน comment เมื่อติ๊ก No Need Dev — ต่างจาก No Need Test:
+ *  ใช้ใน comment อย่างเดียว **ไม่ติด tag บนการ์ด ClickUp** (ส่วน UX/UI ไม่มีบรรทัด
+ *  ใน comment อยู่แล้ว จึงไม่ต้องมีข้อความของฝั่งนั้น) */
+const NO_NEED_DEV_TAG = "no need dev";
 
 /** req 14.1 — เพิ่ม tag "no need test" ให้การ์ดปัจจุบันผ่าน backend
  *  (backend เช็ค tag ซ้ำก่อนเขียน และไม่แตะ tags อื่นของการ์ด)
@@ -1084,6 +1136,8 @@ async function resetRoomAfterSave(users: Record<string, User>): Promise<void> {
   updates.drinkers = null;
   updates.activeTask = null; // ล้าง task ปัจจุบัน — แถว task/URL หายจากหน้าจอทุกคน
   updates.noNeedTest = false; // จบรอบ = No Need Test กลับ unchecked
+  updates.noNeedDev = false; // จบรอบ = No Need Dev กลับ unchecked
+  updates.noNeedUx = false; // จบรอบ = No Need UX/UI กลับ unchecked
   updates.hotFix = false; // จบรอบ = Hot Fix กลับ unchecked
   try {
     await update(ref(db, `rooms/${state.currentRoom}`), updates);
@@ -1127,9 +1181,11 @@ async function doSaveToClickUp(): Promise<void> {
   // ── Pre-Groom: คอมเม้น min-max อย่างเดียว ไม่แตะ custom field ──
   // req 14 — No Need Test: QA ถูกตัดออกจากรอบนี้ (comment บอก "no need test"
   // ไม่มีช่วง QA + ติด tag บนการ์ดเมื่อบันทึกสำเร็จ)
+  // No Need Dev: เหมือนกันแต่ฝั่ง Dev — comment "Dev: no need dev" ไม่ติด tag
   if (mode === "pre") {
     const noNeedTest = isNoNeedTestChecked();
-    const dev = rangeFor(devList);
+    const noNeedDev = isNoNeedDevChecked();
+    const dev = noNeedDev ? null : rangeFor(devList);
     const qa = noNeedTest ? null : rangeFor(qaList);
     if (dev === null && qa === null) {
       showToast("⚠️ ไม่มีโหวตจาก Dev/QA ให้บันทึก");
@@ -1140,7 +1196,7 @@ async function doSaveToClickUp(): Promise<void> {
         taskId: task.taskId,
         comment: buildGroomingComment(
           mode,
-          dev,
+          noNeedDev ? NO_NEED_DEV_TAG : dev,
           noNeedTest ? NO_NEED_TEST_TAG : qa,
           entries,
           state.currentUser?.uid ?? null,
@@ -1148,7 +1204,7 @@ async function doSaveToClickUp(): Promise<void> {
         ),
       });
       const parts = [
-        dev !== null && `Dev ${dev}`,
+        noNeedDev ? `Dev ${NO_NEED_DEV_TAG}` : dev !== null && `Dev ${dev}`,
         noNeedTest ? `QA ${NO_NEED_TEST_TAG}` : qa !== null && `QA ${qa}`,
       ]
         .filter(Boolean)
@@ -1156,7 +1212,7 @@ async function doSaveToClickUp(): Promise<void> {
       // สำเร็จ — ใช้ splash กลางจออย่างเดียวเหมือน groom (ไม่มี toast มุมล่าง)
       showSaveSplash(
         [
-          dev !== null && { label: "Dev", value: dev },
+          !noNeedDev && dev !== null && { label: "Dev", value: dev },
           !noNeedTest && qa !== null && { label: "QA", value: qa },
         ].filter(Boolean) as { label: string; value: string }[],
         "🌱 บันทึก Pre-Groom ลง ClickUp แล้ว"
@@ -1181,11 +1237,13 @@ async function doSaveToClickUp(): Promise<void> {
   // ── Groom: ทุกคนใน role (ไม่นับคนที่ออกแล้ว) ต้องโหวตเลขเดียวกันถึงบันทึกได้ ──
   // req 14 — No Need Test: QA ไม่ถูกบันทึกในรอบนี้ → ไม่บังคับให้ QA โหวตตรงกัน
   //  (บันทึกเฉพาะ Dev ตามปกติ) · qa = null ส่งไป backend = ไม่แตะ custom field ของ QA เลย
+  // No Need Dev: มิลเดียวกันฝั่ง Dev — dev = null ส่งไป backend = ไม่แตะ Dev field
   const noNeedTest = isNoNeedTestChecked();
-  const dev = unanimousFor(devList);
+  const noNeedDev = isNoNeedDevChecked();
+  const dev = noNeedDev ? null : unanimousFor(devList);
   const qa = noNeedTest ? null : unanimousFor(qaList);
   const pending: string[] = [];
-  if (devList.length > 0 && dev === null) pending.push(`Dev (${votesStr(devList)})`);
+  if (!noNeedDev && devList.length > 0 && dev === null) pending.push(`Dev (${votesStr(devList)})`);
   if (!noNeedTest && qaList.length > 0 && qa === null) pending.push(`QA (${votesStr(qaList)})`);
   if (pending.length > 0) {
     showToast(`⚠️ ${pending.join(" และ ")} ยังโหวตไม่ตรงกัน — คุยกันให้ได้ค่าเดียวกันก่อน`);
@@ -1207,20 +1265,22 @@ async function doSaveToClickUp(): Promise<void> {
   }
 
   const doSave = async (): Promise<void> => {
-    // req 14 — อ่านสถานะ No Need Test สด ๆ ตอนบันทึกจริง (ผู้ใช้อาจ toggle ระหว่าง
-    // confirm modal "บันทึกทับ" เปิดค้างอยู่) แล้วคำนวณ QA ใหม่ตามสถานะล่าสุดเสมอ
+    // req 14 — อ่านสถานะ No Need Test / No Need Dev สด ๆ ตอนบันทึกจริง (ผู้ใช้อาจ
+    // toggle ระหว่าง confirm modal "บันทึกทับ" เปิดค้างอยู่) แล้วคำนวณค่าใหม่ตามสถานะล่าสุดเสมอ
     const noNeedTest = isNoNeedTestChecked();
+    const noNeedDev = isNoNeedDevChecked();
+    const devSave = noNeedDev ? null : unanimousFor(devList);
     const qaSave = noNeedTest ? null : unanimousFor(qaList);
     try {
       const result = await api<SaveResult>("/api/clickup/save-points", {
         taskId: task.taskId,
-        dev,
-        // req 14.2 — noNeedTest → qa เป็น null: backend ไม่เขียน/ไม่ทับ custom field
-        // ของ QA ด้วยค่าใด ๆ (รวมถึง 0/null) — บันทึกเฉพาะ role อื่นตามปกติ
+        // req 14.2 — noNeedDev/noNeedTest → ค่าเป็น null: backend ไม่เขียน/ไม่ทับ
+        // custom field ของ role นั้นด้วยค่าใด ๆ (รวมถึง 0/null) — บันทึกเฉพาะ role ที่เหลือ
+        dev: devSave,
         qa: qaSave,
         comment: buildGroomingComment(
           mode,
-          dev !== null ? fmt(dev) : null,
+          noNeedDev ? NO_NEED_DEV_TAG : devSave !== null ? fmt(devSave) : null,
           noNeedTest ? NO_NEED_TEST_TAG : qaSave !== null ? fmt(qaSave) : null,
           entries,
           state.currentUser?.uid ?? null,
@@ -1229,7 +1289,7 @@ async function doSaveToClickUp(): Promise<void> {
       });
       const saved: string[] = [];
       const failed: string[] = [];
-      if (result.dev) (result.dev.ok ? saved : failed).push(`Dev ${fmt(dev!)}`);
+      if (result.dev) (result.dev.ok ? saved : failed).push(`Dev ${fmt(devSave!)}`);
       if (result.qa) (result.qa.ok ? saved : failed).push(`QA ${fmt(qaSave!)}`);
       const commentFailed = result.comment && !result.comment.ok;
       if (failed.length) {
@@ -1241,14 +1301,18 @@ async function doSaveToClickUp(): Promise<void> {
         // (โชว์ชื่อ custom field จริง + ค่าที่บันทึก + พลุ)
         showSaveSplash(
           [
-            result.dev?.ok && { label: result.dev.field ?? "Dev", value: fmt(dev!) },
+            result.dev?.ok && { label: result.dev.field ?? "Dev", value: fmt(devSave!) },
             result.qa?.ok && { label: result.qa.field ?? "QA", value: fmt(qaSave!) },
           ].filter(Boolean) as { label: string; value: string }[]
         );
       }
       if (saved.length) {
-        // req 14.3 — noNeedTest บอกในแชทห้องด้วยว่ารอบนี้ QA ไม่มี point (ไม่ได้ลืมบันทึก)
-        const parts = noNeedTest ? [...saved, `QA ${NO_NEED_TEST_TAG}`] : saved;
+        // req 14.3 — บอกในแชทห้องด้วยว่า role ไหนไม่มี point รอบนี้ (ไม่ได้ลืมบันทึก)
+        const notes = [
+          noNeedDev && `Dev ${NO_NEED_DEV_TAG}`,
+          noNeedTest && `QA ${NO_NEED_TEST_TAG}`,
+        ].filter(Boolean);
+        const parts = [...saved, ...notes];
         void sendSystemMessage(
           `บันทึกคะแนนลง ClickUp แล้ว → ${task.name} (${parts.join(" · ")})`
         );
@@ -1256,10 +1320,11 @@ async function doSaveToClickUp(): Promise<void> {
       // จด duration + point เฉพาะรอบที่ field สำเร็จครบ (บางส่วนพัง = รอบยังไม่จบ อย่าให้ history หลอกว่าเสร็จ)
       if (failed.length === 0 && saved.length > 0) {
         // req 14.1 — ติด tag "no need test" / "hot fix" ที่เลือกไว้ (best-effort)
+        // No Need Dev / UX/UI ไม่ติด tag — ตาม requirement (สำหรับ UX/UI ไม่มีผลกับ ClickUp เลย)
         await addSelectedTags(task.taskId, noNeedTest, state.hotFix);
         void recordSavedAt(task.historyKey, {
           mode: "groom",
-          dev,
+          dev: devSave,
           qa: qaSave,
           devRange: null,
           qaRange: null,

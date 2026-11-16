@@ -67,6 +67,8 @@ sequenceDiagram
 
     alt ติ๊ก No Need Test (admin ของห้อง)
         PO->>CU: บันทึกเฉพาะ Dev field + comment "QA: no need test"<br/>+ tag "no need test" (ไม่แตะ QA field)
+    else ติ๊ก No Need Dev (admin ของห้อง)
+        PO->>CU: บันทึกเฉพาะ QA field + comment "Dev: no need dev"<br/>(ไม่แตะ Dev field · ไม่ติด tag — ต่างจาก No Need Test)
     else ปกติ
         PO->>CU: บันทึก Dev + QA field (unanimous ต่อ role)<br/>+ comment สรุป (groom) / ช่วง min-max (pre-groom)
     end
@@ -171,8 +173,8 @@ flowchart TD
     Q1 -->|"ใช่ = isPO()"| PO["PO · สิทธิ์เต็มของห้อง:<br/>Reveal · Reset · Kick · ลบห้อง<br/>ดึง/เคลียร์ task · สลับโหมด groom/pre<br/>💾 บันทึก ClickUp · ปุ่มบันทึกโชว์เฉพาะ PO"]
     Q1 -->|"ไม่"| Q2{"deputy?<br/>(uid ใน PO_DEPUTY_UIDS หรือ<br/>realName ใน PO_DEPUTY_REAL_NAMES<br/>และ role = dev)"}
 
-    Q2 -->|"ใช่ = isRoomAdmin()"| DEP["Dev deputy (เช่น Cing):<br/>เห็น/ใช้ checkbox No Need Task/Test<br/>เปิด settings ส่วนตั้งค่าห้องได้<br/>· เห็นแถบเตือนดึง task<br/>(❌ ไม่ได้แทน PO ในการบันทึก/Reveal)"]
-    Q2 -->|"ไม่"| MEMBER["สมาชิกทั่วไป (dev/qa/ux):<br/>โหวต · แชท · react · เสียง<br/>ดู banner/history/wheel ได้<br/>ไม่เห็น checkbox ทั้งสอง"]
+    Q2 -->|"ใช่ = isRoomAdmin()"| DEP["Dev deputy (เช่น Cing):<br/>เห็น/ใช้ checkbox No Need Task/Test/Dev/UX<br/>เปิด settings ส่วนตั้งค่าห้องได้<br/>· เห็นแถบเตือนดึง task<br/>(❌ ไม่ได้แทน PO ในการบันทึก/Reveal)"]
+    Q2 -->|"ไม่"| MEMBER["สมาชิกทั่วไป (dev/qa/ux):<br/>โหวต · แชท · react · เสียง<br/>ดู banner/history/wheel ได้<br/>ไม่เห็น checkbox ทั้งหมด"]
 
     START --> Q3{"เข้าห้อง admin"}
     Q3 -->|"ชื่อ = SUPER_ADMIN_NAME<br/>และ role = admin"| SA["Super Admin:<br/>panel ตั้งค่าทุกห้อง (features)<br/>config การ์ด poker ทั้งระบบ<br/>member list 5 คอลัมน์ · Wheel room"]

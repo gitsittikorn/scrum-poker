@@ -317,6 +317,14 @@ async function voteBlocked(): Promise<boolean> {
     showToast("🚫 No Need Test — ไม่ต้องใส่ point รอบนี้");
     return true;
   }
+  if (roomVal.noNeedDev === true && myRole === "dev") {
+    showToast("🚫 No Need Dev — ไม่ต้องใส่ point รอบนี้");
+    return true;
+  }
+  if (roomVal.noNeedUx === true && myRole === "ux") {
+    showToast("🚫 No Need UX/UI — ไม่ต้องใส่ point รอบนี้");
+    return true;
+  }
   return false;
 }
 
@@ -406,14 +414,19 @@ async function doReveal(): Promise<void> {
   // No Need Test ทำงาน → QA ไม่ต้องใส่ point รอบนี้ = ไม่ถูกนับเป็น "ยังไม่โหวต"
   // (อ่านจาก flag ของห้องโดยตรง — นิยามเดียวกับ nudge/qaReady ไม่งั้น PO reveal
   //  ไม่ได้เพราะ modal เตือนให้ QA ใส่ point ทั้งที่ไม่ต้องใส่)
+  // No Need Dev / UX/UI ทำงานแบบเดียวกันกับ role ของตัวเอง
   const noNeedTest = roomVal.noNeedTest === true;
+  const noNeedDev = roomVal.noNeedDev === true;
+  const noNeedUx = roomVal.noNeedUx === true;
   const notVoted = userList.filter(
     ([, user]) =>
       user.role !== "po" &&
       user.role !== "admin" &&
       user.left !== true &&
       user.vote == null &&
-      !(noNeedTest && user.role === "qa"),
+      !(noNeedTest && user.role === "qa") &&
+      !(noNeedDev && user.role === "dev") &&
+      !(noNeedUx && user.role === "ux"),
   );
   if (notVoted.length > 0) {
     const names = notVoted.map(([, u]) => u.name).join(", ");
@@ -656,7 +669,9 @@ function renderSaveButton(roomData: RoomData): void {
   }
   // state.noNeedTest = mirror จาก tick ล่าสุด (optimistic ตอน admin เพิ่งติ๊ก)
   // roomData.noNeedTest = ค่าจากห้อง — OR รวมเพื่อให้ PO เห็น label ใหม่ทันทีไม่ต้องรอ tick
+  // (No Need Dev ใช้กลไกเดียวกัน · No Need UX/UI ไม่เกี่ยวกับปุ่มบันทึก — UX ไม่มี field)
   const noNeedTest = state.noNeedTest || roomData.noNeedTest === true;
+  const noNeedDev = state.noNeedDev || roomData.noNeedDev === true;
   const groomMode = roomData.groomMode ?? "groom";
   const notLeft = Object.entries(roomData.users ?? {}).filter(([, u]) => !u.left);
   const devList = notLeft.filter(([, u]) => u.role === "dev");
@@ -664,9 +679,10 @@ function renderSaveButton(roomData: RoomData): void {
   const parts: string[] = [];
   if (groomMode === "pre") {
     // Pre-Groom: label แสดงช่วง min-max ที่จะคอมเม้นลงการ์ด
-    const dev = rangeFor(devList);
+    const dev = noNeedDev ? null : rangeFor(devList);
     const qa = noNeedTest ? null : rangeFor(qaList);
-    if (dev !== null) parts.push(`Dev ${dev}`);
+    if (noNeedDev) parts.push("Dev no need dev");
+    else if (dev !== null) parts.push(`Dev ${dev}`);
     if (noNeedTest) parts.push("QA no need test");
     else if (qa !== null) parts.push(`QA ${qa}`);
     btnSaveClickup.textContent = parts.length
@@ -675,9 +691,10 @@ function renderSaveButton(roomData: RoomData): void {
     btnSaveClickup.disabled = false;
   } else {
     // Groom: ค่าเดียวเมื่อทุกคนใน role โหวตเท่ากัน · ✗ = role นั้นยังไม่ตรงกัน
-    const dev = unanimousFor(devList);
+    const dev = noNeedDev ? null : unanimousFor(devList);
     const qa = noNeedTest ? null : unanimousFor(qaList);
-    if (dev !== null) parts.push(`Dev ${dev}`);
+    if (noNeedDev) parts.push("Dev no need dev");
+    else if (dev !== null) parts.push(`Dev ${dev}`);
     else if (devList.length > 0) parts.push("Dev ✗");
     if (noNeedTest) parts.push("QA no need test");
     else if (qa !== null) parts.push(`QA ${qa}`);
@@ -686,8 +703,8 @@ function renderSaveButton(roomData: RoomData): void {
       ? `💾 บันทึก ClickUp (${parts.join(" · ")})`
       : "💾 บันทึก ClickUp";
     // ปุ่มกดไม่ได้จนกว่าทุก role ที่มีสมาชิกจะโหวตเท่ากันครบ (และมีค่าให้บันทึกอย่างน้อย 1 role)
-    const devReady = devList.length === 0 || dev !== null;
-    // noNeedTest → QA ไม่นับ readiness (ไม่ได้จะบันทึก point ของ QA อยู่แล้ว)
+    // noNeedDev/noNeedTest → role นั้นไม่นับ readiness (ไม่ได้จะบันทึก point อยู่แล้ว)
+    const devReady = noNeedDev || devList.length === 0 || dev !== null;
     const qaReady = noNeedTest || qaList.length === 0 || qa !== null;
     btnSaveClickup.disabled = !(devReady && qaReady && (dev !== null || qa !== null));
   }
@@ -709,6 +726,8 @@ export function updateUI(roomData: RoomData): void {
   // mirror สถานะ No Need Test จากห้อง (ใช้ร่วมทุกเครื่อง — checkbox มีแค่ฝั่ง admin
   // การอ่านจาก roomData ทำให้เครื่อง QA/dev รู้สถานะนี้ด้วย: ล็อคการ์ด QA ฯลฯ)
   state.noNeedTest = roomData.noNeedTest === true;
+  state.noNeedDev = roomData.noNeedDev === true;
+  state.noNeedUx = roomData.noNeedUx === true;
   state.hotFix = roomData.hotFix === true;
   const userList = Object.entries(users);
 
@@ -743,9 +762,22 @@ export function updateUI(roomData: RoomData): void {
     !roomData.activeTask;
   // QA gate — No Need Test ทำงาน: เครื่องของ QA เองถูกล็อคการ์ด ไม่ต้องใส่ point
   // รอบนี้ (point เดิมถูกเคลียร์ตอน admin ติ๊กแล้ว) — dev/PO ไม่กระทบ
+  // Dev gate / UX gate — No Need Dev / UX/UI ทำงานแบบเดียวกันกับ role ของตัวเอง
   const qaGate =
     state.noNeedTest &&
     state.currentRole === "qa" &&
+    FEATURES.clickup &&
+    !state.isWheelRoom &&
+    state.currentRoom !== ADMIN_ROOM;
+  const devGate =
+    state.noNeedDev &&
+    state.currentRole === "dev" &&
+    FEATURES.clickup &&
+    !state.isWheelRoom &&
+    state.currentRoom !== ADMIN_ROOM;
+  const uxGate =
+    state.noNeedUx &&
+    state.currentRole === "ux" &&
     FEATURES.clickup &&
     !state.isWheelRoom &&
     state.currentRoom !== ADMIN_ROOM;
@@ -786,6 +818,20 @@ export function updateUI(roomData: RoomData): void {
     statusText.textContent = "🚫 No Need Test — ไม่ต้องใส่ point รอบนี้";
     const existing = document.getElementById("btn-revote");
     if (existing) existing.remove();
+  } else if (devGate) {
+    cancelUnlockTimer();
+    // No Need Dev — Dev ไม่ต้องใส่ point รอบนี้ (การ์ดถูกล็อคอยู่)
+    statusDot.className = "status-dot";
+    statusText.textContent = "🚫 No Need Dev — ไม่ต้องใส่ point รอบนี้";
+    const existing = document.getElementById("btn-revote");
+    if (existing) existing.remove();
+  } else if (uxGate) {
+    cancelUnlockTimer();
+    // No Need UX/UI — UX/UI ไม่ต้องใส่ point รอบนี้ (การ์ดถูกล็อคอยู่)
+    statusDot.className = "status-dot";
+    statusText.textContent = "🚫 No Need UX/UI — ไม่ต้องใส่ point รอบนี้";
+    const existing = document.getElementById("btn-revote");
+    if (existing) existing.remove();
   } else {
     cancelUnlockTimer();
     // ไม่ล็อคและไม่รอ task = ซ่อนแถบสถานะไปเลย (เดิมแสดง "Select your estimate"
@@ -795,7 +841,7 @@ export function updateUI(roomData: RoomData): void {
     if (existing) existing.remove();
   }
 
-  const disableVoting = locked || taskGate || qaGate;
+  const disableVoting = locked || taskGate || qaGate || devGate || uxGate;
   cardsDisabled = disableVoting; // renderCards ใช้ re-apply ตอน re-render กลางคัน
   document.querySelectorAll(".poker-card").forEach((el) => {
     el.classList.toggle("disabled", disableVoting);
@@ -822,12 +868,17 @@ export function updateUI(roomData: RoomData): void {
   const lastVoterUids = new Set<string>();
   if (!locked && !revealed && !taskGate) {
     // อ่านจาก roomData (ไม่ใช่ checkbox ของเครื่องนี้) — เครื่อง QA/dev ก็ต้องรู้
+    // No Need Dev / UX/UI ทำงาน → role นั้นไม่ต้องโหวต = ไม่ nudge เช่นเดียวกับ QA
     const noNeedTest = roomData.noNeedTest === true;
+    const noNeedDev = roomData.noNeedDev === true;
+    const noNeedUx = roomData.noNeedUx === true;
     const pendingByRole = new Map<string, [string, User][]>();
     for (const entry of userList) {
       const u = entry[1];
       if (u.role === "po" || u.role === "admin" || u.left === true || u.vote != null) continue;
       if (noNeedTest && u.role === "qa") continue;
+      if (noNeedDev && u.role === "dev") continue;
+      if (noNeedUx && u.role === "ux") continue;
       const list = pendingByRole.get(u.role);
       if (list) list.push(entry);
       else pendingByRole.set(u.role, [entry]);
