@@ -9,7 +9,8 @@
       "Bash(curl -s -X POST http://localhost:3000/api/clickup/resolve-task -H \"Content-Type: application/json\" -d \"{\\\\\"input\\\\\":\\\\\"CES-5700\\\\\"}\")",
       "Bash(gcloud --version)",
       "Bash(gcloud config *)",
-      "Bash(gcloud auth *)"
+      "Bash(gcloud auth *)",
+      "Bash(git -C /c/TQM/all-automate/scum-poker log --all --since=\"2026-11-13 17:00:00 +0000\" --until=\"2026-11-15 17:00:00 +0000\" --pretty=format:\"%h | %ad | %an | %d %s\" --date=iso-local)"
     ]
   }
 }
