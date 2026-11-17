@@ -525,11 +525,14 @@ body {
 }
 
 /* ===== Groom mode toggle (PO) + badge (ทุกคน) บน banner ClickUp ===== */
+/* 2 บรรทัด: บรรทัดแรก = Pre-Groom/Groom + History · บรรทัดสอง = checkbox chips
+ * (no-need-toggles ใช้ flex 1 1 100% บังคับขึ้นบรรทัดใหม่ — ไม่ต้องแก้ DOM) */
 .groom-mode-row {
   flex: 1 1 100%;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
   min-width: 0;
 }
 
@@ -538,6 +541,7 @@ body {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .groom-mode-toggle {
@@ -546,9 +550,16 @@ body {
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--bg-card);
+  flex-shrink: 0;
 }
 
+/* min-width + flex-shrink กันข้อความถูกบีบ/ตัดเมื่อแถวแน่น · สูง 32px เทียบเท่า History/chips */
 .groom-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 108px;
+  min-height: 32px;
   padding: 7px 16px;
   font-size: 0.85rem;
   font-weight: 700;
@@ -556,6 +567,9 @@ body {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-align: center;
   transition: all var(--transition);
 }
 
@@ -589,9 +603,15 @@ body {
   color: #fff;
   box-shadow: 0 0 8px var(--warning-glow);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-task-history {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 32px;
   padding: 7px 16px;
   font-size: 0.85rem;
   font-weight: 700;
@@ -600,6 +620,8 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   white-space: nowrap;
+  flex-shrink: 0;
+  text-align: center;
 }
 
 .btn-task-history:hover {
@@ -610,10 +632,14 @@ body {
 
 /* ===== No Need Task / No Need Test — checkbox ข้างปุ่ม History (req 13-14, 16) ===== */
 /* ครอบ checkbox ทั้งสอง — โชว์เฉพาะ admin ของห้อง (PO + deputy) คุมที่ renderTaskBanner */
+/* บรรทัดที่ 2 ของ groom-mode-row (flex 1 1 100%) · wrap เองเมื่อพื้นที่ไม่พอ */
 .no-need-toggles {
-  display: inline-flex;
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
 }
 
 /* req 19 — 1 toggle = label (checkbox) + ไอคอน ⓘ tooltip คู่กัน */
@@ -626,18 +652,27 @@ body {
   white-space: nowrap;
 }
 
+/* compact chip — label ครอบ checkbox + text ทั้งลูก คลิกทั้ง chip ได้
+ * สูง 32px เทียบเท่าปุ่ม Pre-Groom/Groom/History */
 .no-need-label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
   color: var(--text-muted);
   cursor: pointer;
   user-select: none;
-  transition: color var(--transition);
+  white-space: nowrap;
+  transition: color var(--transition), border-color var(--transition), background-color var(--transition);
 }
 
 .no-need-label:hover {
   color: var(--text-primary);
+  border-color: var(--accent);
 }
 
 .no-need-toggle input[type="checkbox"] {
@@ -653,6 +688,8 @@ body {
  * จางเฉพาะ label — ไอคอน ⓘ ยังใช้งาน/อ่าน tooltip ได้ปกติแม้ checkbox disabled (req 19 ข้อ 8) */
 .no-need-toggle:has(input:checked) .no-need-label {
   color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-input);
 }
 
 .no-need-toggle:has(input:disabled) .no-need-label {
@@ -726,6 +763,30 @@ body {
 .info-tip:focus-visible .info-tip-bubble,
 .info-tip.open .info-tip-bubble {
   display: block;
+}
+
+/* ===== Responsive — task banner หน้าจอเล็ก: กัน horizontal overflow =====
+ * แถวดึง Task ยอม wrap ได้ (label+input บรรทัดเดียว, ปุ่มตกบรรทัดถัดไปเมื่อแคบมาก)
+ * chips ลด padding เข้ารูปกับพื้นที่แคบ */
+@media (max-width: 520px) {
+  .clickup-banner {
+    padding: 10px 12px;
+  }
+  .clickup-input-row {
+    flex-wrap: wrap;
+  }
+  .clickup-input {
+    min-width: 150px;
+  }
+  .groom-mode-row {
+    gap: 8px;
+  }
+  .no-need-toggles {
+    gap: 6px;
+  }
+  .no-need-label {
+    padding: 5px 10px;
+  }
 }
 
 /* ===== Task History Modal — รายการเรียงเก่า → ใหม่ ===== */
